@@ -8,7 +8,6 @@ import { SignOutButton } from "@clerk/nextjs";
 const NAV_ITEMS = [
   { label: "Dashboard", href: "/admin" },
   { label: "Hero", href: "/admin/hero" },
-  { label: "Video", href: "/admin/video" },
   { label: "Get the Look", href: "/admin/look" },
   { label: "Categories", href: "/admin/categories" },
   { label: "Products", href: "/admin/products" },

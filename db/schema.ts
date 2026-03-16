@@ -205,16 +205,6 @@ export const orderItemsRelations = relations(orderItems, ({ one }) => ({
   product: one(products),
 }));
 
-// Home page video (single video for editorial section)
-export const homeVideo = pgTable("home_video", {
-  id: serial("id").primaryKey(),
-  videoUrl: text("video_url").notNull(),
-  caption: text("caption"),
-  isActive: boolean("is_active").notNull().default(true),
-  storeType: storeTypeEnum("store_type").notNull().default("streetwear"),
-  createdAt: timestamp("created_at").defaultNow().notNull(),
-});
-
 // Section visibility settings (e.g. show/hide "Get the Look" on home page)
 export const sectionSettings = pgTable("section_settings", {
   id: serial("id").primaryKey(),
@@ -294,6 +284,3 @@ export type NewLookbookItem = typeof lookbookItems.$inferInsert;
 
 export type HeroImage = typeof heroImages.$inferSelect;
 export type NewHeroImage = typeof heroImages.$inferInsert;
-
-export type HomeVideo = typeof homeVideo.$inferSelect;
-export type NewHomeVideo = typeof homeVideo.$inferInsert;

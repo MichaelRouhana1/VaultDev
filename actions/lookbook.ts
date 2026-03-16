@@ -5,7 +5,7 @@ import { redirect } from "next/navigation";
 import { asc, eq, max, and } from "drizzle-orm";
 import { db } from "@/db";
 import { lookbookItems, sectionSettings } from "@/db/schema";
-import { uploadLookImage } from "@/lib/uploadImages";
+import { uploadLookImage, deleteFromR2 } from "@/lib/uploadImages";
 import { validateHref } from "@/lib/security";
 import { auditLog } from "@/lib/audit";
 import { z } from "zod";
@@ -83,6 +83,8 @@ export async function deleteLookbookItem(id: number) {
     auditLog({ userId: userId ?? null, action: "auth.failed_admin", target: "lookbook.delete" });
     redirect("/");
   }
+  const [item] = await db.select({ imageUrl: lookbookItems.imageUrl }).from(lookbookItems).where(eq(lookbookItems.id, validId)).limit(1);
+  if (item?.imageUrl) await deleteFromR2(item.imageUrl);
   await db.delete(lookbookItems).where(eq(lookbookItems.id, validId));
   auditLog({ userId: userId!, action: "lookbook.delete", target: String(validId) });
 }
@@ -153,6 +155,7 @@ export async function addLookbookItemFromFile(formData: FormData): Promise<{ err
   const filename = `look-${Date.now()}-${Math.random().toString(36).slice(2)}`;
   const result = await uploadLookImage(file, filename);
   if (result.error) return { error: result.error };
+  if (!result.url) return { error: "Upload failed" };
 
   const [{ maxOrder }] = await db
     .select({ maxOrder: max(lookbookItems.order) })

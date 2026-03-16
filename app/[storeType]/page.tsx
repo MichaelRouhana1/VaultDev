@@ -2,7 +2,6 @@ import { eq, desc, and, sql } from "drizzle-orm";
 import { db } from "@/db";
 import { products, productColors } from "@/db/schema";
 import { getHeroImages } from "@/actions/hero";
-import { getHomeVideo } from "@/actions/video";
 import { getLookbookItems, getLookbookSectionVisible } from "@/actions/lookbook";
 import { getCategoriesForHome, getStoreCategorySlugs } from "@/actions/categories";
 import { getProductDisplayPrice, isProductOnSale, getProductDiscountPercent } from "@/lib/utils";
@@ -61,7 +60,7 @@ export default async function HomePage({ params }: { params: Promise<{ storeType
     .limit(1)
     .as("first_color");
 
-  const [productListWithImages, heroImages, homeVideo, lookbookItems, lookbookSectionVisible, homeCategories, storeSlugs] =
+  const [productListWithImages, heroImages, lookbookItems, lookbookSectionVisible, homeCategories, storeSlugs] =
     await Promise.all([
       db
         .select({
@@ -86,7 +85,6 @@ export default async function HomePage({ params }: { params: Promise<{ storeType
         .orderBy(desc(products.id))
         .limit(8),
       getHeroImages(storeType),
-      getHomeVideo(storeType),
       getLookbookItems(storeType),
       getLookbookSectionVisible(),
       getCategoriesForHome(storeType),
@@ -121,7 +119,7 @@ export default async function HomePage({ params }: { params: Promise<{ storeType
       <CategoryGrid categories={homeCategories} storeSlugs={storeSlugs} storeType={storeType} />
 
       {/* Editorial Promotion */}
-      <EditorialPromotion videoUrl={homeVideo?.videoUrl ?? undefined} />
+      <EditorialPromotion />
 
       {/* Lookbook */}
       {lookbookSectionVisible && <LookbookSection items={lookbookItems} />}

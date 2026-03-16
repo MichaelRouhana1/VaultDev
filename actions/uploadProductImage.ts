@@ -2,11 +2,7 @@
 
 import { auth } from "@clerk/nextjs/server";
 import { redirect } from "next/navigation";
-import { getSupabaseAdmin } from "@/lib/supabase";
-import { validateUploadFile } from "@/lib/security";
-import { logger } from "@/lib/logger";
-
-const BUCKET = "products";
+import { uploadProductImage as uploadToR2 } from "@/lib/uploadImages";
 
 export async function uploadProductImage(
   file: File
@@ -20,26 +16,8 @@ export async function uploadProductImage(
     return { error: "No file provided" };
   }
 
-  const validation = validateUploadFile(file, "image");
-  if (!validation.ok) return { error: validation.error };
-  const path = `product-images/${Date.now()}-${Math.random().toString(36).slice(2)}.${validation.ext}`;
-
-  const arrayBuffer = await file.arrayBuffer();
-  const buffer = Buffer.from(arrayBuffer);
-
-  const supabase = getSupabaseAdmin();
-  const { error: uploadError } = await supabase.storage
-    .from(BUCKET)
-    .upload(path, buffer, {
-      contentType: file.type,
-      upsert: false,
-    });
-
-  if (uploadError) {
-    logger.error("Supabase upload error", uploadError);
-    return { error: uploadError.message };
-  }
-
-  const { data: urlData } = supabase.storage.from(BUCKET).getPublicUrl(path);
-  return { url: urlData.publicUrl };
+  const result = await uploadToR2(file, `product-${Date.now()}`);
+  if (result.error) return { error: result.error };
+  if (!result.url) return { error: "Upload failed" };
+  return { url: result.url };
 }

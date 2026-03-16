@@ -5,7 +5,7 @@ import { redirect } from "next/navigation";
 import { asc, eq, and } from "drizzle-orm";
 import { db } from "@/db";
 import { heroImages } from "@/db/schema";
-import { uploadHeroImage } from "@/lib/uploadImages";
+import { uploadHeroImage, deleteFromR2 } from "@/lib/uploadImages";
 import { auditLog } from "@/lib/audit";
 import { z } from "zod";
 
@@ -64,6 +64,8 @@ export async function deleteHeroImage(id: number) {
     redirect("/");
   }
   const validId = z.number().int().positive().parse(id);
+  const [image] = await db.select({ imageUrl: heroImages.imageUrl }).from(heroImages).where(eq(heroImages.id, validId)).limit(1);
+  if (image?.imageUrl) await deleteFromR2(image.imageUrl);
   await db.delete(heroImages).where(eq(heroImages.id, validId));
   auditLog({ userId: userId!, action: "hero.delete", target: String(validId) });
 }
@@ -81,6 +83,7 @@ export async function addHeroImageFromFile(formData: FormData): Promise<{ error?
   const filename = `hero-${Date.now()}-${Math.random().toString(36).slice(2)}`;
   const result = await uploadHeroImage(file, filename);
   if (result.error) return { error: result.error };
+  if (!result.url) return { error: "Upload failed" };
 
   const [image] = await db
     .insert(heroImages)

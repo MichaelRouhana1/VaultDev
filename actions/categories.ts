@@ -144,7 +144,7 @@ export async function createCategory(formData: FormData): Promise<{ success?: bo
   if (imageFile?.size) {
     const result = await uploadProductImage(imageFile, `category-${slug}-${Date.now()}`);
     if (result.error) return { error: result.error };
-    imageUrl = result.url;
+    imageUrl = result.url ?? null;
   }
 
   const allCats = await db.select({ sortOrder: productCategories.sortOrder }).from(productCategories);
@@ -235,7 +235,7 @@ export async function updateCategory(
   if (imageFile?.size) {
     const result = await uploadProductImage(imageFile, `category-${slug}-${Date.now()}`);
     if (result.error) return { error: result.error };
-    imageUrl = result.url;
+    imageUrl = result.url ?? existing.image;
   }
 
   await db
