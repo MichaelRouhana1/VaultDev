@@ -2,11 +2,11 @@ import { Suspense } from "react";
 import Link from "next/link";
 import { db } from "@/db";
 import { products, productVariants, productColors } from "@/db/schema";
-import { inArray, desc } from "drizzle-orm";
+import { inArray, desc, eq, and } from "drizzle-orm";
 import { ProductsTable } from "./ProductsTable";
 import { getCategories } from "@/actions/categories";
 import { getAdminStoreType } from "@/actions/admin-store";
-import { eq } from "drizzle-orm";
+import { buildProductSearchWhere } from "@/lib/product-search";
 
 export default async function AdminProductsPage({
   searchParams,
@@ -22,23 +22,20 @@ export default async function AdminProductsPage({
 
   const adminStore = await getAdminStoreType();
 
-  let productList = await db
+  const whereConditions = [eq(products.storeType, adminStore)];
+  if (category && category !== "all") {
+    whereConditions.push(eq(products.categorySlug, category));
+  }
+  const ftsClause = buildProductSearchWhere(q ?? "");
+  if (ftsClause) {
+    whereConditions.push(ftsClause);
+  }
+
+  const productList = await db
     .select()
     .from(products)
-    .where(eq(products.storeType, adminStore))
+    .where(and(...whereConditions))
     .orderBy(desc(products.id));
-
-  if (q) {
-    productList = productList.filter(
-      (p) =>
-        p.name.toLowerCase().includes(q.toLowerCase()) ||
-        (p.description ?? "").toLowerCase().includes(q.toLowerCase())
-    );
-  }
-
-  if (category && category !== "all") {
-    productList = productList.filter((p) => (p.categorySlug ?? p.category) === category);
-  }
 
   const productIds = productList.map((p) => p.id);
   const [variants, colorsList] =

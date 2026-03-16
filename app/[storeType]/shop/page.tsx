@@ -1,4 +1,5 @@
 import { eq, and, inArray } from "drizzle-orm";
+import { buildProductSearchWhere } from "@/lib/product-search";
 import { auth } from "@clerk/nextjs/server";
 import { db } from "@/db";
 import { products, productVariants, productColors, wishlists } from "@/db/schema";
@@ -9,7 +10,7 @@ import { notFound } from "next/navigation";
 
 interface ShopPageProps {
   params: Promise<{ storeType: string }>;
-  searchParams: Promise<{ category?: string; cat?: string; sort?: string }>;
+  searchParams: Promise<{ category?: string; cat?: string; sort?: string; q?: string }>;
 }
 
 import type { Metadata } from "next";
@@ -45,6 +46,7 @@ export default async function ShopPage({ params, searchParams }: ShopPageProps) 
   const { storeType } = await params;
   const search = await searchParams;
   const cat = search.cat;
+  const q = search.q?.trim();
 
   const [validSlugs, storeSlugs, storeCategories] = await Promise.all([
     getValidCategorySlugs(),
@@ -66,6 +68,10 @@ export default async function ShopPage({ params, searchParams }: ShopPageProps) 
 
   if (catFilter && cat) {
     baseFilters.push(eq(products.categorySlug, cat));
+  }
+  const ftsClause = buildProductSearchWhere(q ?? "");
+  if (ftsClause) {
+    baseFilters.push(ftsClause);
   }
 
   const whereClause = and(...baseFilters);
@@ -141,6 +147,8 @@ export default async function ShopPage({ params, searchParams }: ShopPageProps) 
           wishlistProductIds={wishlistProductIds}
           categoryLabel={categoryLabel}
           storeCategories={storeCategories}
+          storeType={storeType}
+          initialQuery={q ?? undefined}
         />
       </Suspense>
     </div>

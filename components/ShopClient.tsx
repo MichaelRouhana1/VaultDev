@@ -5,6 +5,7 @@ import { useSearchParams, useRouter } from "next/navigation";
 import { ProductCard } from "@/components/ProductCard";
 import { CategoryHeader } from "@/components/CategoryHeader";
 import { UtilityBar, type SortOption } from "@/components/UtilityBar";
+import { ShopSearchBar } from "@/components/ShopSearchBar";
 import { FilterPanel, type FilterState } from "@/components/FilterPanel";
 import type { Product, ProductVariant, ProductColor } from "@/db/schema";
 import type { ProductCategory } from "@/actions/categories";
@@ -19,6 +20,8 @@ interface ShopClientProps {
   wishlistProductIds: number[];
   categoryLabel?: string | null;
   storeCategories?: ProductCategory[];
+  storeType: string;
+  initialQuery?: string;
 }
 
 export function ShopClient({
@@ -28,6 +31,8 @@ export function ShopClient({
   wishlistProductIds,
   categoryLabel,
   storeCategories,
+  storeType,
+  initialQuery,
 }: ShopClientProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -90,7 +95,8 @@ export function ShopClient({
       params.set("sort", value);
     }
     const query = params.toString();
-    router.push(query ? `/shop?${query}` : "/shop");
+    const base = `/${storeType}/shop`;
+    router.push(query ? `${base}?${query}` : base);
   };
 
   const filteredAndSorted = useMemo(() => {
@@ -156,6 +162,13 @@ export function ShopClient({
       {/* Category title section - scrolls away with page */}
       <CategoryHeader category={validCategory} categorySlug={categorySlug} categoryLabel={categoryLabel} />
 
+      {/* Search bar */}
+      <div className="px-6 py-3 border-b border-border">
+        <ShopSearchBar
+          storeType={storeType}
+          initialQuery={initialQuery}
+        />
+      </div>
       {/* Filter and sort bar - sticky, stays visible when scrolling */}
       <div className="sticky top-14 z-30 bg-background border-b border-border">
         <UtilityBar
