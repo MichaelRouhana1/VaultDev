@@ -104,7 +104,7 @@ export function LandingAdminClient({ images: initialImages }: LandingAdminClient
       <div>
         <h1 className="text-2xl font-bold">Landing Page Images</h1>
         <p className="mt-2 text-sm text-muted-foreground">
-          Edit the Streetwear and Formal images shown on the root landing page. Uses 3:4 portrait crop.
+          Edit the Streetwear and Formal images shown on the root landing page. Uses 8:9 half-screen crop.
         </p>
       </div>
 
@@ -153,8 +153,8 @@ export function LandingAdminClient({ images: initialImages }: LandingAdminClient
           imageSrc={cropFile.objectUrl}
           onComplete={handleCropComplete}
           onCancel={handleCropCancel}
-          aspect={3 / 4}
-          title={`Crop ${cropFile.storeType} image (3:4 portrait)`}
+          aspect={8 / 9}
+          title="Crop Image (Half-Screen Ratio)"
         />
       )}
     </div>

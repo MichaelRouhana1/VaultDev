@@ -34,7 +34,7 @@ export default async function RootHomePage() {
           src={streetwearImg}
           alt="Streetwear Category"
           fill
-          className="object-cover transition-transform duration-[2s] ease-out md:group-hover:scale-105"
+          className="object-cover object-top transition-transform duration-[2s] ease-out md:group-hover:scale-105"
           priority
 
         />
@@ -60,7 +60,7 @@ export default async function RootHomePage() {
           src={formalImg}
           alt="Formal Category"
           fill
-          className="object-cover transition-transform duration-[2s] ease-out md:group-hover:scale-105"
+          className="object-cover object-top transition-transform duration-[2s] ease-out md:group-hover:scale-105"
           priority
 
         />
