@@ -237,6 +237,14 @@ export const heroImages = pgTable("hero_images", {
   index("hero_images_store_type_idx").on(t.storeType),
 ]);
 
+// Landing page store selection images (Streetwear / Formal)
+export const landingImages = pgTable("landing_images", {
+  id: serial("id").primaryKey(),
+  storeType: storeTypeEnum("store_type").notNull().unique(),
+  imageUrl: text("image_url").notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
 // Wishlists
 export const wishlists = pgTable("wishlists", {
   id: serial("id").primaryKey(),
@@ -284,3 +292,6 @@ export type NewLookbookItem = typeof lookbookItems.$inferInsert;
 
 export type HeroImage = typeof heroImages.$inferSelect;
 export type NewHeroImage = typeof heroImages.$inferInsert;
+
+export type LandingImage = typeof landingImages.$inferSelect;
+export type NewLandingImage = typeof landingImages.$inferInsert;

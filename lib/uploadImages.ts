@@ -69,6 +69,12 @@ export async function uploadLookImage(file: File, _filename: string): Promise<{ 
   return { url: result.url };
 }
 
+export async function uploadLandingImage(file: File, _filename: string): Promise<{ url?: string; error?: string }> {
+  const result = await uploadToR2(file, "landing-images");
+  if (result.error) return { error: result.error };
+  return { url: result.url };
+}
+
 export async function uploadProductImages(imageFiles: File[], prefix: string): Promise<{ urls: string[]; error?: string }> {
   const urls: string[] = [];
   for (const file of imageFiles) {

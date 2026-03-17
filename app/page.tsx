@@ -1,7 +1,17 @@
 import Image from "next/image";
 import Link from "next/link";
+import { getLandingImages } from "@/actions/landing";
 
-export default function RootHomePage() {
+const STREETWEAR_FALLBACK =
+  "https://images.pexels.com/photos/157675/fashion-men-s-individuality-black-and-white-157675.jpeg?auto=compress&cs=tinysrgb&w=1200&h=1600&fit=crop";
+const FORMAL_FALLBACK =
+  "https://images.pexels.com/photos/3760854/pexels-photo-3760854.jpeg?auto=compress&cs=tinysrgb&w=1200&h=1600&fit=crop";
+
+export default async function RootHomePage() {
+  const images = await getLandingImages();
+  const streetwearImg = images.find((img) => img.storeType === "streetwear")?.imageUrl ?? STREETWEAR_FALLBACK;
+  const formalImg = images.find((img) => img.storeType === "formal")?.imageUrl ?? FORMAL_FALLBACK;
+
   return (
     <div className="flex flex-col md:flex-row h-[100dvh] w-full overflow-hidden bg-black text-white">
 
@@ -21,7 +31,7 @@ export default function RootHomePage() {
         className="group relative flex-1 h-full w-full flex flex-col items-center justify-center cursor-pointer transition-all duration-[800ms] md:hover:flex-[1.2]"
       >
         <Image
-          src="https://images.pexels.com/photos/157675/fashion-men-s-individuality-black-and-white-157675.jpeg?auto=compress&cs=tinysrgb&w=1200&h=1600&fit=crop"
+          src={streetwearImg}
           alt="Streetwear Category"
           fill
           className="object-cover transition-transform duration-[2s] ease-out md:group-hover:scale-105"
@@ -47,7 +57,7 @@ export default function RootHomePage() {
         className="group relative flex-1 h-full w-full flex flex-col items-center justify-center cursor-pointer transition-all duration-[800ms] md:hover:flex-[1.2]"
       >
         <Image
-          src="https://images.pexels.com/photos/3760854/pexels-photo-3760854.jpeg?auto=compress&cs=tinysrgb&w=1200&h=1600&fit=crop"
+          src={formalImg}
           alt="Formal Category"
           fill
           className="object-cover transition-transform duration-[2s] ease-out md:group-hover:scale-105"
