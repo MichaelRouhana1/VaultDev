@@ -51,7 +51,7 @@ export function AdminSidebar({ open = true, onClose }: AdminSidebarProps) {
       >
         <div className="p-6 border-b border-border">
           <Link href="/admin" onClick={closeSidebar} className="text-lg font-bold tracking-tight">
-            MOSAIK Admin
+            VAULT Admin
           </Link>
         </div>
         <nav className="flex-1 p-4 space-y-1 overflow-y-auto">

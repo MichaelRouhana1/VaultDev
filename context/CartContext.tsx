@@ -11,7 +11,7 @@ import {
 import { useAuth } from "@clerk/nextjs";
 
 function getCartKey(userId: string | null | undefined): string {
-  return `mosaik_cart_${userId ?? "guest"}`;
+  return `vault_cart_${userId ?? "guest"}`;
 }
 
 export function getCartItemSku(productId: number, size: string): string {

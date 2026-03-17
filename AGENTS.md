@@ -4,7 +4,7 @@
 
 ### Project overview
 
-MOSAIK is a fashion e-commerce Next.js 15 app (App Router, Turbopack, React 19, Tailwind CSS v4, Drizzle ORM, Clerk auth, Supabase Storage). See `package.json` for all scripts.
+VAULT is a fashion e-commerce Next.js 15 app (App Router, Turbopack, React 19, Tailwind CSS v4, Drizzle ORM, Clerk auth, Supabase Storage). See `package.json` for all scripts.
 
 ### Required secrets (injected as env vars)
 

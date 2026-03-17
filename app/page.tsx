@@ -18,7 +18,7 @@ export default async function RootHomePage() {
       {/* GLOBAL LOGO OVERLAY */}
       <div className="absolute top-8 left-1/2 -translate-x-1/2 z-50 pointer-events-none flex flex-col items-center mix-blend-difference text-white drop-shadow-lg">
         <h1 className="text-2xl md:text-3xl font-light tracking-[0.4em] uppercase">
-          MOSAIK
+          VAULT
         </h1>
         <p className="mt-2 text-xs md:text-sm font-light tracking-[0.2em] opacity-80 uppercase">
           Select Your Style

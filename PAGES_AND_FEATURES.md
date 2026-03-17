@@ -1,6 +1,6 @@
-# MOSAIK — Pages & Features
+# VAULT — Pages & Features
 
-Comprehensive documentation of every route, component, and feature in the MOSAIK e-commerce application.
+Comprehensive documentation of every route, component, and feature in the VAULT e-commerce application.
 
 ---
 
@@ -62,7 +62,7 @@ Comprehensive documentation of every route, component, and feature in the MOSAIK
 - **Persistence:** Via `ThemeProvider`; Navbar exposes theme toggle.
 
 ### Cart State (CartContext)
-- **Storage:** `localStorage` keyed by `mosaik_cart_${userId ?? "guest"}`.
+- **Storage:** `localStorage` keyed by `vault_cart_${userId ?? "guest"}`.
 - **Scope:** Add/remove/update quantity, clear ordered items, total items/price.
 - **Drawer:** `CartDrawer` and `ShopDrawer` registered via `setOpenCart`.
 
@@ -74,7 +74,7 @@ Comprehensive documentation of every route, component, and feature in the MOSAIK
 ### Global Styling
 - **File:** `app/globals.css`
 - Contains Tailwind CSS v4 directives (`@import "tailwindcss"`, `@import "tw-animate-css"`, `@import "shadcn/tailwind.css"`).
-- Theme variable overrides via `@theme inline` and `:root` / `.dark` — MOSAIK palette (light and dark), radii, sidebar colors.
+- Theme variable overrides via `@theme inline` and `:root` / `.dark` — VAULT palette (light and dark), radii, sidebar colors.
 - Base layer styles for `body`, focus rings, `scrollbar-hide` utility, `hero-progress` animation.
 - Imported by the Root Layout for app-wide styles.
 
@@ -286,7 +286,7 @@ Comprehensive documentation of every route, component, and feature in the MOSAIK
 **File:** `app/about/page.tsx`
 
 ### UI Elements
-- Centered text: "About MOSAIK", tagline, "Explore the collection" link.
+- Centered text: "About VAULT", tagline, "Explore the collection" link.
 
 ### Logic & Actions
 - None. Static content.

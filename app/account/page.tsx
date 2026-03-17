@@ -165,7 +165,7 @@ export default async function AccountPage() {
             <CardContent>
               <div className="space-y-4">
                 <p className="text-sm text-muted-foreground">
-                  Permanently remove your personal data from MOSAIK. Your past orders will be anonymized for financial records, but will no longer be linked to you.
+                  Permanently remove your personal data from VAULT. Your past orders will be anonymized for financial records, but will no longer be linked to you.
                 </p>
                 <DeleteAccountButton />
               </div>

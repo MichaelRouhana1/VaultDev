@@ -730,7 +730,7 @@ export function ProductDetailClient({
           )}
 
           <p className="mt-6 text-sm font-light text-muted-foreground">
-            Free pickup at: MOSAIK
+            Free pickup at: VAULT
           </p>
 
           {product.description && (

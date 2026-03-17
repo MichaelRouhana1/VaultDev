@@ -23,20 +23,20 @@ export async function generateMetadata({ params }: ShopPageProps): Promise<Metad
     ? "Browse our streetwear catalog. Modern hoodies, tees, and statement pieces for urban culture."
     : storeType === "formal"
       ? "Explore our formal catalog. Bespoke trousers, blazers, and shirts for an elegant, confident look."
-      : "Browse the complete MOSAIK catalog.";
+      : "Browse the complete VAULT catalog.";
 
   return {
-    title: `MOSAIK | ${title}`,
+    title: `VAULT | ${title}`,
     description,
     openGraph: {
-      title: `MOSAIK | ${title}`,
+      title: `VAULT | ${title}`,
       description,
       type: "website",
-      siteName: "MOSAIK",
+      siteName: "VAULT",
     },
     twitter: {
       card: "summary_large_image",
-      title: `MOSAIK | ${title}`,
+      title: `VAULT | ${title}`,
       description,
     }
   };

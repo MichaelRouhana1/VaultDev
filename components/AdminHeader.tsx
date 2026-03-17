@@ -21,7 +21,7 @@ export function AdminHeader({ onMenuClick, initialStore }: AdminHeaderProps) {
   const [currentStore, setCurrentStore] = useState(initialStore);
   const posthog = usePostHog();
 
-  const email = user?.primaryEmailAddress?.emailAddress ?? "admin@mosaik.com";
+  const email = user?.primaryEmailAddress?.emailAddress ?? "admin@vault.com";
 
   const toggleStore = async (newStore: "streetwear" | "formal") => {
     if (newStore === currentStore) return;
@@ -64,7 +64,7 @@ export function AdminHeader({ onMenuClick, initialStore }: AdminHeaderProps) {
           href="/"
           className="text-sm font-medium text-foreground hover:opacity-70 transition-opacity"
         >
-          Mosaik
+          Vault
         </Link>
       </div>
       <div className="flex items-center gap-4 ml-auto">

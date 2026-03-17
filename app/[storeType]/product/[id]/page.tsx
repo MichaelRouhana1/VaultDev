@@ -10,7 +10,7 @@ import type { Metadata } from "next";
 export async function generateMetadata({ params }: { params: Promise<{ id: string; storeType: string }> }): Promise<Metadata> {
   const { id } = await params;
   const productId = parseInt(id, 10);
-  if (isNaN(productId)) return { title: "MOSAIK | Product Not Found" };
+  if (isNaN(productId)) return { title: "VAULT | Product Not Found" };
 
   const [product] = await db
     .select({ name: products.name })
@@ -19,7 +19,7 @@ export async function generateMetadata({ params }: { params: Promise<{ id: strin
     .limit(1);
 
   return {
-    title: product ? `MOSAIK | ${product.name}` : "MOSAIK | Product",
+    title: product ? `VAULT | ${product.name}` : "VAULT | Product",
   };
 }
 

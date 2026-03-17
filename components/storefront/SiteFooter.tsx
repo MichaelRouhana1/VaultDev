@@ -70,6 +70,9 @@ export function SiteFooter() {
                     </ul>
                 </div>
             </div>
+            <div className="mt-12 pt-8 border-t border-border text-center text-sm text-muted-foreground">
+                © 2026 Vault.
+            </div>
         </footer>
     );
 }

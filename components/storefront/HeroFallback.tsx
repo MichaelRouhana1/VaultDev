@@ -28,7 +28,7 @@ export function HeroFallback({ storeType, fallbackImage }: HeroFallbackProps) {
                         href="/"
                         className="inline-block text-sm font-normal text-foreground border-b border-foreground pb-1 hover:opacity-60 transition-opacity duration-200"
                     >
-                        Back to Mosaik
+                        Back to Vault
                     </Link>
                 </div>
             </div>

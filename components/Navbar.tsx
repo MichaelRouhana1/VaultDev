@@ -93,7 +93,7 @@ export function Navbar() {
             href={isStoreType ? `/${storeType}` : "/"}
             className="absolute left-1/2 -translate-x-1/2 text-xl font-light text-foreground tracking-[0.25em] uppercase hover:opacity-70 transition-opacity shrink-0"
           >
-            MOSAIK
+            VAULT
           </Link>
 
           {/* Right: icons always visible, text links desktop only */}

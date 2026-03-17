@@ -20,7 +20,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "MOSAIK",
+  title: "VAULT",
   description: "Clothing designed with intention.",
 };
 

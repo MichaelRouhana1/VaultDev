@@ -24,20 +24,20 @@ export async function generateMetadata({ params }: { params: Promise<{ storeType
     ? "Modern urban culture, bold graphics, and premium everyday essentials. Your streetwear destination."
     : storeType === "formal"
       ? "Bespoke tailoring, crisp shirts, and refined accessories for every occasion. Elevate your formal style."
-      : "Shop our exclusive MOSAIK collections.";
+      : "Shop our exclusive VAULT collections.";
 
   return {
-    title: `MOSAIK | ${title}`,
+    title: `VAULT | ${title}`,
     description,
     openGraph: {
-      title: `MOSAIK | ${title}`,
+      title: `VAULT | ${title}`,
       description,
       type: "website",
-      siteName: "MOSAIK",
+      siteName: "VAULT",
     },
     twitter: {
       card: "summary_large_image",
-      title: `MOSAIK | ${title}`,
+      title: `VAULT | ${title}`,
       description,
     }
   };
