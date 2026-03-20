@@ -10,7 +10,6 @@ import { HeroCarousel } from "@/components/HeroCarousel";
 import { NewsletterForm } from "@/components/NewsletterForm";
 import { HeroFallback } from "@/components/storefront/HeroFallback";
 import { CategoryGrid } from "@/components/storefront/CategoryGrid";
-import { EditorialPromotion } from "@/components/storefront/EditorialPromotion";
 import { LookbookSection } from "@/components/storefront/LookbookSection";
 import { ProductDiscovery } from "@/components/storefront/ProductDiscovery";
 import { SiteFooter } from "@/components/storefront/SiteFooter";
@@ -117,9 +116,6 @@ export default async function HomePage({ params }: { params: Promise<{ storeType
 
       {/* Category Grid */}
       <CategoryGrid categories={homeCategories} storeSlugs={storeSlugs} storeType={storeType} />
-
-      {/* Editorial Promotion */}
-      <EditorialPromotion />
 
       {/* Lookbook */}
       {lookbookSectionVisible && <LookbookSection items={lookbookItems} />}

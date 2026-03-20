@@ -24,7 +24,13 @@ export function CategoryGrid({ categories, storeSlugs, storeType }: CategoryGrid
                             fill
                             className="object-cover transition-transform duration-200 ease-out group-hover:scale-[1.02]"
                         />
-                        <p className="absolute bottom-4 left-4 text-sm font-normal text-foreground group-hover:opacity-100 opacity-90 transition-opacity">
+                        <p
+                            className="absolute bottom-4 left-4 text-sm font-medium text-white opacity-95 transition-opacity group-hover:opacity-100"
+                            style={{
+                                textShadow:
+                                    "0 1px 2px rgb(0 0 0 / 0.85), 0 2px 8px rgb(0 0 0 / 0.55), 0 0 1px rgb(0 0 0 / 1)",
+                            }}
+                        >
                             {cat.label}
                         </p>
                     </Link>

@@ -7,6 +7,8 @@ import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { ensureBrowserDisplayableImage } from "@/lib/ensureBrowserDisplayableImage";
+import { toast } from "sonner";
 
 export interface ColorEntry {
     id: string;
@@ -37,12 +39,20 @@ export function ImageUploader({
     const cropQueueRef = useRef<File[]>([]);
 
     const processNextInQueue = useCallback(() => {
-        const next = cropQueueRef.current.shift();
-        if (!next) {
-            setCropPending(null);
-            return;
-        }
-        setCropPending({ file: next, objectUrl: URL.createObjectURL(next) });
+        void (async () => {
+            const next = cropQueueRef.current.shift();
+            if (!next) {
+                setCropPending(null);
+                return;
+            }
+            try {
+                const file = await ensureBrowserDisplayableImage(next);
+                setCropPending({ file, objectUrl: URL.createObjectURL(file) });
+            } catch {
+                toast.error("Could not load image. For HEIC/HEIF, try again or use JPEG or PNG.");
+                processNextInQueue();
+            }
+        })();
     }, []);
 
     const handleCropComplete = useCallback(
@@ -79,7 +89,7 @@ export function ImageUploader({
 
     const { getRootProps, getInputProps, isDragActive } = useDropzone({
         onDrop,
-        accept: { "image/*": [".png", ".jpg", ".jpeg", ".webp", ".gif"] },
+        accept: { "image/*": [".png", ".jpg", ".jpeg", ".webp", ".gif", ".heic", ".heif"] },
         maxSize: 5 * 1024 * 1024,
     });
 

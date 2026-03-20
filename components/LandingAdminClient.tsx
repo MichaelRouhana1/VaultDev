@@ -5,6 +5,7 @@ import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { ImageCropModal } from "@/components/ImageCropModal";
 import { updateLandingImage, type LandingImageRow } from "@/actions/landing";
+import { ensureBrowserDisplayableImage } from "@/lib/ensureBrowserDisplayableImage";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 
@@ -39,11 +40,6 @@ export function LandingAdminClient({ images: initialImages }: LandingAdminClient
     [initialImages]
   );
 
-  const onFileSelect = useCallback((storeType: StoreType, file: File) => {
-    const url = URL.createObjectURL(file);
-    setCropFile({ file, objectUrl: url, storeType });
-  }, []);
-
   const triggerFileInput = useCallback((storeType: StoreType) => {
     if (cropFile || uploadingStoreType !== null) return;
     const input = inputRef.current;
@@ -54,12 +50,21 @@ export function LandingAdminClient({ images: initialImages }: LandingAdminClient
 
   const handleFileChange = useCallback(
     (e: React.ChangeEvent<HTMLInputElement>) => {
-      const file = e.target.files?.[0];
+      const raw = e.target.files?.[0];
       e.target.value = "";
       const storeType = (e.target as HTMLInputElement & { __storeType?: StoreType }).__storeType;
-      if (file && storeType) onFileSelect(storeType, file);
+      if (!raw || !storeType) return;
+      void (async () => {
+        try {
+          const file = await ensureBrowserDisplayableImage(raw);
+          const url = URL.createObjectURL(file);
+          setCropFile({ file, objectUrl: url, storeType });
+        } catch {
+          toast.error("Could not load image. For HEIC/HEIF, try again or use JPEG or PNG.");
+        }
+      })();
     },
-    [onFileSelect]
+    []
   );
 
   const handleCropComplete = useCallback(

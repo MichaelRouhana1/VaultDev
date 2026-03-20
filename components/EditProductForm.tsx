@@ -16,7 +16,9 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { ImageCropModal } from "@/components/ImageCropModal";
+import { ensureBrowserDisplayableImage } from "@/lib/ensureBrowserDisplayableImage";
 import { cn } from "@/lib/utils";
+import { toast } from "sonner";
 import type { Product, ProductVariant, ProductColor } from "@/db/schema";
 import type { ProductCategory } from "@/actions/categories";
 
@@ -387,12 +389,20 @@ function EditColorRow({
   const cropQueueRef = useRef<File[]>([]);
 
   const processNextInQueue = useCallback(() => {
-    const next = cropQueueRef.current.shift();
-    if (!next) {
-      setCropPending(null);
-      return;
-    }
-    setCropPending({ file: next, objectUrl: URL.createObjectURL(next) });
+    void (async () => {
+      const next = cropQueueRef.current.shift();
+      if (!next) {
+        setCropPending(null);
+        return;
+      }
+      try {
+        const file = await ensureBrowserDisplayableImage(next);
+        setCropPending({ file, objectUrl: URL.createObjectURL(file) });
+      } catch {
+        toast.error("Could not load image. For HEIC/HEIF, try again or use JPEG or PNG.");
+        processNextInQueue();
+      }
+    })();
   }, []);
 
   const handleCropComplete = useCallback(
@@ -429,7 +439,7 @@ function EditColorRow({
 
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
     onDrop,
-    accept: { "image/*": [".png", ".jpg", ".jpeg", ".webp", ".gif"] },
+    accept: { "image/*": [".png", ".jpg", ".jpeg", ".webp", ".gif", ".heic", ".heif"] },
     maxSize: 5 * 1024 * 1024,
   });
 

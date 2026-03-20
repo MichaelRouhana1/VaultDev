@@ -111,7 +111,6 @@ Comprehensive documentation of every route, component, and feature in the VAULT 
 ### UI Elements
 - **Hero Carousel** — `HeroCarousel` (or `HeroFallback` when no images).
 - **Category Grid** — `CategoryGrid` with home categories and links.
-- **Editorial Promotion** — `EditorialPromotion` with home video.
 - **Lookbook Section** — `LookbookSection` (conditional on section visibility).
 - **Product Discovery** — `ProductDiscovery` (8 products).
 - **Newsletter Form** — `NewsletterForm`.
@@ -119,7 +118,6 @@ Comprehensive documentation of every route, component, and feature in the VAULT 
 
 ### Logic & Actions
 - **Hero:** `getHeroImages(storeType)` from `actions/hero.ts`.
-- **Video:** `getHomeVideo(storeType)` from `actions/video.ts`.
 - **Lookbook:** `getLookbookItems(storeType)`, `getLookbookSectionVisible()` from `actions/lookbook.ts`.
 - **Categories:** `getCategoriesForHome(storeType)`, `getStoreCategorySlugs(storeType)` from `actions/categories.ts`.
 - **Products:** Single query via `leftJoinLateral` (products + first image); `getProductDisplayPrice`, `isProductOnSale`, `getProductDiscountPercent` from `lib/utils`.
@@ -502,7 +500,6 @@ Comprehensive documentation of every route, component, and feature in the VAULT 
 | `HeroCarousel` | Hero image carousel with dots/nav. |
 | `HeroFallback` | Fallback hero when no hero images. |
 | `CategoryGrid` | Category tiles with links. |
-| `EditorialPromotion` | Video section with caption. |
 | `LookbookSection` | "Get the Look" style cards. |
 | `ProductDiscovery` | Product grid with ProductCards. |
 | `NewsletterForm` | Email signup (form submit currently no-op). |

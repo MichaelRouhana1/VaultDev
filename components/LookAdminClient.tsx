@@ -6,7 +6,9 @@ import { useRouter } from "next/navigation";
 import { useDropzone } from "react-dropzone";
 import Cropper, { type Area } from "react-easy-crop";
 import { addLookbookItemFromFile, deleteLookbookItem, setLookbookSectionVisible } from "@/actions/lookbook";
+import { ensureBrowserDisplayableImage } from "@/lib/ensureBrowserDisplayableImage";
 import { Button } from "@/components/ui/button";
+import { toast } from "sonner";
 import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
 import type { LookbookItem } from "@/db/schema";
@@ -91,11 +93,16 @@ export function LookAdminClient({ items: initialItems, sectionVisible: initialSe
   );
 
   const onDrop = useCallback((acceptedFiles: File[]) => {
-    if (acceptedFiles.length >= 1) {
-      const file = acceptedFiles[0];
-      const url = URL.createObjectURL(file);
-      setCropFile({ file, objectUrl: url, label: "", href: "/shop", storeType: initialStoreType });
-    }
+    if (acceptedFiles.length < 1) return;
+    void (async () => {
+      try {
+        const file = await ensureBrowserDisplayableImage(acceptedFiles[0]);
+        const url = URL.createObjectURL(file);
+        setCropFile({ file, objectUrl: url, label: "", href: "/shop", storeType: initialStoreType });
+      } catch {
+        toast.error("Could not load image. For HEIC/HEIF, try again or use JPEG or PNG.");
+      }
+    })();
   }, [initialStoreType]);
 
   const handleCropComplete = useCallback(
@@ -153,7 +160,7 @@ export function LookAdminClient({ items: initialItems, sectionVisible: initialSe
 
   const { getRootProps, getInputProps } = useDropzone({
     onDrop,
-    accept: { "image/*": [".png", ".jpg", ".jpeg", ".webp", ".gif"] },
+    accept: { "image/*": [".png", ".jpg", ".jpeg", ".webp", ".gif", ".heic", ".heif"] },
     maxSize: 5 * 1024 * 1024,
     maxFiles: 1,
     disabled: !!cropFile || isAdding,

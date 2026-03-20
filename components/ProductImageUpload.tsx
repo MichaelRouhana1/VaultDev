@@ -3,6 +3,8 @@
 import { useState, useRef } from "react";
 import Image from "next/image";
 import { ImageCropModal } from "./ImageCropModal";
+import { ensureBrowserDisplayableImage } from "@/lib/ensureBrowserDisplayableImage";
+import { toast } from "sonner";
 
 interface ProductImageUploadProps {
   imageUrl: string;
@@ -25,12 +27,19 @@ export function ProductImageUpload({
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file || !file.type.startsWith("image/")) return;
-    const url = URL.createObjectURL(file);
-    setPendingObjectUrl(url);
-    setCropModalOpen(true);
+    const raw = e.target.files?.[0];
     e.target.value = "";
+    if (!raw || !raw.type.startsWith("image/")) return;
+    void (async () => {
+      try {
+        const file = await ensureBrowserDisplayableImage(raw);
+        const url = URL.createObjectURL(file);
+        setPendingObjectUrl(url);
+        setCropModalOpen(true);
+      } catch {
+        toast.error("Could not load image. For HEIC/HEIF, try again or use JPEG or PNG.");
+      }
+    })();
   };
 
   const handleCropComplete = async (blob: Blob) => {

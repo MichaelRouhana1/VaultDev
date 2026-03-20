@@ -6,7 +6,9 @@ import { useRouter } from "next/navigation";
 import { useDropzone } from "react-dropzone";
 import { ImageCropModal } from "@/components/ImageCropModal";
 import { addHeroImageFromFile, deleteHeroImage } from "@/actions/hero";
+import { ensureBrowserDisplayableImage } from "@/lib/ensureBrowserDisplayableImage";
 import { Button } from "@/components/ui/button";
+import { toast } from "sonner";
 import type { HeroImage } from "@/db/schema";
 
 /** Matches hero carousel: width / 75vh. From user's viewport ~1567×544: aspect ≈ 2.88. Use 72/25 ≈ 2.88 */
@@ -32,11 +34,16 @@ export function HeroAdminClient({ images: initialImages, initialStoreType }: Her
   }, [initialImages]);
 
   const onDrop = useCallback((acceptedFiles: File[]) => {
-    if (acceptedFiles.length >= 1) {
-      const file = acceptedFiles[0];
-      const url = URL.createObjectURL(file);
-      setCropFile({ file, objectUrl: url });
-    }
+    if (acceptedFiles.length < 1) return;
+    void (async () => {
+      try {
+        const file = await ensureBrowserDisplayableImage(acceptedFiles[0]);
+        const url = URL.createObjectURL(file);
+        setCropFile({ file, objectUrl: url });
+      } catch {
+        toast.error("Could not load image. For HEIC/HEIF, try again or use JPEG or PNG.");
+      }
+    })();
   }, []);
 
   const handleCropComplete = useCallback(
@@ -87,7 +94,7 @@ export function HeroAdminClient({ images: initialImages, initialStoreType }: Her
 
   const { getRootProps, getInputProps } = useDropzone({
     onDrop,
-    accept: { "image/*": [".png", ".jpg", ".jpeg", ".webp", ".gif"] },
+    accept: { "image/*": [".png", ".jpg", ".jpeg", ".webp", ".gif", ".heic", ".heif"] },
     maxSize: 5 * 1024 * 1024,
     maxFiles: 1,
     disabled: !!cropFile || isAdding,
