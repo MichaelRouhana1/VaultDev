@@ -47,9 +47,28 @@ export async function toggleWishlist(productId: number): Promise<{
     return { inWishlist: false };
   }
 
-  await db.insert(wishlists).values({
-    userId,
-    productId: validProductId,
-  });
+  const dupCheck = await db
+    .select({ id: wishlists.id })
+    .from(wishlists)
+    .where(and(eq(wishlists.userId, userId), eq(wishlists.productId, validProductId)))
+    .limit(1);
+  if (dupCheck.length > 0) {
+    return { inWishlist: true };
+  }
+
+  try {
+    await db.insert(wishlists).values({
+      userId,
+      productId: validProductId,
+    });
+  } catch (err) {
+    logger.warn("toggleWishlist insert race or constraint", { userId, validProductId, err });
+    const after = await db
+      .select({ id: wishlists.id })
+      .from(wishlists)
+      .where(and(eq(wishlists.userId, userId), eq(wishlists.productId, validProductId)))
+      .limit(1);
+    return { inWishlist: after.length > 0 };
+  }
   return { inWishlist: true };
 }

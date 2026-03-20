@@ -3,11 +3,10 @@
 import { useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { useRouter, usePathname } from "next/navigation";
-import { useAuth } from "@clerk/nextjs";
+import { usePathname } from "next/navigation";
 import { usePostHog } from "posthog-js/react";
-import { toggleWishlist } from "@/actions/toggleWishlist";
 import { useCart } from "@/context/CartContext";
+import { useWishlist } from "@/context/WishlistContext";
 import { getProductDisplayPrice, isProductOnSale, getProductDiscountPercent } from "@/lib/utils";
 import type { Product } from "@/db/schema";
 import type { ProductVariant, ProductColor } from "@/db/schema";
@@ -29,16 +28,15 @@ export function ProductCard({
   inWishlist = false,
   compact = false,
 }: ProductCardProps) {
-  const router = useRouter();
   const pathname = usePathname();
-  const { isSignedIn } = useAuth();
   const posthog = usePostHog();
   const { addToCart, openCart } = useCart();
+  const { isInWishlist, hasHydrated, toggleItem } = useWishlist();
 
   const storeTypeMatch = pathname?.match(/^\/(streetwear|formal)/);
   const storeType = storeTypeMatch ? storeTypeMatch[1] : null;
   const productUrl = storeType ? `/${storeType}/product/${product.id}` : `/shop/${product.id}`;
-  const [wishlistState, setWishlistState] = useState(inWishlist);
+  const wishlistState = hasHydrated ? isInWishlist(product.id) : inWishlist;
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
   const [selectedColorIndex, setSelectedColorIndex] = useState(0);
 
@@ -74,17 +72,7 @@ export function ProductCard({
   const handleWishlistClick = async (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
-    if (!isSignedIn) {
-      router.push("/sign-in");
-      return;
-    }
-    const result = await toggleWishlist(product.id);
-    if (result.error) {
-      router.push("/sign-in");
-      return;
-    }
-    setWishlistState(result.inWishlist ?? false);
-    router.refresh();
+    await toggleItem(product.id);
   };
 
   const goToPrevImage = (e: React.MouseEvent) => {

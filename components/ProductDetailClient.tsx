@@ -3,9 +3,8 @@
 import { useState, useCallback, useRef, useEffect, useMemo } from "react";
 import Image from "next/image";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useAuth } from "@clerk/nextjs";
 import { useCart } from "@/context/CartContext";
-import { toggleWishlist } from "@/actions/toggleWishlist";
+import { useWishlist } from "@/context/WishlistContext";
 import { ProductCard } from "@/components/ProductCard";
 import {
   Carousel,
@@ -41,13 +40,10 @@ export function ProductDetailClient({
 }: ProductDetailClientProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { isSignedIn } = useAuth();
   const { addToCart, openCart } = useCart();
   const posthog = usePostHog();
-  const [wishlistState, setWishlistState] = useState(initialInWishlist);
-  useEffect(() => {
-    setWishlistState(initialInWishlist);
-  }, [initialInWishlist]);
+  const { isInWishlist, hasHydrated, toggleItem } = useWishlist();
+  const wishlistState = hasHydrated ? isInWishlist(product.id) : initialInWishlist;
   const [selectedSize, setSelectedSize] = useState<string | null>(null);
   const [displayOrder, setDisplayOrder] = useState<number[]>([]);
   const [imageErrors, setImageErrors] = useState<Record<number, boolean>>({});
@@ -213,17 +209,7 @@ export function ProductDetailClient({
 
   const handleWishlistClick = async (e: React.MouseEvent) => {
     e.stopPropagation();
-    if (!isSignedIn) {
-      router.push("/sign-in");
-      return;
-    }
-    const result = await toggleWishlist(product.id);
-    if (result.error) {
-      router.push("/sign-in");
-      return;
-    }
-    setWishlistState(result.inWishlist ?? false);
-    router.refresh();
+    await toggleItem(product.id);
   };
 
   const handleAddToBag = () => {

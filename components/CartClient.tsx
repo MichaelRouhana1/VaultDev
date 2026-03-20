@@ -1,11 +1,13 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { useCart } from "@/context/CartContext";
 import { useAuth } from "@clerk/nextjs";
+import { useWishlist } from "@/context/WishlistContext";
+import { getWishlistProductsData } from "@/actions/getWishlistProductsData";
 import { ProductCard } from "@/components/ProductCard";
 import { usePostHog } from "posthog-js/react";
 import type { Product } from "@/db/schema";
@@ -29,8 +31,41 @@ export function CartClient({
   const router = useRouter();
   const { items, removeFromCart, updateQuantity, totalPrice } = useCart();
   const { isSignedIn } = useAuth();
+  const { wishlistIds, hasHydrated } = useWishlist();
   const posthog = usePostHog();
   const [activeTab, setActiveTab] = useState<Tab>("basket");
+  const [guestWishlistProducts, setGuestWishlistProducts] = useState<Product[]>([]);
+  const [guestVariantsByProductId, setGuestVariantsByProductId] = useState<
+    Record<number, ProductVariant[]>
+  >({});
+
+  useEffect(() => {
+    if (!hasHydrated || isSignedIn) {
+      setGuestWishlistProducts([]);
+      setGuestVariantsByProductId({});
+      return;
+    }
+    if (wishlistIds.length === 0) {
+      setGuestWishlistProducts([]);
+      setGuestVariantsByProductId({});
+      return;
+    }
+    let cancelled = false;
+    void (async () => {
+      const data = await getWishlistProductsData(wishlistIds);
+      if (!cancelled) {
+        setGuestWishlistProducts(data.products);
+        setGuestVariantsByProductId(data.variantsByProductId);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [hasHydrated, isSignedIn, wishlistIds]);
+
+  const displayWishlistProducts = isSignedIn ? wishlistProducts : guestWishlistProducts;
+  const displayVariantsByProductId = isSignedIn ? variantsByProductId : guestVariantsByProductId;
+  const favouritesCount = isSignedIn ? wishlistProductIds.length : wishlistIds.length;
 
   const amountToFreeDelivery = Math.max(0, FREE_DELIVERY_THRESHOLD - totalPrice);
   const qualifiesForFreeDelivery = totalPrice >= FREE_DELIVERY_THRESHOLD;
@@ -76,7 +111,7 @@ export function CartClient({
             : "text-muted-foreground hover:text-foreground"
             }`}
         >
-          Favourites ({isSignedIn ? wishlistProductIds.length : 0})
+          Favourites ({hasHydrated ? favouritesCount : isSignedIn ? wishlistProductIds.length : 0})
         </button>
       </div>
 
@@ -242,23 +277,18 @@ export function CartClient({
 
       {activeTab === "favorites" && (
         <>
-          {!isSignedIn ? (
+          {!hasHydrated ? (
             <div className="flex flex-col items-center justify-center py-16 border border-border">
-              <p className="text-muted-foreground mb-4">
-                Sign in to view your favourites
-              </p>
-              <Link
-                href="/sign-in"
-                className="text-sm font-normal text-foreground border-b border-foreground pb-1 hover:opacity-60"
-              >
-                Sign in
-              </Link>
+              <p className="text-muted-foreground">Loading favourites…</p>
             </div>
-          ) : wishlistProducts.length === 0 ? (
+          ) : displayWishlistProducts.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-16 border border-border">
               <p className="text-muted-foreground mb-4">No favourites yet</p>
+              <p className="text-xs text-muted-foreground mb-4 text-center max-w-sm">
+                Save items with the heart icon while you browse. Sign in anytime to sync across devices.
+              </p>
               <Link
-                href="/shop"
+                href="/streetwear/shop"
                 className="text-sm font-normal text-foreground border-b border-foreground pb-1 hover:opacity-60"
               >
                 Continue shopping
@@ -266,11 +296,11 @@ export function CartClient({
             </div>
           ) : (
             <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-6">
-              {wishlistProducts.map((product) => (
+              {displayWishlistProducts.map((product) => (
                 <ProductCard
                   key={product.id}
                   product={product}
-                  variants={variantsByProductId[product.id] ?? []}
+                  variants={displayVariantsByProductId[product.id] ?? []}
                   inWishlist
                 />
               ))}

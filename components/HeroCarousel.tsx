@@ -2,7 +2,6 @@
 
 import { useState, useEffect, useCallback } from "react";
 import Image from "next/image";
-import Link from "next/link";
 import type { HeroImage } from "@/db/schema";
 
 const SLIDE_DURATION_MS = 5000;
@@ -50,32 +49,6 @@ export function HeroCarousel({ images }: HeroCarouselProps) {
 
           sizes="100vw"
         />
-
-        {/* Overlay content - same as original hero */}
-        <div className="absolute inset-0 flex items-center justify-center">
-          <div className="relative z-10 max-w-[36ch] text-center px-6">
-            <h1 className="text-xl font-normal text-foreground mb-4">
-              Clothing designed with intention.
-            </h1>
-            <p className="text-sm font-light text-foreground/90">
-              Modern silhouettes. Thoughtful materials. Built to last.
-            </p>
-            <div className="flex justify-center gap-6 mt-8 relative z-20">
-              <Link
-                href="/streetwear/shop"
-                className="inline-block text-sm font-normal text-foreground border-b border-foreground pb-1 hover:opacity-60 transition-opacity duration-200"
-              >
-                Shop Streetwear
-              </Link>
-              <Link
-                href="/formal/shop"
-                className="inline-block text-sm font-normal text-foreground border-b border-foreground pb-1 hover:opacity-60 transition-opacity duration-200"
-              >
-                Shop Formal
-              </Link>
-            </div>
-          </div>
-        </div>
 
         {/* Progress bar at bottom - only when multiple slides */}
         {images.length > 1 && (
