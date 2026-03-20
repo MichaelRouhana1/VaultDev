@@ -9,8 +9,10 @@ import {
   orders,
   orderItems,
   productVariants,
+  productColors,
   products,
   promoCodes,
+  notifications,
 } from "@/db/schema";
 import { validatePromoInTransaction } from "@/actions/promo";
 import { getProductDisplayPrice } from "@/lib/utils";
@@ -128,10 +130,51 @@ export async function placeOrder(input: PlaceOrderInput): Promise<{ orderId?: nu
         );
       }
 
+      const newStock = variant.stock - quantity;
+
       await tx
         .update(productVariants)
         .set({ stock: sql`${productVariants.stock} - ${quantity}` })
         .where(eq(productVariants.id, variant.id));
+
+      if (newStock < 5) {
+        const existingAlert = await tx
+          .select({ id: notifications.id })
+          .from(notifications)
+          .where(
+            and(
+              eq(notifications.variantId, variant.id),
+              eq(notifications.isRead, false),
+              eq(notifications.type, "LOW_STOCK"),
+            ),
+          )
+          .limit(1);
+
+        if (existingAlert.length === 0) {
+          const metaRows = await tx
+            .select({
+              productName: products.name,
+              colorName: productColors.name,
+            })
+            .from(productVariants)
+            .innerJoin(productColors, eq(productVariants.colorId, productColors.id))
+            .innerJoin(products, eq(productVariants.productId, products.id))
+            .where(eq(productVariants.id, variant.id))
+            .limit(1);
+          const m = metaRows[0];
+          const productName = m?.productName ?? `Product #${productId}`;
+          const colorName = m?.colorName ?? "—";
+          const message = `Low stock alert: ${productName} (${colorName}, Size ${size}) only has ${newStock} unit${newStock === 1 ? "" : "s"} left.`;
+
+          await tx.insert(notifications).values({
+            type: "LOW_STOCK",
+            message,
+            productId,
+            variantId: variant.id,
+            isRead: false,
+          });
+        }
+      }
     }
 
     const subtotalAmount = Array.from(variantQuantities.values()).reduce(

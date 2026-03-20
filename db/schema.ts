@@ -270,6 +270,25 @@ export const auditLogs = pgTable(
   (t) => [index("audit_logs_action_created_idx").on(t.action, t.createdAt)],
 );
 
+/** Admin dashboard notifications (e.g. low stock after orders). */
+export const notifications = pgTable(
+  "notifications",
+  {
+    id: serial("id").primaryKey(),
+    type: text("type").notNull().default("LOW_STOCK"),
+    message: text("message").notNull(),
+    productId: integer("product_id").references(() => products.id, { onDelete: "cascade" }),
+    /** Identifies the variant for deduping unread low-stock alerts. */
+    variantId: integer("variant_id").references(() => productVariants.id, { onDelete: "cascade" }),
+    isRead: boolean("is_read").notNull().default(false),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+  },
+  (t) => [
+    index("notifications_created_idx").on(t.createdAt),
+    index("notifications_variant_unread_idx").on(t.variantId, t.isRead),
+  ],
+);
+
 export const wishlistsRelations = relations(wishlists, ({ one }) => ({
   product: one(products),
 }));
@@ -313,3 +332,6 @@ export type NewLandingImage = typeof landingImages.$inferInsert;
 
 export type AuditLogRow = typeof auditLogs.$inferSelect;
 export type NewAuditLogRow = typeof auditLogs.$inferInsert;
+
+export type Notification = typeof notifications.$inferSelect;
+export type NewNotification = typeof notifications.$inferInsert;

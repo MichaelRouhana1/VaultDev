@@ -9,7 +9,12 @@ import {
   type ColumnDef,
   type RowSelectionState,
 } from "@tanstack/react-table";
-import { StockHoverCell, type StockByColorRow } from "./StockHoverCell";
+import {
+  StockHoverCell,
+  LOW_STOCK_THRESHOLD,
+  productHasLowStock,
+  type StockByColorRow,
+} from "./StockHoverCell";
 import { useRouter, useSearchParams } from "next/navigation";
 import Image from "next/image";
 import Link from "next/link";
@@ -237,13 +242,23 @@ export function ProductsTable({
     {
       id: "stock",
       header: "Stock",
-      cell: ({ row }) => (
-        <StockHoverCell
-          totalStock={row.original.totalStock}
-          stockBySize={row.original.stockBySize ?? {}}
-          stockByColor={row.original.stockByColor}
-        />
-      ),
+      cell: ({ row }) => {
+        const p = row.original;
+        const low = productHasLowStock(p.stockByColor, p.stockBySize ?? {}, LOW_STOCK_THRESHOLD);
+        return (
+          <div
+            className={low ? "rounded-md bg-amber-500/5 px-1 py-0.5 -mx-1 -my-0.5" : undefined}
+            title={low ? "At least one variant is below 5 units" : undefined}
+          >
+            <StockHoverCell
+              totalStock={p.totalStock}
+              stockBySize={p.stockBySize ?? {}}
+              stockByColor={p.stockByColor}
+              lowStockThreshold={LOW_STOCK_THRESHOLD}
+            />
+          </div>
+        );
+      },
     },
     {
       id: "price",

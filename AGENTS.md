@@ -41,3 +41,4 @@ These must be written to `.env.local` before the app can start. See `.env.exampl
 | DB schema push | `npx drizzle-kit push` |
 | DB migrations | `npm run db:migrate:all` |
 | Audit logs table | `npm run db:migrate:audit` |
+| Notifications table | `npm run db:migrate:notifications` |
