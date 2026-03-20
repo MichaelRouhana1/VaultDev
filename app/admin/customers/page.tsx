@@ -1,6 +1,9 @@
 import { db } from "@/db";
 import { orders } from "@/db/schema";
 import { desc } from "drizzle-orm";
+import { getContactExport } from "@/actions/getContactExport";
+import { CopyContactButton } from "@/components/admin/CopyContactButton";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { CustomersTable } from "./CustomersTable";
 
 export default async function AdminCustomersPage({
@@ -79,9 +82,27 @@ export default async function AdminCustomersPage({
     customers.sort((a, b) => a.totalOrders - b.totalOrders);
   }
 
+  const contactExport = await getContactExport();
+  const exportEmails = contactExport.ok ? contactExport.emails : [];
+  const exportPhones = contactExport.ok ? contactExport.phones : [];
+
   return (
-    <div>
-      <h1 className="text-2xl font-bold mb-8">Customers</h1>
+    <div className="space-y-6">
+      <h1 className="text-2xl font-bold">Customers</h1>
+
+      <Card>
+        <CardHeader className="pb-4">
+          <CardTitle className="text-base">Export contacts</CardTitle>
+          <CardDescription>
+            Copy unique guest emails and phone numbers from all orders for use in external tools.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="flex flex-wrap gap-3 pt-0">
+          <CopyContactButton data={exportEmails} label="Copy unique emails" />
+          <CopyContactButton data={exportPhones} label="Copy unique phone numbers" />
+        </CardContent>
+      </Card>
+
       <CustomersTable
         customers={customers}
         initialQuery={params.q}
@@ -90,3 +111,4 @@ export default async function AdminCustomersPage({
     </div>
   );
 }
+
