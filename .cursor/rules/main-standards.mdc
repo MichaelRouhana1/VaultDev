@@ -14,5 +14,8 @@ alwaysApply: true
 - **Clerk:** Dev mode returns 500 for non-browser requests (missing dev-browser cookie).
 
 ## Post-Prompt Workflow
-- After changes, provide this command: `git add . && git commit -m "type: description" && git push`.
+- After changes, suggest committing and pushing. **Windows PowerShell 5.x** does not support `&&`; use one of:
+  - Three lines: `git add .` → `git commit -m "type: description"` → `git push`
+  - Or: `git add .; git commit -m "type: description"; git push`
+  - Or (cmd/bash/PowerShell 7+): `git add . && git commit -m "type: description" && git push`
 - Use present-tense, concise summaries (e.g., "feat: add product filter").

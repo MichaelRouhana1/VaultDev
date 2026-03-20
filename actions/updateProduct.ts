@@ -96,6 +96,37 @@ export async function updateProduct(
     });
   }
 
+  const beforeRows = await db
+    .select({
+      colorId: productColors.id,
+      size: productVariants.size,
+      stock: productVariants.stock,
+    })
+    .from(productVariants)
+    .innerJoin(productColors, eq(productVariants.colorId, productColors.id))
+    .where(eq(productVariants.productId, validProductId));
+
+  const stockChanges: { color: string; size: string; previous: number; next: number }[] = [];
+  for (let i = 0; i < colorEntries.length; i++) {
+    const entry = colorEntries[i];
+    for (const size of SIZES) {
+      const next = entry.stockBySize[size] ?? 0;
+      let previous = 0;
+      if (entry.existingId != null) {
+        const row = beforeRows.find((r) => r.colorId === entry.existingId && r.size === size);
+        previous = row?.stock ?? 0;
+      }
+      if (next !== previous) {
+        stockChanges.push({
+          color: entry.name,
+          size,
+          previous,
+          next,
+        });
+      }
+    }
+  }
+
   // Upload new images for each color
   const colorImageUrls: string[][] = [];
   for (let i = 0; i < colorEntries.length; i++) {
@@ -187,6 +218,14 @@ export async function updateProduct(
     }
   });
 
+  if (stockChanges.length > 0) {
+    auditLog({
+      userId,
+      action: "stock.override",
+      target: String(validProductId),
+      details: { productId: validProductId, changes: stockChanges },
+    });
+  }
   auditLog({ userId, action: "product.update", target: String(validProductId), details: { name } });
   return {};
 }

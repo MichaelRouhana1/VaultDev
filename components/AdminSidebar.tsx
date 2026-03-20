@@ -15,6 +15,7 @@ const NAV_ITEMS = [
   { label: "Promo Codes", href: "/admin/promos" },
   { label: "Orders", href: "/admin/orders" },
   { label: "Customers", href: "/admin/customers" },
+  { label: "Security logs", href: "/admin/logs" },
 ];
 
 interface AdminSidebarProps {

@@ -1,6 +1,10 @@
 import { Input } from "@/components/ui/input";
 import type { ColorEntry } from "@/components/admin/ImageUploader";
 
+/**
+ * Client-only grid for editing per-size stock. Submitted stock is persisted and logged as
+ * `STOCK_OVERRIDE` in Security logs when the product form saves via `updateProduct`.
+ */
 interface InventoryManagerProps {
     colors: ColorEntry[];
     sizes: readonly string[];

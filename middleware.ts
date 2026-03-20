@@ -54,8 +54,32 @@ export default clerkMiddleware(async (auth, req) => {
 
   if (isAdminRoute(req)) {
     await auth.protect();
-    const { sessionClaims } = await auth();
+    const { userId, sessionClaims } = await auth();
     if (sessionClaims?.metadata?.role !== "admin") {
+      const ip =
+        req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ??
+        req.headers.get("x-real-ip") ??
+        "";
+      const secret = process.env.INTERNAL_AUDIT_SECRET;
+      if (secret) {
+        const origin = req.nextUrl.origin;
+        void fetch(`${origin}/api/internal/security-audit`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "x-internal-audit-secret": secret,
+          },
+          body: JSON.stringify({
+            action: "AUTH_FAILED_ADMIN",
+            userId: userId ?? null,
+            details: {
+              path: req.nextUrl.pathname,
+              reason: "insufficient_role",
+            },
+            ipAddress: ip,
+          }),
+        }).catch(() => {});
+      }
       return NextResponse.redirect(new URL("/", req.url));
     }
   }

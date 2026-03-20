@@ -8,6 +8,7 @@ import {
   timestamp,
   pgEnum,
   index,
+  jsonb,
 } from "drizzle-orm/pg-core";
 import { relations } from "drizzle-orm";
 
@@ -255,6 +256,20 @@ export const wishlists = pgTable("wishlists", {
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
+/** Security / admin audit trail (persisted for dashboard Security Logs UI). */
+export const auditLogs = pgTable(
+  "audit_logs",
+  {
+    id: serial("id").primaryKey(),
+    action: text("action").notNull(),
+    userId: text("user_id"),
+    details: jsonb("details").$type<Record<string, unknown> | null>(),
+    ipAddress: text("ip_address").notNull().default(""),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+  },
+  (t) => [index("audit_logs_action_created_idx").on(t.action, t.createdAt)],
+);
+
 export const wishlistsRelations = relations(wishlists, ({ one }) => ({
   product: one(products),
 }));
@@ -295,3 +310,6 @@ export type NewHeroImage = typeof heroImages.$inferInsert;
 
 export type LandingImage = typeof landingImages.$inferSelect;
 export type NewLandingImage = typeof landingImages.$inferInsert;
+
+export type AuditLogRow = typeof auditLogs.$inferSelect;
+export type NewAuditLogRow = typeof auditLogs.$inferInsert;
