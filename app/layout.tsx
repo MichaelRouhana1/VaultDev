@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { headers } from "next/headers";
 import { ClerkProvider } from "@clerk/nextjs";
+import { mosaikClerkAppearance } from "@/lib/clerk-auth-appearance";
 import { Geist, Geist_Mono } from "next/font/google";
 import { Toaster } from "sonner";
 import { ThemeProvider } from "@/components/ThemeProvider";
@@ -35,7 +36,11 @@ export default async function RootLayout({
   const nonce = headersList.get("x-nonce") || undefined;
 
   return (
-    <ClerkProvider dynamic nonce={nonce}>
+    <ClerkProvider
+      dynamic
+      nonce={nonce}
+      appearance={mosaikClerkAppearance}
+    >
       <html lang="en" suppressHydrationWarning>
         <body
           className={`${geistSans.variable} ${geistMono.variable} antialiased`}
