@@ -11,6 +11,7 @@ VAULT is a fashion e-commerce Next.js 15 app (App Router, Turbopack, React 19, T
 | Variable | Purpose |
 |---|---|
 | `DATABASE_URL` | Supabase PostgreSQL (pooler, port 6543) |
+| `NEXT_PUBLIC_APP_URL` | Optional but recommended — absolute site URL for order email links (`/activate-account`) |
 | `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY` | Clerk auth (client) |
 | `CLERK_SECRET_KEY` | Clerk auth (server) |
 | `NEXT_PUBLIC_SUPABASE_URL` | Supabase Storage |
@@ -42,3 +43,4 @@ These must be written to `.env.local` before the app can start. See `.env.exampl
 | DB migrations | `npm run db:migrate:all` |
 | Audit logs table | `npm run db:migrate:audit` |
 | Notifications table | `npm run db:migrate:notifications` |
+| Order activation columns | `npm run db:migrate:order-activation` |

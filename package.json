@@ -10,11 +10,12 @@
     "lint": "eslint",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "npx tsx scripts/migrate-category-slug.ts",
-    "db:migrate:all": "npx tsx scripts/migrate-category-slug.ts && npx tsx scripts/migrate-hero-images.ts && npx tsx scripts/migrate-lookbook.ts && npx tsx scripts/migrate-sale-price.ts && npx tsx scripts/migrate-section-settings.ts && npx tsx scripts/migrate-product-categories.ts && npx tsx scripts/migrate-product-colors.ts && npx tsx scripts/migrate-audit-logs.ts && npx tsx scripts/migrate-notifications.ts",
+    "db:migrate:all": "npx tsx scripts/migrate-category-slug.ts && npx tsx scripts/migrate-hero-images.ts && npx tsx scripts/migrate-lookbook.ts && npx tsx scripts/migrate-sale-price.ts && npx tsx scripts/migrate-section-settings.ts && npx tsx scripts/migrate-product-categories.ts && npx tsx scripts/migrate-product-colors.ts && npx tsx scripts/migrate-audit-logs.ts && npx tsx scripts/migrate-notifications.ts && npx tsx scripts/migrate-order-activation.ts",
     "db:migrate:search": "npx tsx scripts/migrate-product-search-vector.ts",
     "db:migrate:landing": "npx tsx scripts/migrate-landing-images.ts",
     "db:migrate:audit": "npx tsx scripts/migrate-audit-logs.ts",
-    "db:migrate:notifications": "npx tsx scripts/migrate-notifications.ts"
+    "db:migrate:notifications": "npx tsx scripts/migrate-notifications.ts",
+    "db:migrate:order-activation": "npx tsx scripts/migrate-order-activation.ts"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1010.0",

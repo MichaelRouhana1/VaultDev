@@ -1,9 +1,11 @@
 "use server";
 
+import { randomUUID } from "crypto";
 import { eq, and, sql, inArray } from "drizzle-orm";
 import { z } from "zod";
 import { Resend } from "resend";
 import { headers } from "next/headers";
+import { auth as clerkAuth } from "@clerk/nextjs/server";
 import { db } from "@/db";
 import {
   orders,
@@ -19,6 +21,7 @@ import { getProductDisplayPrice } from "@/lib/utils";
 import { escapeHtml } from "@/lib/security";
 import { checkPlaceOrderLimit } from "@/lib/rate-limit";
 import { logger } from "@/lib/logger";
+import { getPublicSiteUrl } from "@/lib/public-site-url";
 
 const DEFAULT_SHIPPING_FEE = 5;
 
@@ -45,7 +48,9 @@ const placeOrderSchema = z.object({
 export type CartItem = z.infer<typeof cartItemSchema>;
 export type PlaceOrderInput = z.infer<typeof placeOrderSchema>;
 
-export async function placeOrder(input: PlaceOrderInput): Promise<{ orderId?: number; success?: boolean; error?: string }> {
+export async function placeOrder(
+  input: PlaceOrderInput,
+): Promise<{ orderId?: number; success?: boolean; error?: string; activationToken?: string }> {
   const headersList = await headers();
   const ip = headersList.get("x-forwarded-for")?.split(",")[0]?.trim() ?? headersList.get("x-real-ip") ?? "unknown";
   const identifier = input.userId ?? input.guestEmail ?? ip;
@@ -66,8 +71,8 @@ export async function placeOrder(input: PlaceOrderInput): Promise<{ orderId?: nu
   }
 
   const {
-    userId,
-    guestEmail,
+    userId: claimedUserId,
+    guestEmail: guestEmailRaw,
     paymentMethod,
     customerName,
     phoneNumber,
@@ -76,6 +81,17 @@ export async function placeOrder(input: PlaceOrderInput): Promise<{ orderId?: nu
     items,
     promoCode,
   } = parseResult.data;
+
+  const { userId: sessionUserId } = await clerkAuth();
+  const userId =
+    claimedUserId && sessionUserId && claimedUserId === sessionUserId ? sessionUserId : undefined;
+
+  const guestEmail = guestEmailRaw?.trim().toLowerCase() ?? null;
+  const isGuestWithEmail = !userId && Boolean(guestEmail);
+  const activationToken = isGuestWithEmail ? randomUUID() : null;
+  const activationTokenExpires = isGuestWithEmail
+    ? new Date(Date.now() + 24 * 60 * 60 * 1000)
+    : null;
 
   const orderResult = await db.transaction(async (tx) => {
     const productIds = [...new Set(items.map((i) => i.productId))];
@@ -204,7 +220,7 @@ export async function placeOrder(input: PlaceOrderInput): Promise<{ orderId?: nu
       .insert(orders)
       .values({
         userId: userId ?? null,
-        guestEmail: guestEmail ?? null,
+        guestEmail,
         customerName,
         phoneNumber,
         addressLine1,
@@ -216,6 +232,8 @@ export async function placeOrder(input: PlaceOrderInput): Promise<{ orderId?: nu
         promoCodeId,
         status: "PENDING",
         paymentMethod,
+        activationToken,
+        activationTokenExpires,
       })
       .returning({ id: orders.id });
 
@@ -245,10 +263,15 @@ export async function placeOrder(input: PlaceOrderInput): Promise<{ orderId?: nu
 
     await tx.insert(orderItems).values(orderItemsToInsert);
 
-    return { orderId: order.id, totalAmount: totalAmount.toFixed(2), guestEmail };
+    return {
+      orderId: order.id,
+      totalAmount: totalAmount.toFixed(2),
+      guestEmail,
+      activationToken,
+    };
   });
 
-  const emailTo = guestEmail || undefined;
+  const emailTo = orderResult.guestEmail || undefined;
   if (emailTo && process.env.RESEND_API_KEY) {
     try {
       const resend = new Resend(process.env.RESEND_API_KEY);
@@ -256,6 +279,21 @@ export async function placeOrder(input: PlaceOrderInput): Promise<{ orderId?: nu
       const safeName = escapeHtml(customerName);
       const safeAddress = escapeHtml(addressLine1);
       const safeCity = escapeHtml(city);
+      const baseUrl = getPublicSiteUrl();
+      const activateBlock =
+        orderResult.activationToken && baseUrl
+          ? `
+          <p style="margin-top:24px">
+            <a href="${escapeHtml(`${baseUrl}/activate-account?token=${encodeURIComponent(orderResult.activationToken)}&orderId=${orderResult.orderId}`)}"
+               style="display:inline-block;padding:12px 20px;background:#111;color:#fff;text-decoration:none;border-radius:8px;font-weight:600">
+              Activate account
+            </a>
+          </p>
+          <p style="font-size:13px;color:#666;margin-top:8px">Create a password to track orders and save your details. This link expires in 24 hours.</p>
+        `
+          : orderResult.activationToken
+            ? `<p style="font-size:13px;color:#666;margin-top:16px">Set <code>NEXT_PUBLIC_APP_URL</code> in your environment to include an account activation button in emails.</p>`
+            : "";
       await resend.emails.send({
         from: fromEmail,
         to: emailTo,
@@ -269,6 +307,7 @@ export async function placeOrder(input: PlaceOrderInput): Promise<{ orderId?: nu
           <p><strong>Delivery address:</strong><br/>
           ${safeAddress}<br/>
           ${safeCity}</p>
+          ${activateBlock}
         `,
       });
     } catch (err) {
@@ -276,5 +315,10 @@ export async function placeOrder(input: PlaceOrderInput): Promise<{ orderId?: nu
     }
   }
 
-  return { orderId: orderResult.orderId };
+  return {
+    orderId: orderResult.orderId,
+    ...(orderResult.activationToken
+      ? { activationToken: orderResult.activationToken }
+      : {}),
+  };
 }

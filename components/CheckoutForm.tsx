@@ -5,6 +5,7 @@ import { useActionState } from "react";
 import { useRouter } from "next/navigation";
 import { placeOrder, type CartItem } from "@/actions/placeOrder";
 import { validatePromoCode } from "@/actions/promo";
+import { useAuth } from "@clerk/nextjs";
 import { useCart } from "@/context/CartContext";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -26,16 +27,18 @@ interface CheckoutFormProps {
 }
 
 function placeOrderAction(
-  _prevState: { error?: string; orderId?: number } | null,
-  formData: FormData
-): Promise<{ error?: string; orderId?: number }> {
+  _prevState: { error?: string; orderId?: number; activationToken?: string } | null,
+  formData: FormData,
+): Promise<{ error?: string; orderId?: number; activationToken?: string }> {
   const itemsJson = formData.get("items") as string;
   if (!itemsJson) {
     return Promise.resolve({ error: "Cart is empty" });
   }
   const items = JSON.parse(itemsJson) as CartItem[];
   const promoCode = (formData.get("promoCode") as string)?.trim() || undefined;
+  const clerkUserId = (formData.get("clerkUserId") as string)?.trim() || undefined;
   return placeOrder({
+    userId: clerkUserId || undefined,
     guestEmail: (formData.get("guestEmail") as string) || null,
     paymentMethod: "COD",
     customerName: formData.get("customerName") as string,
@@ -45,12 +48,21 @@ function placeOrderAction(
     items,
     promoCode,
   })
-    .then(({ orderId }) => ({ orderId }))
+    .then((res) => {
+      if (res.success === false && res.error) {
+        return { error: res.error };
+      }
+      if (!res.orderId) {
+        return { error: "Order failed" };
+      }
+      return { orderId: res.orderId, activationToken: res.activationToken };
+    })
     .catch((err) => ({ error: err instanceof Error ? err.message : "Order failed" }));
 }
 
 export function CheckoutForm({ cart }: CheckoutFormProps) {
   const router = useRouter();
+  const { userId: clerkUserId } = useAuth();
   const { clearOrderedItems } = useCart();
   const [state, formAction, isPending] = useActionState(placeOrderAction, null);
   const [promoInput, setPromoInput] = useState("");
@@ -67,11 +79,15 @@ export function CheckoutForm({ cart }: CheckoutFormProps) {
           productId: i.productId,
           size: i.size,
           quantity: i.quantity,
-        }))
+        })),
       );
-      router.push(`/checkout/success?orderId=${state.orderId}`);
+      const q = new URLSearchParams({ orderId: String(state.orderId) });
+      if (state.activationToken) {
+        q.set("key", state.activationToken);
+      }
+      router.push(`/checkout/success?${q.toString()}`);
     }
-  }, [state?.orderId, cart, clearOrderedItems, router]);
+  }, [state?.orderId, state?.activationToken, cart, clearOrderedItems, router]);
 
   if (state?.orderId) {
     return null;
@@ -116,6 +132,7 @@ export function CheckoutForm({ cart }: CheckoutFormProps) {
     <form action={formAction} className="space-y-8">
       <input type="hidden" name="items" value={JSON.stringify(cart)} />
       <input type="hidden" name="promoCode" value={appliedPromo?.code ?? ""} />
+      {clerkUserId ? <input type="hidden" name="clerkUserId" value={clerkUserId} /> : null}
       <div className="grid gap-8 lg:grid-cols-2">
         <Card>
           <CardHeader>

@@ -138,6 +138,9 @@ export const orders = pgTable("orders", {
   promoCodeId: integer("promo_code_id").references(() => promoCodes.id),
   status: orderStatusEnum("status").notNull().default("PENDING"),
   paymentMethod: text("payment_method").notNull().default("COD"),
+  /** Guest account activation (email link + success-page registration). Cleared after use. */
+  activationToken: text("activation_token"),
+  activationTokenExpires: timestamp("activation_token_expires"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 }, (t) => [
   index("orders_created_at_idx").on(t.createdAt),
