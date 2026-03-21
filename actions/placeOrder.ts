@@ -3,7 +3,6 @@
 import { randomUUID } from "crypto";
 import { eq, and, sql, inArray } from "drizzle-orm";
 import { z } from "zod";
-import { Resend } from "resend";
 import { headers } from "next/headers";
 import { auth as clerkAuth } from "@clerk/nextjs/server";
 import { db } from "@/db";
@@ -18,10 +17,10 @@ import {
 } from "@/db/schema";
 import { validatePromoInTransaction } from "@/actions/promo";
 import { getProductDisplayPrice } from "@/lib/utils";
-import { escapeHtml } from "@/lib/security";
 import { checkPlaceOrderLimit } from "@/lib/rate-limit";
 import { logger } from "@/lib/logger";
-import { getPublicSiteUrl } from "@/lib/public-site-url";
+import { sendOrderConfirmationEmail } from "@/lib/resend";
+import { getPublicSiteUrl } from "@/lib/utils";
 
 const DEFAULT_SHIPPING_FEE = 5;
 
@@ -272,47 +271,23 @@ export async function placeOrder(
   });
 
   const emailTo = orderResult.guestEmail || undefined;
-  if (emailTo && process.env.RESEND_API_KEY) {
-    try {
-      const resend = new Resend(process.env.RESEND_API_KEY);
-      const fromEmail = process.env.RESEND_FROM_EMAIL || "onboarding@resend.dev";
-      const safeName = escapeHtml(customerName);
-      const safeAddress = escapeHtml(addressLine1);
-      const safeCity = escapeHtml(city);
-      const baseUrl = getPublicSiteUrl();
-      const activateBlock =
-        orderResult.activationToken && baseUrl
-          ? `
-          <p style="margin-top:24px">
-            <a href="${escapeHtml(`${baseUrl}/activate-account?token=${encodeURIComponent(orderResult.activationToken)}&orderId=${orderResult.orderId}`)}"
-               style="display:inline-block;padding:12px 20px;background:#111;color:#fff;text-decoration:none;border-radius:8px;font-weight:600">
-              Activate account
-            </a>
-          </p>
-          <p style="font-size:13px;color:#666;margin-top:8px">Create a password to track orders and save your details. This link expires in 24 hours.</p>
-        `
-          : orderResult.activationToken
-            ? `<p style="font-size:13px;color:#666;margin-top:16px">Set <code>NEXT_PUBLIC_APP_URL</code> in your environment to include an account activation button in emails.</p>`
-            : "";
-      await resend.emails.send({
-        from: fromEmail,
-        to: emailTo,
-        subject: `Order #${orderResult.orderId} confirmed`,
-        html: `
-          <h1>Order Confirmed</h1>
-          <p>Hi ${safeName},</p>
-          <p>Thank you for your order. Your order #${orderResult.orderId} has been placed successfully.</p>
-          <p><strong>Total:</strong> $${escapeHtml(orderResult.totalAmount)}</p>
-          <p><strong>Payment:</strong> Cash on Delivery (COD)</p>
-          <p><strong>Delivery address:</strong><br/>
-          ${safeAddress}<br/>
-          ${safeCity}</p>
-          ${activateBlock}
-        `,
-      });
-    } catch (err) {
-      logger.error("Failed to send confirmation email", err, { orderId: orderResult.orderId });
-    }
+  if (emailTo) {
+    const baseUrl = getPublicSiteUrl();
+    const activationLink =
+      orderResult.activationToken && baseUrl
+        ? `${baseUrl}/activate-account?token=${encodeURIComponent(orderResult.activationToken)}&orderId=${orderResult.orderId}`
+        : undefined;
+
+    void sendOrderConfirmationEmail({
+      to: emailTo,
+      customerName,
+      orderId: orderResult.orderId,
+      totalAmount: orderResult.totalAmount,
+      addressLine1,
+      city,
+      activationLink,
+      showActivationConfigNote: Boolean(orderResult.activationToken && !baseUrl),
+    });
   }
 
   return {

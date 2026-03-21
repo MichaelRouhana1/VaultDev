@@ -5,6 +5,18 @@ export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
 
+/**
+ * Absolute site URL for emails, redirects, and activation links (no trailing slash).
+ * Prefer `NEXT_PUBLIC_APP_URL` in dev (e.g. http://localhost:3000); falls back to `VERCEL_URL` in production.
+ */
+export function getPublicSiteUrl(): string {
+  const explicit = process.env.NEXT_PUBLIC_APP_URL?.trim().replace(/\/$/, "");
+  if (explicit) return explicit;
+  const vercel = process.env.VERCEL_URL?.trim();
+  if (vercel) return `https://${vercel.replace(/^https?:\/\//, "")}`;
+  return "";
+}
+
 /** Product with price fields - supports both full Product and minimal shape */
 export interface ProductWithPrice {
   price: string | number;
