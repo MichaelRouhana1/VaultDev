@@ -32,7 +32,8 @@ const cartItemSchema = z.object({
 const placeOrderSchema = z.object({
   userId: z.string().nullable().optional(),
   guestEmail: z.string().email().nullable().optional(),
-  paymentMethod: z.string().default("COD"),
+  /** Store only supports Cash on Delivery. */
+  paymentMethod: z.literal("COD").default("COD"),
   customerName: z.string().min(1, "Name is required"),
   phoneNumber: z.string().min(1, "Phone number is required"),
   addressLine1: z.string().min(1, "Address is required"),

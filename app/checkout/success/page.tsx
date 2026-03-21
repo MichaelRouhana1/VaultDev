@@ -37,7 +37,7 @@ export default async function CheckoutSuccessPage({ searchParams }: SuccessPageP
         </p>
       )}
       <Button asChild>
-        <Link href="/shop">Continue shopping</Link>
+        <Link href="/">Continue shopping</Link>
       </Button>
     </div>
     </div>

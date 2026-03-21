@@ -37,7 +37,7 @@ function placeOrderAction(
   const promoCode = (formData.get("promoCode") as string)?.trim() || undefined;
   return placeOrder({
     guestEmail: (formData.get("guestEmail") as string) || null,
-    paymentMethod: (formData.get("paymentMethod") as string) || "COD",
+    paymentMethod: "COD",
     customerName: formData.get("customerName") as string,
     phoneNumber: formData.get("phoneNumber") as string,
     addressLine1: formData.get("addressLine1") as string,
@@ -121,7 +121,9 @@ export function CheckoutForm({ cart }: CheckoutFormProps) {
           <CardHeader>
             <CardTitle>Contact & payment</CardTitle>
             <CardDescription>
-              Enter your details for order confirmation
+              Enter your details for order confirmation. Payment is{" "}
+              <span className="font-medium text-foreground">cash on delivery only</span>—pay when your
+              order arrives.
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
@@ -172,18 +174,12 @@ export function CheckoutForm({ cart }: CheckoutFormProps) {
                 required
               />
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="paymentMethod">Payment method</Label>
-              <select
-                id="paymentMethod"
-                name="paymentMethod"
-                className="border-input h-9 w-full rounded-md border bg-transparent px-3 py-1 text-sm shadow-xs focus:outline-none focus:ring-2 focus:ring-ring"
-                defaultValue="COD"
-              >
-                <option value="COD">Cash on Delivery (COD)</option>
-                <option value="CARD">Card</option>
-                <option value="BANK_TRANSFER">Bank Transfer</option>
-              </select>
+            <div className="space-y-2 rounded-md border border-border bg-muted/30 px-3 py-3 text-sm">
+              <p className="font-medium text-foreground">Payment</p>
+              <p className="text-muted-foreground">
+                Cash on Delivery (COD) — the only method we offer. You&apos;ll pay the courier when you
+                receive your package.
+              </p>
             </div>
           </CardContent>
         </Card>
