@@ -2,6 +2,7 @@ import { clerkMiddleware, createRouteMatcher } from "@clerk/nextjs/server";
 import { NextResponse } from "next/server";
 import { Ratelimit } from "@upstash/ratelimit";
 import { Redis } from "@upstash/redis";
+import { buildContentSecurityPolicy } from "@/lib/constants/security-hosts";
 
 let redis: Redis | null = null;
 try {
@@ -27,23 +28,7 @@ const isAdminRoute = createRouteMatcher(["/admin(.*)"]);
 export default clerkMiddleware(async (auth, req) => {
   const nonce = Buffer.from(crypto.randomUUID()).toString("base64");
 
-  const scriptSrc = process.env.NODE_ENV === "production"
-    ? `'self' 'nonce-${nonce}' 'strict-dynamic' https://*.clerk.accounts.dev https://*.clerk.com`
-    : `'self' 'nonce-${nonce}' 'unsafe-eval' https://*.clerk.accounts.dev https://*.clerk.com`;
-
-  const cspHeader = `
-    default-src 'self';
-    script-src ${scriptSrc};
-    style-src 'self' 'unsafe-inline' https://fonts.googleapis.com;
-    img-src 'self' blob: data: https://*.supabase.co https://images.pexels.com img.clerk.com;
-    font-src 'self' https://fonts.gstatic.com;
-    connect-src 'self' https://*.clerk.accounts.dev https://*.clerk.com https://*.supabase.co wss://*.clerk.accounts.dev;
-    frame-src 'self' https://*.clerk.accounts.dev https://*.clerk.com https://js.stripe.com;
-    worker-src 'self' blob:;
-    child-src 'self' blob:;
-    object-src 'none';
-    base-uri 'self';
-  `.replace(/\s{2,}/g, " ").trim();
+  const cspHeader = buildContentSecurityPolicy(nonce);
 
   // Next.js needs the nonce explicitly set in the request headers
   const requestHeaders = new Headers(req.headers);
