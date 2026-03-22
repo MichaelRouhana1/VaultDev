@@ -38,7 +38,7 @@ export async function syncWishlist(
     headersList.get("x-forwarded-for")?.split(",")[0]?.trim() ??
     headersList.get("x-real-ip") ??
     "unknown";
-  const limit = await checkSensitiveOperationLimit(`wishlist-sync:${ip}`);
+  const limit = await checkSensitiveOperationLimit(`wishlist-sync:${ip}`, { auditIp: ip });
   if (!limit.allowed) {
     logger.warn("Rate limit exceeded for wishlist-sync", { ip });
     return { inserted: 0, error: "Too many requests. Please try again shortly." };

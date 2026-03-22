@@ -3,6 +3,10 @@ import { NextResponse } from "next/server";
 import { Ratelimit } from "@upstash/ratelimit";
 import { Redis } from "@upstash/redis";
 import { buildContentSecurityPolicy } from "@/lib/constants/security-hosts";
+import {
+  logAuthRedisError,
+  submitInternalSecurityAudit,
+} from "@/lib/internal-security-audit-ingest";
 
 let redis: Redis | null = null;
 try {
@@ -72,16 +76,46 @@ export default clerkMiddleware(async (auth, req) => {
   if (isAdminRoute(req) || req.nextUrl.pathname.startsWith("/api/upload")) {
     if (globalAdminLimiter) {
       const ip = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ?? req.headers.get("x-real-ip") ?? "127.0.0.1";
+      const path = req.nextUrl.pathname;
       try {
         const { success } = await globalAdminLimiter.limit(ip);
         if (!success) {
+          submitInternalSecurityAudit({
+            action: "RATE_LIMIT_EXCEEDED",
+            details: {
+              path,
+              layer: "middleware",
+              routeGroup: isAdminRoute(req) ? "admin" : "api_upload",
+            },
+            ipAddress: ip,
+          });
           return new NextResponse(
             JSON.stringify({ success: false, error: "Too many requests. Please wait before trying again." }),
             { status: 429, headers: { "Content-Type": "application/json" } }
           );
         }
-      } catch {
-        // allow if redis fails
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        logAuthRedisError({
+          layer: "middleware",
+          path,
+          sensitiveRoute: isAdminRoute(req),
+          error: msg,
+          ip,
+        });
+        submitInternalSecurityAudit({
+          action: "AUTH_REDIS_ERROR",
+          details: {
+            layer: "middleware",
+            path,
+            sensitiveRoute: isAdminRoute(req),
+            routeGroup: isAdminRoute(req) ? "admin" : "api_upload",
+            error: msg,
+            degraded: true,
+            note: "Rate limit could not be verified; request allowed (fail-open).",
+          },
+          ipAddress: ip,
+        });
       }
     }
   }

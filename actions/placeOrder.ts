@@ -53,7 +53,7 @@ export async function placeOrder(
   const headersList = await headers();
   const ip = headersList.get("x-forwarded-for")?.split(",")[0]?.trim() ?? headersList.get("x-real-ip") ?? "unknown";
   const identifier = input.userId ?? input.guestEmail ?? ip;
-  const limit = await checkPlaceOrderLimit(identifier);
+  const limit = await checkPlaceOrderLimit(identifier, { auditIp: ip });
   if (!limit.allowed) {
     logger.warn("Rate limit exceeded for placeOrder", { identifier });
     return { success: false, error: "Too many requests. Please wait before trying again." };

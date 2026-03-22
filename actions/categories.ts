@@ -114,7 +114,7 @@ export async function createCategory(formData: FormData): Promise<{ success?: bo
 
   const headersList = await headers();
   const ip = headersList.get("x-forwarded-for")?.split(",")[0]?.trim() ?? headersList.get("x-real-ip") ?? "unknown";
-  const limit = await checkSensitiveOperationLimit(`admin-category-create:${ip}`);
+  const limit = await checkSensitiveOperationLimit(`admin-category-create:${ip}`, { auditIp: ip });
   if (!limit.allowed) {
     logger.warn("Rate limit exceeded for admin-category-create", { ip });
     return { success: false, error: "Too many requests. Please wait before trying again." };
@@ -202,7 +202,7 @@ export async function updateCategory(
 
   const headersList = await headers();
   const ip = headersList.get("x-forwarded-for")?.split(",")[0]?.trim() ?? headersList.get("x-real-ip") ?? "unknown";
-  const limit = await checkSensitiveOperationLimit(`admin-category-update:${ip}`);
+  const limit = await checkSensitiveOperationLimit(`admin-category-update:${ip}`, { auditIp: ip });
   if (!limit.allowed) {
     logger.warn("Rate limit exceeded for admin-category-update", { ip, id });
     return { success: false, error: "Too many requests. Please wait before trying again." };

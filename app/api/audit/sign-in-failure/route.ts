@@ -17,7 +17,7 @@ export async function POST(req: Request) {
     h.get("x-real-ip") ??
     "unknown";
 
-  const { allowed } = await checkRateLimit(`signInFailureAudit:${ip}`);
+  const { allowed } = await checkRateLimit(`signInFailureAudit:${ip}`, { auditIp: ip });
   if (!allowed) {
     return Response.json({ ok: false }, { status: 429 });
   }

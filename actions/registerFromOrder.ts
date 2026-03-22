@@ -5,7 +5,9 @@ import { z } from "zod";
 import { eq } from "drizzle-orm";
 import { db } from "@/db";
 import { orders } from "@/db/schema";
+import { getClientIpFromHeaders } from "@/lib/audit";
 import { linkGuestOrdersToUser } from "@/lib/link-guest-orders";
+import { checkRegisterFromOrderLimit } from "@/lib/rate-limit";
 
 const registerSchema = z.object({
   orderId: z.coerce.number().int().positive(),
@@ -26,6 +28,12 @@ export type RegisterFromOrderResult =
  * Client should call Clerk `signIn.create({ identifier: email, password })` when userExisted is false.
  */
 export async function registerFromOrder(input: unknown): Promise<RegisterFromOrderResult> {
+  const clientIp = await getClientIpFromHeaders();
+  const limit = await checkRegisterFromOrderLimit(clientIp);
+  if (!limit.allowed) {
+    return { ok: false, error: "Too many attempts. Please try again later." };
+  }
+
   const parsed = registerSchema.safeParse(input);
   if (!parsed.success) {
     const msg =

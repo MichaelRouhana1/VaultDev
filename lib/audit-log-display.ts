@@ -14,7 +14,10 @@ export function getAuditActionBadgeClass(action: string): string {
   switch (action) {
     case "FAILED_LOGIN":
     case "AUTH_FAILED_ADMIN":
+    case "RATE_LIMIT_EXCEEDED":
       return "bg-destructive/15 text-destructive border border-destructive/30";
+    case "AUTH_REDIS_ERROR":
+      return "bg-amber-500/15 text-amber-800 dark:text-amber-300 border border-amber-500/35";
     case "BULK_DISCOUNT":
     case "STOCK_OVERRIDE":
       return "bg-amber-500/15 text-amber-800 dark:text-amber-300 border border-amber-500/35";
@@ -41,6 +44,8 @@ export function getAuditActionLabel(
     AUTH_FAILED_ADMIN: "Admin access denied",
     BULK_DISCOUNT: "Bulk discount",
     STOCK_OVERRIDE: "Manual stock change",
+    RATE_LIMIT_EXCEEDED: "Rate limit exceeded",
+    AUTH_REDIS_ERROR: "Rate limit (Redis) error",
   };
   return staticLabels[action] ?? action.replace(/_/g, " ");
 }
