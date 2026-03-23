@@ -33,7 +33,9 @@ export type AuditAction =
   | "auth.failed_admin"
   | "account.delete"
   /** Manual inventory changes from the product editor (persisted as STOCK_OVERRIDE). */
-  | "stock.override";
+  | "stock.override"
+  /** Retention prune of audit_logs + read notifications (Security logs maintenance). */
+  | "retention.cleanup";
 
 export interface AuditEntry {
   timestamp: string;

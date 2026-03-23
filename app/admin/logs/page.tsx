@@ -2,6 +2,7 @@ import { Suspense } from "react";
 import { redirect } from "next/navigation";
 import { getAuditLogs } from "@/actions/getAuditLogs";
 import { AuditLogTable } from "@/components/admin/AuditLogTable";
+import { RetentionCleanupButton } from "@/components/admin/RetentionCleanupButton";
 
 export const metadata = {
   title: "Security logs | VAULT Admin",
@@ -29,6 +30,7 @@ export default async function AdminSecurityLogsPage({
           Audit trail for sign-in issues, bulk pricing, inventory overrides, and admin access denials.
         </p>
       </div>
+      <RetentionCleanupButton />
       <Suspense fallback={<p className="text-sm text-muted-foreground">Loading table…</p>}>
         <AuditLogTable
           logs={result.logs}

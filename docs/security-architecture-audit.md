@@ -8,7 +8,7 @@
 
 ## Remediation tracker
 
-**Last updated:** 2026-03-17 (P4 indexes + React cache)  
+**Last updated:** 2026-03-17 (P5 retention cleanup + FFmpeg removed)  
 
 ### How to maintain this document
 
@@ -26,7 +26,7 @@ If a flaw is fully resolved, you may add a one-line **Status** under that flaw�
 | **P2** | Rate limits + Redis degradation visibility | **Done** | `registerFromOrder`: `checkRegisterFromOrderLimit` (10/hour/IP) in `lib/rate-limit.ts`; `actions/registerFromOrder.ts`. Redis errors: `AUTH_REDIS_ERROR` + `logAuthRedisError` in `checkRateLimit` (with `auditIp` on call sites). Middleware admin/upload limiter: `RATE_LIMIT_EXCEEDED` via `submitInternalSecurityAuditAsync` **before** 429; Redis failures → `AUTH_REDIS_ERROR` with `req.nextUrl.origin`. Ingest: `lib/internal-security-audit-ingest.ts`. UI labels: `lib/audit-log-display.ts`. **Still by design:** limiters **fail-open** on Redis outage (availability); use logs + `AUTH_REDIS_ERROR` rows for monitoring; fail-closed/WAF called out as future hardening. |
 | **P3** | Centralize admin auth + redundant RSC/action checks; Clerk role docs | **Done** | `lib/security.ts`: `checkAdminSession`, `requireAdmin`, `requireAdminAction`, `UNAUTHORIZED_ADMIN_ACTION_RESPONSE`. `app/admin/layout.tsx` calls `requireAdmin()`. Server actions updated: `createProduct`, `updateProduct`, `deleteProduct`, `updateOrderStatus`, `bulk-discount` (all exports), `admin-store` (`setAdminStoreType`, `migrateMissingStoreTypes`; `getAdminStoreType` uses `checkAdminSession`), `hero.ts`, `lookbook.ts`. **Docs:** `docs/clerk-roles.md`. Other admin actions still use inline `auth()` until migrated in a follow-up. |
 | **P4** | Composite DB indexes + storefront request dedupe (`cache`) | **Done** | `db/schema.ts`: `products_store_type_visible_idx`, `products_category_slug_idx`; `product_categories_home_idx`; `lookbook_items_store_type_idx`; `product_colors_product_id_idx`; `product_variants_product_id_idx` (drops legacy `products_store_type_idx`). **Migration:** `drizzle/0011_p4_storefront_indexes.sql` — **not applied** by this change; run when ready (see AGENTS / DBA). **React `cache`:** `actions/categories.ts` (public reads), `actions/hero.ts` `getHeroImages`, `actions/lookbook.ts` `getLookbookSectionVisible` + `getLookbookItems`, `actions/storefront-products.ts` (shop/home/PDP queries). **Pages** use `storefront-products` helpers. Barrel: `actions/index.ts`. |
-| **P5** | Retention for `audit_logs` / notifications; remove dead deps (e.g. FFmpeg) | **Not started** | — |
+| **P5** | Retention for `audit_logs` / notifications; remove dead deps (e.g. FFmpeg) | **Done** | `actions/admin-cleanup.ts` `runRetentionCleanup()` — `requireAdmin()`, Drizzle `lt()` vs `Date` cutoffs (audit 30d, read notifications 14d), transactional deletes + counts; `RetentionCleanupButton` on `app/admin/logs/page.tsx`. Audit action `retention.cleanup` → `RETENTION_CLEANUP`. Removed `@ffmpeg/ffmpeg`, `@ffmpeg/util` from `package.json`. |
 | **P6** | `/api/upload` vs middleware matcher; trim `promoCodeId` from public promo response | **Not started** | — |
 
 ### Partially addressed elsewhere (not mapped to P1–P6)
@@ -206,6 +206,8 @@ If a flaw is fully resolved, you may add a one-line **Status** under that flaw�
 | **Risk level** | Low |
 | **Recommendation** | Remove if unused to shrink install surface and confusion. |
 
+**Status:** Done — FFmpeg packages removed (P5).
+
 ### Flaw: Server Actions body size limit
 
 | Field | Detail |
@@ -255,6 +257,8 @@ If a flaw is fully resolved, you may add a one-line **Status** under that flaw�
 | **The why** | Retention/minimization policies may require archival or deletion jobs. |
 | **Recommendation** | Document retention; scheduled purge/archive; least-privilege access to exports (e.g. `getContactExport`). |
 
+**Status:** Partial — manual admin prune (30d audit logs, 14d read notifications) via `runRetentionCleanup` on Security logs; no scheduled job (Vercel/cron not in scope). Archive/export still optional follow-up.
+
 ### Flaw: Account deletion vs. order records
 
 | Field | Detail |
@@ -303,7 +307,7 @@ If a flaw is fully resolved, you may add a one-line **Status** under that flaw�
 | P2 | Rate limit `registerFromOrder`; monitor Redis fail-open behavior (`AUTH_REDIS_ERROR`, middleware `RATE_LIMIT_EXCEEDED` before 429) | **Done** |
 | P3 | Centralize admin checks; document Clerk role/session refresh | **Done** — see `lib/security.ts`, `docs/clerk-roles.md` |
 | P4 | Composite DB indexes + optional caching for home/shop | **Done** — see tracker |
-| P5 | Retention policy for `audit_logs` / notifications; remove unused deps (e.g. FFmpeg if unused) | **Not started** |
+| P5 | Retention policy for `audit_logs` / notifications; remove unused deps (e.g. FFmpeg if unused) | **Done** — see tracker |
 | P6 | Resolve `/api/upload` middleware vs routes; trim `promoCodeId` from public promo validation response | **Not started** |
 
 ---

@@ -8,6 +8,7 @@ export const AUDIT_LOG_FILTER_OPTIONS: { value: string; label: string }[] = [
   { value: "AUTH_FAILED_ADMIN", label: "Admin access denied" },
   { value: "BULK_DISCOUNT", label: "Bulk discount" },
   { value: "STOCK_OVERRIDE", label: "Stock override" },
+  { value: "RETENTION_CLEANUP", label: "Retention cleanup" },
 ];
 
 export function getAuditActionBadgeClass(action: string): string {
@@ -20,6 +21,7 @@ export function getAuditActionBadgeClass(action: string): string {
       return "bg-amber-500/15 text-amber-800 dark:text-amber-300 border border-amber-500/35";
     case "BULK_DISCOUNT":
     case "STOCK_OVERRIDE":
+    case "RETENTION_CLEANUP":
       return "bg-amber-500/15 text-amber-800 dark:text-amber-300 border border-amber-500/35";
     default:
       return "bg-muted text-muted-foreground border border-border";
@@ -46,6 +48,7 @@ export function getAuditActionLabel(
     STOCK_OVERRIDE: "Manual stock change",
     RATE_LIMIT_EXCEEDED: "Rate limit exceeded",
     AUTH_REDIS_ERROR: "Rate limit (Redis) error",
+    RETENTION_CLEANUP: "Retention cleanup (pruned old logs)",
   };
   return staticLabels[action] ?? action.replace(/_/g, " ");
 }
