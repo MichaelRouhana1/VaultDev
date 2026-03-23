@@ -1,10 +1,14 @@
-import { eq, and, inArray } from "drizzle-orm";
-import { buildProductSearchWhere } from "@/lib/product-search";
+import { eq } from "drizzle-orm";
 import { auth } from "@clerk/nextjs/server";
 import { db } from "@/db";
-import { products, productVariants, productColors, wishlists } from "@/db/schema";
+import { productColors, productVariants, wishlists } from "@/db/schema";
 import { ShopClient } from "@/components/ShopClient";
 import { getValidCategorySlugs, getStoreCategorySlugs, getStoreCategories } from "@/actions/categories";
+import {
+  getShopProductsForStore,
+  getProductVariantsByProductIds,
+  getProductColorsByProductIds,
+} from "@/actions/storefront-products";
 import { Suspense } from "react";
 import { notFound } from "next/navigation";
 
@@ -63,30 +67,18 @@ export default async function ShopPage({ params, searchParams }: ShopPageProps) 
 
   const catFilter = cat && validSlugs.includes(cat) && storeSlugs.includes(cat);
 
-  const baseFilters = [eq(products.isVisible, true)];
-  baseFilters.push(eq(products.storeType, storeType as "streetwear" | "formal"));
-
-  if (catFilter && cat) {
-    baseFilters.push(eq(products.categorySlug, cat));
-  }
-  const ftsClause = buildProductSearchWhere(q ?? "");
-  if (ftsClause) {
-    baseFilters.push(ftsClause);
-  }
-
-  const whereClause = and(...baseFilters);
-
-  const productList = await db
-    .select()
-    .from(products)
-    .where(whereClause);
+  const st = storeType as "streetwear" | "formal";
+  const productList = await getShopProductsForStore(st, {
+    categorySlug: catFilter && cat ? cat : undefined,
+    searchQuery: q ?? "",
+  });
 
   const productIds = productList.map((p) => p.id);
   const [variantsList, colorsList] =
     productIds.length > 0
       ? await Promise.all([
-        db.select().from(productVariants).where(inArray(productVariants.productId, productIds)),
-        db.select().from(productColors).where(inArray(productColors.productId, productIds)),
+        getProductVariantsByProductIds(productIds),
+        getProductColorsByProductIds(productIds),
       ])
       : [[], []];
 

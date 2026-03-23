@@ -1,5 +1,6 @@
 "use server";
 
+import { cache } from "react";
 import { asc, eq, and } from "drizzle-orm";
 import { db } from "@/db";
 import { heroImages } from "@/db/schema";
@@ -8,7 +9,7 @@ import { auditLog } from "@/lib/audit";
 import { z } from "zod";
 import { requireAdmin, requireAdminAction } from "@/lib/security";
 
-export async function getHeroImages(storeType?: string) {
+export const getHeroImages = cache(async (storeType?: string) => {
   const conditions = [eq(heroImages.isActive, true)];
   if (storeType) {
     const validatedStore = z.enum(["streetwear", "formal"]).parse(storeType);
@@ -19,7 +20,7 @@ export async function getHeroImages(storeType?: string) {
     .from(heroImages)
     .where(and(...conditions))
     .orderBy(asc(heroImages.order));
-}
+});
 
 /** Fetches all hero images for admin (including inactive). */
 export async function getAllHeroImages() {

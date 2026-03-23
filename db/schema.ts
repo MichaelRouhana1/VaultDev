@@ -63,6 +63,8 @@ export const productCategories = pgTable("product_categories", {
   createdAt: timestamp("created_at").defaultNow().notNull(),
 }, (t) => [
   index("product_categories_store_type_idx").on(t.storeType),
+  /** Home grid: show_on_home + store_type */
+  index("product_categories_home_idx").on(t.showOnHome, t.storeType),
 ]);
 
 // Products - category_slug references product_categories.slug
@@ -81,7 +83,10 @@ export const products = pgTable("products", {
   isVisible: boolean("is_visible").notNull().default(true),
   storeType: storeTypeEnum("store_type").notNull().default("streetwear"),
 }, (t) => [
-  index("products_store_type_idx").on(t.storeType),
+  /** Storefront listing: store_type + is_visible (shop / home / similar products) */
+  index("products_store_type_visible_idx").on(t.storeType, t.isVisible),
+  /** Filter by category slug on shop */
+  index("products_category_slug_idx").on(t.categorySlug),
 ]);
 
 // Product colors - each color has its own image gallery
@@ -93,7 +98,7 @@ export const productColors = pgTable("product_colors", {
   name: text("name").notNull(),
   hexCode: text("hex_code"),
   imageUrls: text("image_urls").array().notNull().default([]),
-});
+}, (t) => [index("product_colors_product_id_idx").on(t.productId)]);
 
 // ProductVariants - size + stock per color
 export const productVariants = pgTable("product_variants", {
@@ -106,7 +111,7 @@ export const productVariants = pgTable("product_variants", {
     .references(() => productColors.id, { onDelete: "cascade" }),
   size: text("size").notNull(),
   stock: integer("stock").notNull().default(0),
-});
+}, (t) => [index("product_variants_product_id_idx").on(t.productId)]);
 
 // Promo codes
 export const promoCodes = pgTable("promo_codes", {
@@ -226,7 +231,7 @@ export const lookbookItems = pgTable("lookbook_items", {
   isActive: boolean("is_active").notNull().default(true),
   storeType: storeTypeEnum("store_type").notNull().default("streetwear"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
-});
+}, (t) => [index("lookbook_items_store_type_idx").on(t.storeType)]);
 
 // Hero images for slideshow
 export const heroImages = pgTable("hero_images", {

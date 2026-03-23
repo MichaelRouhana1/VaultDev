@@ -46,6 +46,7 @@ These must be written to `.env.local` before the app can start. See `.env.exampl
 | Build | `npm run build` |
 | DB schema push | `npx drizzle-kit push` |
 | DB migrations | `npm run db:migrate:all` |
+| P4 catalog indexes (optional SQL) | After backup, run `drizzle/0011_p4_storefront_indexes.sql` against Postgres (or fold into your migration runner). Not auto-run by repo scripts. |
 | Audit logs table | `npm run db:migrate:audit` |
 | Notifications table | `npm run db:migrate:notifications` |
 | Order activation columns | `npm run db:migrate:order-activation` |

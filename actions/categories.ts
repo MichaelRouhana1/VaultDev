@@ -1,5 +1,6 @@
 "use server";
 
+import { cache } from "react";
 import { auth } from "@clerk/nextjs/server";
 import { redirect } from "next/navigation";
 import { asc, eq, inArray, and } from "drizzle-orm";
@@ -17,31 +18,31 @@ import { categorySchema } from "@/lib/schemas";
 import { logger } from "@/lib/logger";
 
 /** Valid slugs for shop filtering (from DB) */
-export async function getValidCategorySlugs(): Promise<string[]> {
+export const getValidCategorySlugs = cache(async (): Promise<string[]> => {
   const cats = await db.select({ slug: productCategories.slug }).from(productCategories);
   return cats.map((c) => c.slug);
-}
+});
 
 /** Get all category slugs for a specific storeType */
-export async function getStoreCategorySlugs(storeType: string): Promise<string[]> {
+export const getStoreCategorySlugs = cache(async (storeType: string): Promise<string[]> => {
   const cats = await db
     .select({ slug: productCategories.slug })
     .from(productCategories)
     .where(inArray(productCategories.storeType, [storeType, "both"] as ("streetwear" | "formal" | "both")[]));
   return cats.map((c) => c.slug);
-}
+});
 
 /** Get only the category definitions for a specific store type */
-export async function getStoreCategories(storeType: string): Promise<ProductCategory[]> {
+export const getStoreCategories = cache(async (storeType: string): Promise<ProductCategory[]> => {
   return db
     .select()
     .from(productCategories)
     .where(inArray(productCategories.storeType, [storeType, "both"] as ("streetwear" | "formal" | "both")[]))
     .orderBy(asc(productCategories.sortOrder), asc(productCategories.id));
-}
+});
 
 /** All categories for burger menu, shop, etc. */
-export async function getCategories(storeType?: string): Promise<ProductCategory[]> {
+export const getCategories = cache(async (storeType?: string): Promise<ProductCategory[]> => {
   const conditions = [];
   if (storeType) {
     conditions.push(inArray(productCategories.storeType, [storeType, "both"] as ("streetwear" | "formal" | "both")[]));
@@ -51,31 +52,31 @@ export async function getCategories(storeType?: string): Promise<ProductCategory
     .from(productCategories)
     .where(conditions.length > 0 ? and(...conditions) : undefined)
     .orderBy(asc(productCategories.sortOrder), asc(productCategories.id));
-}
+});
 
 /** Fetch subcategories for a given parent */
-export async function getSubcategories(parentId: number): Promise<ProductCategory[]> {
+export const getSubcategories = cache(async (parentId: number): Promise<ProductCategory[]> => {
   return db
     .select()
     .from(productCategories)
     .where(eq(productCategories.parentId, parentId))
     .orderBy(asc(productCategories.sortOrder), asc(productCategories.id));
-}
+});
 
 /** Categories to show on home page (show_on_home, limit 6 per store) */
-export async function getCategoriesForHome(storeType: string): Promise<ProductCategory[]> {
+export const getCategoriesForHome = cache(async (storeType: string): Promise<ProductCategory[]> => {
   return db
     .select()
     .from(productCategories)
     .where(
       and(
         eq(productCategories.showOnHome, true),
-        inArray(productCategories.storeType, [storeType, "both"] as ("streetwear" | "formal" | "both")[])
-      )
+        inArray(productCategories.storeType, [storeType, "both"] as ("streetwear" | "formal" | "both")[]),
+      ),
     )
     .orderBy(asc(productCategories.sortOrder))
     .limit(6);
-}
+});
 
 /** Admin: get all categories */
 export async function getAllCategories(): Promise<ProductCategory[]> {

@@ -1,9 +1,7 @@
-import { eq, desc, and, sql } from "drizzle-orm";
-import { db } from "@/db";
-import { products, productColors } from "@/db/schema";
 import { getHeroImages } from "@/actions/hero";
 import { getLookbookItems, getLookbookSectionVisible } from "@/actions/lookbook";
 import { getCategoriesForHome, getStoreCategorySlugs } from "@/actions/categories";
+import { getHomeDiscoverProductsWithFirstImage } from "@/actions/storefront-products";
 import { getProductDisplayPrice, isProductOnSale, getProductDiscountPercent } from "@/lib/utils";
 import { notFound } from "next/navigation";
 import { HeroCarousel } from "@/components/HeroCarousel";
@@ -49,40 +47,9 @@ export default async function HomePage({ params }: { params: Promise<{ storeType
   const { storeType } = await params;
   if (storeType !== "streetwear" && storeType !== "formal") return notFound();
 
-  const firstColorSubq = db
-    .select({
-      firstImageUrl: sql<string>`(image_urls)[1]::text`.as("first_image_url"),
-    })
-    .from(productColors)
-    .where(eq(productColors.productId, products.id))
-    .orderBy(productColors.id)
-    .limit(1)
-    .as("first_color");
-
   const [productListWithImages, heroImages, lookbookItems, lookbookSectionVisible, homeCategories, storeSlugs] =
     await Promise.all([
-      db
-        .select({
-          id: products.id,
-          name: products.name,
-          description: products.description,
-          price: products.price,
-          salePrice: products.salePrice,
-          saleStartsAt: products.saleStartsAt,
-          saleEndsAt: products.saleEndsAt,
-          isSaleActive: products.isSaleActive,
-          category: products.category,
-          categorySlug: products.categorySlug,
-          color: products.color,
-          isVisible: products.isVisible,
-          storeType: products.storeType,
-          firstImageUrl: firstColorSubq.firstImageUrl,
-        })
-        .from(products)
-        .leftJoinLateral(firstColorSubq, sql`true`)
-        .where(and(eq(products.isVisible, true), eq(products.storeType, storeType as "streetwear" | "formal")))
-        .orderBy(desc(products.id))
-        .limit(8),
+      getHomeDiscoverProductsWithFirstImage(storeType as "streetwear" | "formal"),
       getHeroImages(storeType),
       getLookbookItems(storeType),
       getLookbookSectionVisible(),

@@ -1,22 +1,25 @@
 import { notFound } from "next/navigation";
 import Link from "next/link";
-import { eq, and, inArray, ne } from "drizzle-orm";
+import { eq } from "drizzle-orm";
 import { auth } from "@clerk/nextjs/server";
 import { db } from "@/db";
-import { products, productVariants, productColors, wishlists } from "@/db/schema";
+import { productVariants, wishlists } from "@/db/schema";
 import { ProductDetailClient } from "@/components/ProductDetailClient";
 import type { Metadata } from "next";
+import {
+  getPublicProductTitleForMetadata,
+  getPublicProductDetailForStore,
+  getSimilarVisibleProductsExcept,
+  getProductVariantsByProductIds,
+  getProductColorsByProductIds,
+} from "@/actions/storefront-products";
 
 export async function generateMetadata({ params }: { params: Promise<{ id: string; storeType: string }> }): Promise<Metadata> {
   const { id } = await params;
   const productId = parseInt(id, 10);
   if (isNaN(productId)) return { title: "VAULT | Product Not Found" };
 
-  const [product] = await db
-    .select({ name: products.name })
-    .from(products)
-    .where(eq(products.id, productId))
-    .limit(1);
+  const [product] = await getPublicProductTitleForMetadata(productId);
 
   return {
     title: product ? `VAULT | ${product.name}` : "VAULT | Product",
@@ -32,42 +35,28 @@ export default async function ProductPage({
   const productId = parseInt(id, 10);
   if (isNaN(productId)) notFound();
 
-  const [product] = await db
-    .select()
-    .from(products)
-    .where(and(eq(products.id, productId), eq(products.storeType, storeType as "streetwear" | "formal")))
-    .limit(1);
+  const st = storeType as "streetwear" | "formal";
+  const [product] = await getPublicProductDetailForStore(productId, st);
 
   if (!product || !product.isVisible) notFound();
 
   const [variants, colors] = await Promise.all([
-    db.select().from(productVariants).where(eq(productVariants.productId, product.id)),
-    db.select().from(productColors).where(eq(productColors.productId, product.id)),
+    getProductVariantsByProductIds([product.id]),
+    getProductColorsByProductIds([product.id]),
   ]);
 
   const firstColorImages = colors[0]?.imageUrls ?? [];
   const productWithImages = { ...product, images: firstColorImages };
 
   const categorySlug = product.categorySlug ?? "trousers";
-  const similarProducts = await db
-    .select()
-    .from(products)
-    .where(
-      and(
-        eq(products.isVisible, true),
-        eq(products.categorySlug, categorySlug),
-        eq(products.storeType, storeType as "streetwear" | "formal"),
-        ne(products.id, productId)
-      )
-    )
-    .limit(10);
+  const similarProducts = await getSimilarVisibleProductsExcept(categorySlug, st, productId, 10);
 
   const similarProductIds = similarProducts.map((p) => p.id);
   const [similarVariants, similarColors] =
     similarProductIds.length > 0
       ? await Promise.all([
-        db.select().from(productVariants).where(inArray(productVariants.productId, similarProductIds)),
-        db.select().from(productColors).where(inArray(productColors.productId, similarProductIds)),
+        getProductVariantsByProductIds(similarProductIds),
+        getProductColorsByProductIds(similarProductIds),
       ])
       : [[], []];
 

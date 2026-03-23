@@ -1,5 +1,6 @@
 "use server";
 
+import { cache } from "react";
 import { asc, eq, max, and } from "drizzle-orm";
 import { db } from "@/db";
 import { lookbookItems, sectionSettings } from "@/db/schema";
@@ -11,14 +12,14 @@ import { z } from "zod";
 const LOOKBOOK_SECTION_KEY = "lookbook";
 
 /** Returns whether the Get the Look section is visible on the home page. Defaults to true. */
-export async function getLookbookSectionVisible(): Promise<boolean> {
+export const getLookbookSectionVisible = cache(async (): Promise<boolean> => {
   const [row] = await db
     .select()
     .from(sectionSettings)
     .where(eq(sectionSettings.sectionKey, LOOKBOOK_SECTION_KEY))
     .limit(1);
   return row?.isVisible ?? true;
-}
+});
 
 /** Sets whether the Get the Look section is visible. Admin only. */
 export async function setLookbookSectionVisible(visible: boolean) {
@@ -44,7 +45,7 @@ export async function setLookbookSectionVisible(visible: boolean) {
   }
 }
 
-export async function getLookbookItems(storeType?: string) {
+export const getLookbookItems = cache(async (storeType?: string) => {
   const conditions = [eq(lookbookItems.isActive, true)];
   if (storeType) {
     const validatedStore = z.enum(["streetwear", "formal"]).parse(storeType);
@@ -55,7 +56,7 @@ export async function getLookbookItems(storeType?: string) {
     .from(lookbookItems)
     .where(and(...conditions))
     .orderBy(asc(lookbookItems.order));
-}
+});
 
 /** Fetches all lookbook items for admin. */
 export async function getAllLookbookItems() {
