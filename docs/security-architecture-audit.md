@@ -2,12 +2,46 @@
 
 **Role framing:** Senior full-stack engineer and cybersecurity auditor (Next.js, TypeScript, OWASP Top 10).  
 **Scope:** Codebase review of structural flaws, security risks, performance bottlenecks, and remediation.  
-**Date:** 2026-03-17  
+**Original review date:** 2026-03-17  
+
+---
+
+## Remediation tracker
+
+**Last updated:** 2026-03-17  
+
+### How to maintain this document
+
+Whenever you implement or partially fix an item from this audit **in the same PR / change**, update:
+
+1. **This tracker** — set the row status to **Done** or **Partial** and add a short note + file references.  
+2. **`Last updated`** — set to the date of the change.  
+3. **Summary priority list** (below) — keep it in sync with this table.
+
+If a flaw is fully resolved, you may add a one-line **Status** under that flaw’s section (e.g. “**Status:** Done — see tracker P1”).
+
+| ID | Item | Status | Notes |
+|----|------|--------|--------|
+| **P1** | CSP + `next/image` hosts aligned, env-driven Supabase/R2 | **Done** | `lib/constants/security-hosts.ts` builds CSP (`buildContentSecurityPolicy`) and `getImageRemotePatterns()`; consumed by `middleware.ts` and `next.config.ts`. Optional PostHog connect origin only if `NEXT_PUBLIC_POSTHOG_HOST` is set. |
+| **P2** | Rate limits + Redis degradation visibility | **Done** | `registerFromOrder`: `checkRegisterFromOrderLimit` (10/hour/IP) in `lib/rate-limit.ts`; `actions/registerFromOrder.ts`. Redis errors: `AUTH_REDIS_ERROR` + `logAuthRedisError` in `checkRateLimit` (with `auditIp` on call sites). Middleware admin/upload limiter: `RATE_LIMIT_EXCEEDED` via `submitInternalSecurityAuditAsync` **before** 429; Redis failures → `AUTH_REDIS_ERROR` with `req.nextUrl.origin`. Ingest: `lib/internal-security-audit-ingest.ts`. UI labels: `lib/audit-log-display.ts`. **Still by design:** limiters **fail-open** on Redis outage (availability); use logs + `AUTH_REDIS_ERROR` rows for monitoring; fail-closed/WAF called out as future hardening. |
+| **P3** | Centralize admin auth (`assertAdmin`), Clerk session/role docs | **Not started** | — |
+| **P4** | Composite DB indexes + optional home/shop caching | **Not started** | — |
+| **P5** | Retention for `audit_logs` / notifications; remove dead deps (e.g. FFmpeg) | **Not started** | — |
+| **P6** | `/api/upload` vs middleware matcher; trim `promoCodeId` from public promo response | **Not started** | — |
+
+### Partially addressed elsewhere (not mapped to P1–P6)
+
+| Topic | Status | Notes |
+|-------|--------|--------|
+| Silent `fetch().catch` on admin audit from middleware | **Partial** | `AUTH_FAILED_ADMIN` path still fire-and-forget; rate-limit path uses awaited ingest. Consider aligning or metrics. |
+| `placeOrder` throws validation errors to client | **Not started** | Still `throw new Error` on validation failure. |
+| Newsletter stub | **Not started** | `components/NewsletterForm.tsx` |
 
 ---
 
 ## Table of contents
 
+0. [Remediation tracker](#remediation-tracker)
 1. [Security & privacy](#1-security--privacy)
 2. [Development practices & code quality](#2-development-practices--code-quality)
 3. [Performance & scalability](#3-performance--scalability)
@@ -22,9 +56,11 @@
 
 ### Flaw: Content Security Policy may not match all asset origins
 
+**Status:** **Done** (tracker **P1**) — single module `lib/constants/security-hosts.ts`.
+
 | Field | Detail |
 |--------|--------|
-| **Location** | `middleware.ts` — `cspHeader` (`connect-src`, `img-src`, `script-src`) |
+| **Location** | `middleware.ts` — CSP via `buildContentSecurityPolicy` from `lib/constants/security-hosts.ts` |
 | **Risk level** | Medium |
 | **The flaw** | CSP allows Clerk, Supabase, and specific image sources (e.g. Pexels). Product images may be served from Cloudflare R2; `next.config.ts` defines `images.remotePatterns` for R2. If the R2 hostname changes or additional third-party hosts are introduced, CSP and `remotePatterns` can drift out of sync. |
 | **The why** | Worst case: broken images or blocked client requests in production, or (if CSP is later loosened globally) weaker XSS-related protections. |
@@ -32,9 +68,11 @@
 
 ### Flaw: Rate limiting fails open when Redis errors or is unset
 
+**Status:** **Partial** — still fail-open, but **P2** adds `AUTH_REDIS_ERROR` audit + high-severity console logs; middleware documents degraded admin/upload limiting.
+
 | Field | Detail |
 |--------|--------|
-| **Location** | `lib/rate-limit.ts` (`catch` returns `allowed: true`); `middleware.ts` (no limiter if Redis init fails) |
+| **Location** | `lib/rate-limit.ts` (`catch` returns `allowed: true` after audit); `middleware.ts` (no limiter if Redis env missing; catch audited) |
 | **Risk level** | Medium |
 | **The flaw** | When Upstash is unavailable or misconfigured, sensitive operations are not throttled. |
 | **The why** | Abuse (promo probing, `placeOrder`, sign-in failure audit posts) can spike—cost, noise, DB write pressure. |
@@ -42,9 +80,11 @@
 
 ### Flaw: Guest account completion has no dedicated rate limit
 
+**Status:** **Done** (tracker **P2**) — `checkRegisterFromOrderLimit` (IP, 10/hour) + `RATE_LIMIT_EXCEEDED` on block.
+
 | Field | Detail |
 |--------|--------|
-| **Location** | `actions/registerFromOrder.ts` |
+| **Location** | `actions/registerFromOrder.ts` + `lib/rate-limit.ts` |
 | **Risk level** | Medium |
 | **The flaw** | No IP- or key-based rate limit on this server action. |
 | **The why** | Attackers can spam Clerk `createUser` / `getUserList` and DB reads (cost, quota). Activation tokens are hard to guess, but the endpoint remains abuse-prone. |
@@ -251,15 +291,15 @@
 
 ## Summary priority list
 
-| Priority | Item |
-|----------|------|
-| P1 | Align CSP with every browser-facing host (Clerk, Supabase, R2, etc.) and keep in sync with `next.config` images |
-| P2 | Rate limit `registerFromOrder`; monitor Redis fail-open behavior |
-| P3 | Centralize admin checks; document Clerk role/session refresh |
-| P4 | Composite DB indexes + optional caching for home/shop |
-| P5 | Retention policy for `audit_logs` / notifications; remove unused deps (e.g. FFmpeg if unused) |
-| P6 | Resolve `/api/upload` middleware vs routes; trim `promoCodeId` from public promo validation response |
+| Priority | Item | Status |
+|----------|------|--------|
+| P1 | Align CSP with every browser-facing host (Clerk, Supabase, R2, etc.) and keep in sync with `next.config` images | **Done** |
+| P2 | Rate limit `registerFromOrder`; monitor Redis fail-open behavior (`AUTH_REDIS_ERROR`, middleware `RATE_LIMIT_EXCEEDED` before 429) | **Done** |
+| P3 | Centralize admin checks; document Clerk role/session refresh | **Not started** |
+| P4 | Composite DB indexes + optional caching for home/shop | **Not started** |
+| P5 | Retention policy for `audit_logs` / notifications; remove unused deps (e.g. FFmpeg if unused) | **Not started** |
+| P6 | Resolve `/api/upload` middleware vs routes; trim `promoCodeId` from public promo validation response | **Not started** |
 
 ---
 
-*This document reflects a point-in-time review; re-run after major feature or dependency changes.*
+*Keep the [Remediation tracker](#remediation-tracker) and this table aligned after each audit fix. Re-run a full review after major feature or dependency changes.*

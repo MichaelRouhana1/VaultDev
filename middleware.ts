@@ -5,7 +5,7 @@ import { Redis } from "@upstash/redis";
 import { buildContentSecurityPolicy } from "@/lib/constants/security-hosts";
 import {
   logAuthRedisError,
-  submitInternalSecurityAudit,
+  submitInternalSecurityAuditAsync,
 } from "@/lib/internal-security-audit-ingest";
 
 let redis: Redis | null = null;
@@ -80,15 +80,18 @@ export default clerkMiddleware(async (auth, req) => {
       try {
         const { success } = await globalAdminLimiter.limit(ip);
         if (!success) {
-          submitInternalSecurityAudit({
-            action: "RATE_LIMIT_EXCEEDED",
-            details: {
-              path,
-              layer: "middleware",
-              routeGroup: isAdminRoute(req) ? "admin" : "api_upload",
+          await submitInternalSecurityAuditAsync(
+            {
+              action: "RATE_LIMIT_EXCEEDED",
+              details: {
+                path,
+                layer: "middleware",
+                routeGroup: isAdminRoute(req) ? "admin" : "api_upload",
+              },
+              ipAddress: ip,
             },
-            ipAddress: ip,
-          });
+            { origin: req.nextUrl.origin },
+          );
           return new NextResponse(
             JSON.stringify({ success: false, error: "Too many requests. Please wait before trying again." }),
             { status: 429, headers: { "Content-Type": "application/json" } }
@@ -103,19 +106,22 @@ export default clerkMiddleware(async (auth, req) => {
           error: msg,
           ip,
         });
-        submitInternalSecurityAudit({
-          action: "AUTH_REDIS_ERROR",
-          details: {
-            layer: "middleware",
-            path,
-            sensitiveRoute: isAdminRoute(req),
-            routeGroup: isAdminRoute(req) ? "admin" : "api_upload",
-            error: msg,
-            degraded: true,
-            note: "Rate limit could not be verified; request allowed (fail-open).",
+        await submitInternalSecurityAuditAsync(
+          {
+            action: "AUTH_REDIS_ERROR",
+            details: {
+              layer: "middleware",
+              path,
+              sensitiveRoute: isAdminRoute(req),
+              routeGroup: isAdminRoute(req) ? "admin" : "api_upload",
+              error: msg,
+              degraded: true,
+              note: "Rate limit could not be verified; request allowed (fail-open).",
+            },
+            ipAddress: ip,
           },
-          ipAddress: ip,
-        });
+          { origin: req.nextUrl.origin },
+        );
       }
     }
   }

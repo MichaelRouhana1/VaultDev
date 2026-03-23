@@ -11,6 +11,13 @@ function getAuditBaseUrl(): string {
   return "";
 }
 
+/** Prefer request origin (middleware) so ingest works when public URL env is unset. */
+function resolveAuditBaseUrl(originOverride?: string): string {
+  const o = originOverride?.trim().replace(/\/$/, "");
+  if (o) return o;
+  return getAuditBaseUrl();
+}
+
 export type InternalSecurityAuditPayload = {
   action: string;
   userId?: string | null;
@@ -18,22 +25,41 @@ export type InternalSecurityAuditPayload = {
   ipAddress?: string;
 };
 
-/** Persist via internal API when secret + base URL exist; always safe for Edge middleware. */
-export function submitInternalSecurityAudit(payload: InternalSecurityAuditPayload): void {
-  const secret = process.env.INTERNAL_AUDIT_SECRET;
-  const base = getAuditBaseUrl();
+export type InternalSecurityAuditOptions = {
+  /** e.g. `req.nextUrl.origin` in middleware */
+  origin?: string;
+};
 
-  if (!secret || !base) {
-    console.warn(
-      JSON.stringify({
-        level: "warn",
-        message: "internal_security_audit_skipped",
-        reason: !secret ? "missing_INTERNAL_AUDIT_SECRET" : "missing_NEXT_PUBLIC_APP_URL_or_VERCEL_URL",
-        action: payload.action,
-        details: payload.details ?? null,
-        ipAddress: payload.ipAddress ?? "",
-      }),
-    );
+function auditSkipWarn(
+  payload: InternalSecurityAuditPayload,
+  reason: "missing_INTERNAL_AUDIT_SECRET" | "missing_audit_base_url",
+): void {
+  console.warn(
+    JSON.stringify({
+      level: "warn",
+      message: "internal_security_audit_skipped",
+      reason,
+      action: payload.action,
+      details: payload.details ?? null,
+      ipAddress: payload.ipAddress ?? "",
+    }),
+  );
+}
+
+/** Fire-and-forget POST (server actions, lib/rate-limit). */
+export function submitInternalSecurityAudit(
+  payload: InternalSecurityAuditPayload,
+  options?: InternalSecurityAuditOptions,
+): void {
+  const secret = process.env.INTERNAL_AUDIT_SECRET;
+  const base = resolveAuditBaseUrl(options?.origin);
+
+  if (!secret) {
+    auditSkipWarn(payload, "missing_INTERNAL_AUDIT_SECRET");
+    return;
+  }
+  if (!base) {
+    auditSkipWarn(payload, "missing_audit_base_url");
     return;
   }
 
@@ -50,6 +76,45 @@ export function submitInternalSecurityAudit(payload: InternalSecurityAuditPayloa
       ipAddress: payload.ipAddress ?? "",
     }),
   }).catch(() => {});
+}
+
+/**
+ * Awaited ingest for Edge middleware: ensures `RATE_LIMIT_EXCEEDED` is sent before returning 429
+ * (fire-and-forget fetches may be dropped when the response completes).
+ */
+export async function submitInternalSecurityAuditAsync(
+  payload: InternalSecurityAuditPayload,
+  options?: InternalSecurityAuditOptions,
+): Promise<void> {
+  const secret = process.env.INTERNAL_AUDIT_SECRET;
+  const base = resolveAuditBaseUrl(options?.origin);
+
+  if (!secret) {
+    auditSkipWarn(payload, "missing_INTERNAL_AUDIT_SECRET");
+    return;
+  }
+  if (!base) {
+    auditSkipWarn(payload, "missing_audit_base_url");
+    return;
+  }
+
+  try {
+    await fetch(`${base}/api/internal/security-audit`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "x-internal-audit-secret": secret,
+      },
+      body: JSON.stringify({
+        action: payload.action,
+        userId: payload.userId ?? null,
+        details: payload.details ?? null,
+        ipAddress: payload.ipAddress ?? "",
+      }),
+    });
+  } catch {
+    // best-effort
+  }
 }
 
 export function logAuthRedisError(context: Record<string, unknown>): void {
