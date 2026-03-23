@@ -73,7 +73,8 @@ export default clerkMiddleware(async (auth, req) => {
     }
   }
 
-  if (isAdminRoute(req) || req.nextUrl.pathname.startsWith("/api/upload")) {
+  // Uploads use authenticated server actions only (`actions/uploadProductImage.ts` etc.); no `/api/upload` route.
+  if (isAdminRoute(req)) {
     if (globalAdminLimiter) {
       const ip = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ?? req.headers.get("x-real-ip") ?? "127.0.0.1";
       const path = req.nextUrl.pathname;
@@ -86,7 +87,7 @@ export default clerkMiddleware(async (auth, req) => {
               details: {
                 path,
                 layer: "middleware",
-                routeGroup: isAdminRoute(req) ? "admin" : "api_upload",
+                routeGroup: "admin",
               },
               ipAddress: ip,
             },
@@ -102,7 +103,7 @@ export default clerkMiddleware(async (auth, req) => {
         logAuthRedisError({
           layer: "middleware",
           path,
-          sensitiveRoute: isAdminRoute(req),
+          sensitiveRoute: true,
           error: msg,
           ip,
         });
@@ -112,8 +113,8 @@ export default clerkMiddleware(async (auth, req) => {
             details: {
               layer: "middleware",
               path,
-              sensitiveRoute: isAdminRoute(req),
-              routeGroup: isAdminRoute(req) ? "admin" : "api_upload",
+              sensitiveRoute: true,
+              routeGroup: "admin",
               error: msg,
               degraded: true,
               note: "Rate limit could not be verified; request allowed (fail-open).",

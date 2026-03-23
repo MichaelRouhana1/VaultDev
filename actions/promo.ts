@@ -15,12 +15,23 @@ const DEFAULT_SHIPPING_FEE = 5;
 
 export type PromoDiscountType = "PERCENTAGE" | "FIXED_AMOUNT" | "FREE_SHIPPING";
 
-export interface ValidatePromoResult {
+/** Public storefront response from `validatePromoCode` — no internal DB ids. */
+export type ValidatePromoCodeSuccess = {
+  success: true;
+  code: string;
+  discountAmount: number;
+  discountType: PromoDiscountType;
+};
+
+export type ValidatePromoCodeResult = ValidatePromoCodeSuccess | { success: false; error: string };
+
+type InternalPromoValidation = {
   discountAmount: number;
   promoCodeId: number;
   code: string;
   discountType: PromoDiscountType;
-}
+  promo: typeof promoCodes.$inferSelect;
+};
 
 type DbClient = Parameters<Parameters<typeof db.transaction>[0]>[0] | typeof db;
 
@@ -47,7 +58,7 @@ async function validateAndGetPromo(
   code: string,
   cartSubtotal: number,
   shippingFee: number
-): Promise<ValidatePromoResult & { promo: typeof promoCodes.$inferSelect }> {
+): Promise<InternalPromoValidation> {
   const normalizedCode = code?.trim().toUpperCase();
   if (!normalizedCode) {
     throw new Error("Please enter a promo code");
@@ -98,7 +109,7 @@ export async function validatePromoCode(
   code: string,
   cartSubtotal: number,
   shippingFee: number = DEFAULT_SHIPPING_FEE
-): Promise<ValidatePromoResult | { success: false; error: string }> {
+): Promise<ValidatePromoCodeResult> {
   const validatedCode = z.string().min(1).parse(code);
   const validatedCartSubtotal = z.number().min(0).parse(cartSubtotal);
   const validatedShippingFee = z.number().min(0).parse(shippingFee);
@@ -112,9 +123,9 @@ export async function validatePromoCode(
   }
   const result = await validateAndGetPromo(db, validatedCode, validatedCartSubtotal, validatedShippingFee);
   return {
-    discountAmount: result.discountAmount,
-    promoCodeId: result.promoCodeId,
+    success: true,
     code: result.code,
+    discountAmount: result.discountAmount,
     discountType: result.discountType,
   };
 }

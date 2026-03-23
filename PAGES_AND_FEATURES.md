@@ -41,7 +41,7 @@ Comprehensive documentation of every route, component, and feature in the VAULT 
 - **Redirect:** Unauthorized admin access redirects to `/`.
 
 ### Rate Limiting (Upstash Redis)
-- **Middleware:** `globalAdminLimiter` — 20 requests / 10s per IP on `/admin/*` and `/api/upload`.
+- **Middleware:** `globalAdminLimiter` — 20 requests / 10s per IP on `/admin/*` only (uploads use authenticated server actions, not `/api/upload`).
 - **Library:** `lib/rate-limit.ts` — `@upstash/ratelimit` with Redis (conditional on `UPSTASH_REDIS_REST_URL` and `UPSTASH_REDIS_REST_TOKEN`).
 - **Place Order:** `checkPlaceOrderLimit(identifier)` — 5 req/10s per user/guest/IP.
 - **Validate Promo:** `checkValidatePromoLimit(ip)`.
