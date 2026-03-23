@@ -33,6 +33,7 @@ These must be written to `.env.local` before the app can start. See `.env.exampl
 - **`drizzle-kit push` hangs on the Supabase pooler connection** (port 6543 / PgBouncer transaction mode). For schema operations, use the Supabase direct connection (`db.<project-ref>.supabase.co:5432`). The pooler connection works fine for the app at runtime.
 - **Clerk dev mode returns HTTP 500 for non-browser requests** (e.g. `curl`). This is expected — the `x-clerk-auth-reason: dev-browser-missing` header confirms Clerk needs a browser with its dev-browser cookie. Always test the app in a real browser.
 - **Clerk hosted Account Portal (`*.accounts.dev`)** does not use your in-code `appearance` object. Set `NEXT_PUBLIC_CLERK_SIGN_IN_URL=/sign-in` and `NEXT_PUBLIC_CLERK_SIGN_UP_URL=/sign-up` in `.env.local`, open **`http://localhost:3000/sign-in`**, and in the Clerk Dashboard align “Application paths” with those routes if redirects still go to the portal.
+- **Admin role:** Store managers need `publicMetadata.role = "admin"` in Clerk; sessions may need sign-out/sign-in to pick up changes. See **`docs/clerk-roles.md`** and `lib/security.ts` (`requireAdmin`, `requireAdminAction`).
 - **`ECONNRESET` / `Error: aborted`** in dev is often a dropped request (tab close, fast refresh, navigation mid-fetch, or flaky network) — not necessarily a bug in auth styling.
 - **`postinstall` hook runs `patch-package`** to apply `patches/drizzle-kit+0.31.9.patch`. This runs automatically during `npm install`.
 

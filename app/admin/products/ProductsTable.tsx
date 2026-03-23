@@ -112,7 +112,11 @@ export function ProductsTable({
 
   const handleDelete = async (id: number, name: string) => {
     if (!confirm(`Delete "${name}"?`)) return;
-    await deleteProduct(id);
+    const deleted = await deleteProduct(id);
+    if (deleted.success === false) {
+      toast.error(deleted.error);
+      return;
+    }
     router.refresh();
   };
 
@@ -132,7 +136,11 @@ export function ProductsTable({
       const options: { saleStartsAt?: Date | string | null; saleEndsAt?: Date | string | null } = {};
       if (saleStartDate) options.saleStartsAt = saleStartDate;
       if (saleEndDate) options.saleEndsAt = saleEndDate;
-      await applyBulkDiscount(selectedIds, "PERCENTAGE", pct, options);
+      const applied = await applyBulkDiscount(selectedIds, "PERCENTAGE", pct, options);
+      if (applied && "success" in applied && applied.success === false) {
+        toast.error(applied.error);
+        return;
+      }
       toast.success(`Discount applied to ${selectedCount} product(s)`);
       setRowSelection({});
       setDiscountModalOpen(false);
@@ -158,7 +166,11 @@ export function ProductsTable({
   const handleRemoveDiscount = async () => {
     setIsRemoving(true);
     try {
-      await removeBulkDiscount(selectedIds);
+      const removed = await removeBulkDiscount(selectedIds);
+      if (removed && "success" in removed && removed.success === false) {
+        toast.error(removed.error);
+        return;
+      }
       toast.success(`Discount removed from ${selectedCount} product(s)`);
       setRowSelection({});
       router.refresh();
@@ -172,7 +184,12 @@ export function ProductsTable({
   const handleClearExpiredSales = async () => {
     setIsClearingExpired(true);
     try {
-      const { cleared } = await clearExpiredSales();
+      const clearedResult = await clearExpiredSales();
+      if ("success" in clearedResult) {
+        toast.error(clearedResult.error);
+        return;
+      }
+      const { cleared } = clearedResult;
       toast.success(cleared > 0 ? `Cleared ${cleared} expired sale(s)` : "No expired sales found");
       router.refresh();
     } catch {

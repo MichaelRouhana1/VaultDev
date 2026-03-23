@@ -1,13 +1,12 @@
 "use server";
 
-import { auth } from "@clerk/nextjs/server";
-import { redirect } from "next/navigation";
 import { asc, eq, and } from "drizzle-orm";
 import { db } from "@/db";
 import { heroImages } from "@/db/schema";
 import { uploadHeroImage, deleteFromR2 } from "@/lib/uploadImages";
 import { auditLog } from "@/lib/audit";
 import { z } from "zod";
+import { requireAdmin, requireAdminAction } from "@/lib/security";
 
 export async function getHeroImages(storeType?: string) {
   const conditions = [eq(heroImages.isActive, true)];
@@ -24,11 +23,7 @@ export async function getHeroImages(storeType?: string) {
 
 /** Fetches all hero images for admin (including inactive). */
 export async function getAllHeroImages() {
-  const { userId, sessionClaims } = await auth();
-  if (sessionClaims?.metadata?.role !== "admin") {
-    auditLog({ userId: userId ?? null, action: "auth.failed_admin", target: "hero.list" });
-    redirect("/");
-  }
+  await requireAdmin();
   return db
     .select()
     .from(heroImages)
@@ -36,11 +31,7 @@ export async function getAllHeroImages() {
 }
 
 export async function addHeroImage(imageUrl: string, altText?: string, storeType: "streetwear" | "formal" | "both" = "both") {
-  const { userId, sessionClaims } = await auth();
-  if (sessionClaims?.metadata?.role !== "admin") {
-    auditLog({ userId: userId ?? null, action: "auth.failed_admin", target: "hero.add" });
-    redirect("/");
-  }
+  const { userId } = await requireAdmin();
   const validatedStore = z.enum(["streetwear", "formal", "both"]).parse(storeType);
   const validatedUrl = z.string().url().parse(imageUrl);
   const validatedAlt = altText ? z.string().parse(altText) : null;
@@ -53,27 +44,24 @@ export async function addHeroImage(imageUrl: string, altText?: string, storeType
       storeType: validatedStore,
     })
     .returning();
-  if (image) auditLog({ userId: userId!, action: "hero.add", target: String(image.id) });
+  if (image) auditLog({ userId, action: "hero.add", target: String(image.id) });
   return image;
 }
 
 export async function deleteHeroImage(id: number) {
-  const { userId, sessionClaims } = await auth();
-  if (sessionClaims?.metadata?.role !== "admin") {
-    auditLog({ userId: userId ?? null, action: "auth.failed_admin", target: "hero.delete" });
-    redirect("/");
-  }
+  const { userId } = await requireAdmin();
   const validId = z.number().int().positive().parse(id);
   const [image] = await db.select({ imageUrl: heroImages.imageUrl }).from(heroImages).where(eq(heroImages.id, validId)).limit(1);
   if (image?.imageUrl) await deleteFromR2(image.imageUrl);
   await db.delete(heroImages).where(eq(heroImages.id, validId));
-  auditLog({ userId: userId!, action: "hero.delete", target: String(validId) });
+  auditLog({ userId, action: "hero.delete", target: String(validId) });
 }
 
 /** Uploads a hero image file and adds it to the database. Admin only. */
 export async function addHeroImageFromFile(formData: FormData): Promise<{ error?: string }> {
-  const { sessionClaims } = await auth();
-  if (sessionClaims?.metadata?.role !== "admin") redirect("/");
+  const gate = await requireAdminAction({ auditTarget: "hero.add.file" });
+  if (!gate.authorized) return { error: gate.response.error };
+  const { userId } = gate;
 
   const file = formData.get("image") as File | null;
   const storeTypeRaw = formData.get("storeType")?.toString() || "both";
@@ -93,6 +81,6 @@ export async function addHeroImageFromFile(formData: FormData): Promise<{ error?
       storeType,
     })
     .returning();
-  if (image) auditLog({ userId: sessionClaims.sub ?? "", action: "hero.add", target: String(image.id) });
+  if (image) auditLog({ userId, action: "hero.add", target: String(image.id) });
   return {};
 }

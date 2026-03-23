@@ -1,13 +1,12 @@
 "use server";
 
-import { auth } from "@clerk/nextjs/server";
-import { redirect } from "next/navigation";
 import { eq, inArray, and, lte, isNotNull } from "drizzle-orm";
 import { db } from "@/db";
 import { products } from "@/db/schema";
 import { revalidatePath } from "next/cache";
 import { auditLog } from "@/lib/audit";
 import { z } from "zod";
+import { requireAdminAction } from "@/lib/security";
 
 function parsePrice(price: string | null | undefined): number {
   if (price == null) return 0;
@@ -31,8 +30,8 @@ export async function applyBulkDiscount(
   productIds: number[],
   discountType: "PERCENTAGE" | "FIXED",
   value: number,
-  options?: { saleStartsAt?: Date | string | null; saleEndsAt?: Date | string | null }
-) {
+  options?: { saleStartsAt?: Date | string | null; saleEndsAt?: Date | string | null },
+): Promise<void | { success: false; error: string }> {
   const schema = z.object({
     productIds: z.array(z.number().int().positive()),
     discountType: z.enum(["PERCENTAGE", "FIXED"]),
@@ -40,11 +39,8 @@ export async function applyBulkDiscount(
   });
   const parsed = schema.parse({ productIds, discountType, value });
 
-  const { userId, sessionClaims } = await auth();
-  if (sessionClaims?.metadata?.role !== "admin") {
-    auditLog({ userId: userId ?? null, action: "auth.failed_admin", target: "bulk_discount.apply" });
-    redirect("/");
-  }
+  const gate = await requireAdminAction({ auditTarget: "bulk_discount.apply" });
+  if (!gate.authorized) return gate.response;
 
   if (parsed.productIds.length === 0) return;
 
@@ -88,19 +84,18 @@ export async function applyBulkDiscount(
     }
   });
 
-  auditLog({ userId: userId!, action: "bulk_discount.apply", target: parsed.productIds.length.toString(), details: { discountType: parsed.discountType, value: parsed.value, count: parsed.productIds.length } });
+  auditLog({ userId: gate.userId, action: "bulk_discount.apply", target: parsed.productIds.length.toString(), details: { discountType: parsed.discountType, value: parsed.value, count: parsed.productIds.length } });
   revalidatePath("/admin/products");
   revalidatePath("/shop");
   revalidatePath("/");
 }
 
-export async function removeBulkDiscount(productIds: number[]) {
+export async function removeBulkDiscount(
+  productIds: number[],
+): Promise<void | { success: false; error: string }> {
   const parsedIds = z.array(z.number().int().positive()).parse(productIds);
-  const { userId, sessionClaims } = await auth();
-  if (sessionClaims?.metadata?.role !== "admin") {
-    auditLog({ userId: userId ?? null, action: "auth.failed_admin", target: "bulk_discount.remove" });
-    redirect("/");
-  }
+  const gate = await requireAdminAction({ auditTarget: "bulk_discount.remove" });
+  if (!gate.authorized) return gate.response;
 
   if (parsedIds.length === 0) return;
 
@@ -114,7 +109,7 @@ export async function removeBulkDiscount(productIds: number[]) {
     })
     .where(inArray(products.id, parsedIds));
 
-  auditLog({ userId: userId!, action: "bulk_discount.remove", target: parsedIds.length.toString(), details: { count: parsedIds.length } });
+  auditLog({ userId: gate.userId, action: "bulk_discount.remove", target: parsedIds.length.toString(), details: { count: parsedIds.length } });
   revalidatePath("/admin/products");
   revalidatePath("/shop");
   revalidatePath("/");
@@ -124,12 +119,11 @@ export async function removeBulkDiscount(productIds: number[]) {
  * Clears expired sales: sets salePrice to null for products where
  * saleEndsAt is in the past. Call periodically (e.g. cron) or on demand.
  */
-export async function clearExpiredSales(): Promise<{ cleared: number }> {
-  const { userId, sessionClaims } = await auth();
-  if (sessionClaims?.metadata?.role !== "admin") {
-    auditLog({ userId: userId ?? null, action: "auth.failed_admin", target: "bulk_discount.clearExpired" });
-    redirect("/");
-  }
+export async function clearExpiredSales(): Promise<
+  { cleared: number } | { success: false; error: string }
+> {
+  const gate = await requireAdminAction({ auditTarget: "bulk_discount.clearExpired" });
+  if (!gate.authorized) return gate.response;
 
   const now = new Date();
   const expired = await db
@@ -154,7 +148,7 @@ export async function clearExpiredSales(): Promise<{ cleared: number }> {
     })
     .where(inArray(products.id, ids));
 
-  auditLog({ userId: userId!, action: "bulk_discount.clear_expired", target: String(ids.length), details: { cleared: ids.length } });
+  auditLog({ userId: gate.userId, action: "bulk_discount.clear_expired", target: String(ids.length), details: { cleared: ids.length } });
   revalidatePath("/admin/products");
   revalidatePath("/shop");
   revalidatePath("/");

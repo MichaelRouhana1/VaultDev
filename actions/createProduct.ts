@@ -1,7 +1,5 @@
 "use server";
 
-import { auth } from "@clerk/nextjs/server";
-import { redirect } from "next/navigation";
 import { db } from "@/db";
 import { products, productVariants, productColors } from "@/db/schema";
 import { uploadProductImages } from "@/lib/uploadImages";
@@ -9,6 +7,7 @@ import { getValidCategorySlugs } from "@/actions/categories";
 import { auditLog } from "@/lib/audit";
 import { productSchema } from "@/lib/schemas";
 import { logger } from "@/lib/logger";
+import { requireAdminAction } from "@/lib/security";
 
 const SIZES = ["XS", "S", "M", "L", "XL"] as const;
 
@@ -29,11 +28,9 @@ export async function createProduct(formData: FormData): Promise<{ success?: boo
     return { success: false, error: errorDetails };
   }
 
-  const { userId, sessionClaims } = await auth();
-  if (!userId || sessionClaims?.metadata?.role !== "admin") {
-    auditLog({ userId: userId ?? null, action: "auth.failed_admin", target: "product.create" });
-    redirect("/");
-  }
+  const gate = await requireAdminAction({ auditTarget: "product.create" });
+  if (!gate.authorized) return gate.response;
+  const { userId } = gate;
 
   const { name, description, price, categorySlug, storeType, isVisible, color_count: colorCount } = parsed.data;
 

@@ -2,20 +2,18 @@
 
 import { z } from "zod";
 
-import { auth } from "@clerk/nextjs/server";
-import { redirect } from "next/navigation";
 import { eq } from "drizzle-orm";
 import { db } from "@/db";
 import { products, productColors } from "@/db/schema";
 import { auditLog } from "@/lib/audit";
 import { deleteFromR2 } from "@/lib/uploadImages";
+import { requireAdminAction } from "@/lib/security";
 
-export async function deleteProduct(productId: number): Promise<void> {
-  const { userId, sessionClaims } = await auth();
-  if (!userId || sessionClaims?.metadata?.role !== "admin") {
-    auditLog({ userId: userId ?? null, action: "auth.failed_admin", target: "product.delete" });
-    redirect("/");
-  }
+export async function deleteProduct(
+  productId: number,
+): Promise<{ success: true } | { success: false; error: string }> {
+  const gate = await requireAdminAction({ auditTarget: "product.delete" });
+  if (!gate.authorized) return gate.response;
 
   const id = z.number().int().positive().parse(productId);
 
@@ -27,5 +25,6 @@ export async function deleteProduct(productId: number): Promise<void> {
   }
 
   await db.delete(products).where(eq(products.id, id));
-  auditLog({ userId, action: "product.delete", target: String(id) });
+  auditLog({ userId: gate.userId, action: "product.delete", target: String(id) });
+  return { success: true };
 }

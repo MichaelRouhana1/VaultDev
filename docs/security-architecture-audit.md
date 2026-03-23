@@ -8,7 +8,7 @@
 
 ## Remediation tracker
 
-**Last updated:** 2026-03-17  
+**Last updated:** 2026-03-17 (P3 admin gate)  
 
 ### How to maintain this document
 
@@ -24,7 +24,7 @@ If a flaw is fully resolved, you may add a one-line **Status** under that flaw�
 |----|------|--------|--------|
 | **P1** | CSP + `next/image` hosts aligned, env-driven Supabase/R2 | **Done** | `lib/constants/security-hosts.ts` builds CSP (`buildContentSecurityPolicy`) and `getImageRemotePatterns()`; consumed by `middleware.ts` and `next.config.ts`. Optional PostHog connect origin only if `NEXT_PUBLIC_POSTHOG_HOST` is set. |
 | **P2** | Rate limits + Redis degradation visibility | **Done** | `registerFromOrder`: `checkRegisterFromOrderLimit` (10/hour/IP) in `lib/rate-limit.ts`; `actions/registerFromOrder.ts`. Redis errors: `AUTH_REDIS_ERROR` + `logAuthRedisError` in `checkRateLimit` (with `auditIp` on call sites). Middleware admin/upload limiter: `RATE_LIMIT_EXCEEDED` via `submitInternalSecurityAuditAsync` **before** 429; Redis failures → `AUTH_REDIS_ERROR` with `req.nextUrl.origin`. Ingest: `lib/internal-security-audit-ingest.ts`. UI labels: `lib/audit-log-display.ts`. **Still by design:** limiters **fail-open** on Redis outage (availability); use logs + `AUTH_REDIS_ERROR` rows for monitoring; fail-closed/WAF called out as future hardening. |
-| **P3** | Centralize admin auth (`assertAdmin`), Clerk session/role docs | **Not started** | — |
+| **P3** | Centralize admin auth + redundant RSC/action checks; Clerk role docs | **Done** | `lib/security.ts`: `checkAdminSession`, `requireAdmin`, `requireAdminAction`, `UNAUTHORIZED_ADMIN_ACTION_RESPONSE`. `app/admin/layout.tsx` calls `requireAdmin()`. Server actions updated: `createProduct`, `updateProduct`, `deleteProduct`, `updateOrderStatus`, `bulk-discount` (all exports), `admin-store` (`setAdminStoreType`, `migrateMissingStoreTypes`; `getAdminStoreType` uses `checkAdminSession`), `hero.ts`, `lookbook.ts`. **Docs:** `docs/clerk-roles.md`. Other admin actions still use inline `auth()` until migrated in a follow-up. |
 | **P4** | Composite DB indexes + optional home/shop caching | **Not started** | — |
 | **P5** | Retention for `audit_logs` / notifications; remove dead deps (e.g. FFmpeg) | **Not started** | — |
 | **P6** | `/api/upload` vs middleware matcher; trim `promoCodeId` from public promo response | **Not started** | — |
@@ -92,9 +92,11 @@ If a flaw is fully resolved, you may add a one-line **Status** under that flaw�
 
 ### Flaw: Admin authorization is duplicated; session claims can lag
 
+**Status:** **Partial** (tracker **P3**) — centralized helpers in `lib/security.ts` + admin layout + listed high-risk actions; remaining admin pages/actions may still duplicate checks.
+
 | Field | Detail |
 |--------|--------|
-| **Location** | `middleware.ts` plus many `actions/*.ts` and `app/admin/**/page.tsx` checks for `sessionClaims?.metadata?.role !== "admin"` |
+| **Location** | `middleware.ts` plus `requireAdmin` / `requireAdminAction` in admin layout and sensitive actions; other `actions/*.ts` / `app/admin/**/page.tsx` may still use inline `auth()` |
 | **Risk level** | Low–Medium |
 | **The flaw** | Role checks are repeated; Clerk JWT/session may not reflect dashboard role changes until refresh. |
 | **The why** | A future feature could omit a server-side check; stale roles could briefly apply. |
@@ -295,7 +297,7 @@ If a flaw is fully resolved, you may add a one-line **Status** under that flaw�
 |----------|------|--------|
 | P1 | Align CSP with every browser-facing host (Clerk, Supabase, R2, etc.) and keep in sync with `next.config` images | **Done** |
 | P2 | Rate limit `registerFromOrder`; monitor Redis fail-open behavior (`AUTH_REDIS_ERROR`, middleware `RATE_LIMIT_EXCEEDED` before 429) | **Done** |
-| P3 | Centralize admin checks; document Clerk role/session refresh | **Not started** |
+| P3 | Centralize admin checks; document Clerk role/session refresh | **Done** — see `lib/security.ts`, `docs/clerk-roles.md` |
 | P4 | Composite DB indexes + optional caching for home/shop | **Not started** |
 | P5 | Retention policy for `audit_logs` / notifications; remove unused deps (e.g. FFmpeg if unused) | **Not started** |
 | P6 | Resolve `/api/upload` middleware vs routes; trim `promoCodeId` from public promo validation response | **Not started** |

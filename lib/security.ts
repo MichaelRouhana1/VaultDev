@@ -1,6 +1,11 @@
 /**
- * Security utilities for OWASP hardening: XSS prevention, file upload validation, filename sanitization.
+ * Security utilities for OWASP hardening: XSS prevention, file upload validation, filename sanitization,
+ * and centralized Clerk admin authorization (P3).
  */
+
+import { auth } from "@clerk/nextjs/server";
+import { redirect } from "next/navigation";
+import { auditLog } from "@/lib/audit";
 
 /** Allowed image extensions and MIME types for product/hero/lookbook uploads */
 export const ALLOWED_IMAGE_EXTENSIONS = ["jpg", "jpeg", "png", "gif", "webp"] as const;
@@ -108,4 +113,60 @@ export function validateUploadFile(
   }
 
   return { ok: true, ext };
+}
+
+// --- Clerk admin gate (session token `publicMetadata` / JWT template → `sessionClaims.metadata`) ---
+
+export type AdminSessionCheck =
+  | { ok: true; userId: string }
+  | { ok: false; userId: string | null };
+
+/**
+ * True when the user is signed in and `sessionClaims.metadata.role === "admin"`.
+ * Matches middleware and existing server-action checks.
+ */
+export async function checkAdminSession(): Promise<AdminSessionCheck> {
+  const { userId, sessionClaims } = await auth();
+  if (!userId || sessionClaims?.metadata?.role !== "admin") {
+    return { ok: false, userId: userId ?? null };
+  }
+  return { ok: true, userId };
+}
+
+/**
+ * For RSC / server actions that should redirect non-admins (defense in depth with middleware).
+ */
+export async function requireAdmin(): Promise<{ userId: string }> {
+  const s = await checkAdminSession();
+  if (!s.ok) {
+    redirect("/");
+  }
+  return { userId: s.userId };
+}
+
+export const UNAUTHORIZED_ADMIN_ACTION_RESPONSE = {
+  success: false as const,
+  error: "Unauthorized: Admin access required.",
+};
+
+export type UnauthorizedAdminActionResponse = typeof UNAUTHORIZED_ADMIN_ACTION_RESPONSE;
+
+/**
+ * For server actions that must return JSON instead of redirecting.
+ * Optionally logs `auth.failed_admin` with `auditTarget` (e.g. `product.create`).
+ */
+export async function requireAdminAction(options?: {
+  auditTarget?: string;
+}): Promise<
+  | { authorized: true; userId: string }
+  | { authorized: false; response: UnauthorizedAdminActionResponse }
+> {
+  const s = await checkAdminSession();
+  if (!s.ok) {
+    if (options?.auditTarget) {
+      auditLog({ userId: s.userId, action: "auth.failed_admin", target: options.auditTarget });
+    }
+    return { authorized: false, response: { ...UNAUTHORIZED_ADMIN_ACTION_RESPONSE } };
+  }
+  return { authorized: true, userId: s.userId };
 }

@@ -1,7 +1,5 @@
 "use server";
 
-import { auth } from "@clerk/nextjs/server";
-import { redirect } from "next/navigation";
 import { eq } from "drizzle-orm";
 import { db } from "@/db";
 import { products, productVariants, productColors } from "@/db/schema";
@@ -11,6 +9,7 @@ import { auditLog } from "@/lib/audit";
 import { z } from "zod";
 import { updateProductSchema } from "@/lib/schemas";
 import { logger } from "@/lib/logger";
+import { requireAdminAction } from "@/lib/security";
 
 const SIZES = ["XS", "S", "M", "L", "XL"] as const;
 
@@ -40,11 +39,9 @@ export async function updateProduct(
     return { success: false, error: errorDetails };
   }
 
-  const { userId, sessionClaims } = await auth();
-  if (!userId || sessionClaims?.metadata?.role !== "admin") {
-    auditLog({ userId: userId ?? null, action: "auth.failed_admin", target: "product.update" });
-    redirect("/");
-  }
+  const gate = await requireAdminAction({ auditTarget: "product.update" });
+  if (!gate.authorized) return gate.response;
+  const { userId } = gate;
 
   const { name, description, price, categorySlug, isVisible, color_count: colorCount } = parsed.data;
 

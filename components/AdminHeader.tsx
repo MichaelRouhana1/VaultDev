@@ -6,6 +6,7 @@ import { useTheme } from "next-themes";
 import { setAdminStoreType } from "@/actions/admin-store";
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
+import { toast } from "sonner";
 import { usePostHog } from "posthog-js/react";
 
 interface AdminHeaderProps {
@@ -34,9 +35,15 @@ export function AdminHeader({ onMenuClick, initialStore }: AdminHeaderProps) {
     } catch {
       // Gracefully ignore
     }
+    const previous = currentStore;
     setCurrentStore(newStore);
     startTransition(async () => {
-      await setAdminStoreType(newStore);
+      const res = await setAdminStoreType(newStore);
+      if (res.success === false) {
+        setCurrentStore(previous);
+        toast.error(res.error);
+        return;
+      }
       router.refresh();
     });
   };
