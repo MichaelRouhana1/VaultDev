@@ -40,9 +40,10 @@ const isAdminRoute = createRouteMatcher(["/admin(.*)"]);
 export default clerkMiddleware(async (auth, req) => {
   const nonce = Buffer.from(crypto.randomUUID()).toString("base64");
 
+  // CSP: see `buildContentSecurityPolicy` in `lib/constants/security-hosts.ts` (nonce, directives, comments).
   const cspHeader = buildContentSecurityPolicy(nonce);
 
-  // Next.js needs the nonce explicitly set in the request headers
+  // Forward nonce for App Router + ClerkProvider (`app/layout.tsx` reads `x-nonce`).
   const requestHeaders = new Headers(req.headers);
   requestHeaders.set("x-nonce", nonce);
   requestHeaders.set("Content-Security-Policy", cspHeader);
