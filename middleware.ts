@@ -1,5 +1,5 @@
 import { clerkMiddleware, createRouteMatcher } from "@clerk/nextjs/server";
-import { NextResponse } from "next/server";
+import { type NextRequest, NextResponse } from "next/server";
 import { Ratelimit } from "@upstash/ratelimit";
 import { Redis } from "@upstash/redis";
 import { buildContentSecurityPolicy } from "@/lib/constants/security-hosts";
@@ -10,6 +10,62 @@ import {
 import { getInternalApiSecret, MOSAIK_INTERNAL_SECRET_HEADER } from "@/lib/internal-api-secret";
 import { MemorySlidingWindow } from "@/lib/memory-sliding-window";
 import { loggerWarnStructured } from "@/lib/logger-structured";
+
+function isSitePasswordRequired(): boolean {
+  return process.env.REQUIRE_SITE_PASSWORD === "true";
+}
+
+let warnedSiteAuthMisconfig = false;
+
+/**
+ * Same-origin server/middleware calls to `/api/internal/security-audit` use `x-mosaik-internal-secret`
+ * only (no browser Basic header). Allow those when the secret matches so audit ingest still works.
+ */
+function shouldSkipSiteBasicAuth(req: NextRequest): boolean {
+  if (req.nextUrl.pathname !== "/api/internal/security-audit" || req.method !== "POST") {
+    return false;
+  }
+  const secret = getInternalApiSecret();
+  if (!secret) return false;
+  return req.headers.get(MOSAIK_INTERNAL_SECRET_HEADER) === secret;
+}
+
+function timingSafeEqualStr(a: string, b: string): boolean {
+  if (a.length !== b.length) return false;
+  let out = 0;
+  for (let i = 0; i < a.length; i++) {
+    out |= a.charCodeAt(i) ^ b.charCodeAt(i);
+  }
+  return out === 0;
+}
+
+function verifySiteBasicAuth(req: NextRequest): boolean {
+  const expectedUser = process.env.SITE_AUTH_USER ?? "";
+  const expectedPass = process.env.SITE_AUTH_PASSWORD ?? "";
+  if (!expectedUser || !expectedPass) {
+    if (!warnedSiteAuthMisconfig) {
+      warnedSiteAuthMisconfig = true;
+      console.warn(
+        "[middleware] REQUIRE_SITE_PASSWORD=true but SITE_AUTH_USER or SITE_AUTH_PASSWORD is empty; all requests denied.",
+      );
+    }
+    return false;
+  }
+
+  const header = req.headers.get("authorization");
+  if (!header?.startsWith("Basic ")) return false;
+  let decoded: string;
+  try {
+    decoded = atob(header.slice(6).trim());
+  } catch {
+    return false;
+  }
+  const colon = decoded.indexOf(":");
+  if (colon < 0) return false;
+  const user = decoded.slice(0, colon);
+  const pass = decoded.slice(colon + 1);
+  return timingSafeEqualStr(user, expectedUser) && timingSafeEqualStr(pass, expectedPass);
+}
 
 /** Admin throughput when Upstash is unavailable (stricter than Redis 20/10s — 10 req / 10s per IP per isolate). */
 const adminMemoryLimiter = new MemorySlidingWindow(10, 10_000);
@@ -38,6 +94,15 @@ const isProtectedRoute = createRouteMatcher(["/account(.*)"]);
 const isAdminRoute = createRouteMatcher(["/admin(.*)"]);
 
 export default clerkMiddleware(async (auth, req) => {
+  if (isSitePasswordRequired() && !shouldSkipSiteBasicAuth(req)) {
+    if (!verifySiteBasicAuth(req)) {
+      return new NextResponse("Auth required", {
+        status: 401,
+        headers: { "WWW-Authenticate": 'Basic realm="Secure Area"' },
+      });
+    }
+  }
+
   const nonce = Buffer.from(crypto.randomUUID()).toString("base64");
 
   // CSP: see `buildContentSecurityPolicy` in `lib/constants/security-hosts.ts` (nonce, directives, comments).
@@ -173,6 +238,11 @@ export default clerkMiddleware(async (auth, req) => {
 
 export const config = {
   matcher: [
+    // `/_next/*` is excluded by the catch-all below; include these so JS/CSS/fonts/RSC are gated when using site-wide Basic Auth.
+    "/_next/static/:path*",
+    "/_next/image",
+    "/_next/font/:path*",
+    "/_next/data/:path*",
     "/((?!_next|[^?]*\\.(?:html?|css|js(?!on)|jpe?g|webp|png|gif|svg|ttf|woff2?|ico|csv|docx?|xlsx?|zip|webmanifest)).*)",
     "/(api|trpc)(.*)",
   ],
