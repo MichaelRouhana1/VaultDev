@@ -1,13 +1,12 @@
 "use server";
 
-import { auth } from "@clerk/nextjs/server";
-import { redirect } from "next/navigation";
 import { eq } from "drizzle-orm";
 import { db } from "@/db";
 import { landingImages } from "@/db/schema";
 import { uploadLandingImage, deleteFromR2 } from "@/lib/uploadImages";
 import { auditLog } from "@/lib/audit";
 import { revalidatePath } from "next/cache";
+import { requireAdmin } from "@/lib/security";
 
 export type LandingImageRow = typeof landingImages.$inferSelect;
 
@@ -21,11 +20,7 @@ export async function updateLandingImage(
   storeType: "streetwear" | "formal",
   formData: FormData
 ): Promise<{ success?: boolean; error?: string }> {
-  const { userId, sessionClaims } = await auth();
-  if (sessionClaims?.metadata?.role !== "admin") {
-    auditLog({ userId: userId ?? null, action: "auth.failed_admin", target: "landing.update" });
-    redirect("/");
-  }
+  const { userId } = await requireAdmin();
 
   const file = formData.get("image") as File | null;
   if (!file?.size) {

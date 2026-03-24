@@ -1,13 +1,9 @@
-import { auth } from "@clerk/nextjs/server";
-import { redirect } from "next/navigation";
 import Link from "next/link";
 import { PromoCodeForm } from "@/components/PromoCodeForm";
+import { requireAdmin } from "@/lib/security";
 
 export default async function NewPromoPage() {
-  const { sessionClaims } = await auth();
-  if (sessionClaims?.metadata?.role !== "admin") {
-    redirect("/");
-  }
+  await requireAdmin();
 
   return (
     <div>

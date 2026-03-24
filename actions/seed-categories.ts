@@ -1,18 +1,13 @@
 "use server";
 
-import { auth } from "@clerk/nextjs/server";
-import { redirect } from "next/navigation";
 import { db } from "@/db";
 import { productCategories } from "@/db/schema";
 import { eq } from "drizzle-orm";
 import { auditLog } from "@/lib/audit";
+import { requireAdmin } from "@/lib/security";
 
 export async function seedRootCategories() {
-    const { userId, sessionClaims } = await auth();
-    if (sessionClaims?.metadata?.role !== "admin") {
-        auditLog({ userId: userId ?? null, action: "auth.failed_admin", target: "category.seed" });
-        redirect("/");
-    }
+    const { userId } = await requireAdmin();
 
     const categoriesToSeed = [
         { slug: "streetwear", label: "Streetwear", level: "root" as const },

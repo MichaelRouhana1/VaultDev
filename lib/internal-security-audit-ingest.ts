@@ -3,6 +3,8 @@
  * Used when Redis/rate-limit infrastructure fails or limits are exceeded.
  */
 
+import { getInternalApiSecret, MOSAIK_INTERNAL_SECRET_HEADER } from "@/lib/internal-api-secret";
+
 function getAuditBaseUrl(): string {
   const explicit = process.env.NEXT_PUBLIC_APP_URL?.trim().replace(/\/$/, "");
   if (explicit) return explicit;
@@ -32,7 +34,7 @@ export type InternalSecurityAuditOptions = {
 
 function auditSkipWarn(
   payload: InternalSecurityAuditPayload,
-  reason: "missing_INTERNAL_AUDIT_SECRET" | "missing_audit_base_url",
+  reason: "missing_internal_api_secret" | "missing_audit_base_url",
 ): void {
   console.warn(
     JSON.stringify({
@@ -51,11 +53,11 @@ export function submitInternalSecurityAudit(
   payload: InternalSecurityAuditPayload,
   options?: InternalSecurityAuditOptions,
 ): void {
-  const secret = process.env.INTERNAL_AUDIT_SECRET;
+  const secret = getInternalApiSecret();
   const base = resolveAuditBaseUrl(options?.origin);
 
   if (!secret) {
-    auditSkipWarn(payload, "missing_INTERNAL_AUDIT_SECRET");
+    auditSkipWarn(payload, "missing_internal_api_secret");
     return;
   }
   if (!base) {
@@ -67,7 +69,7 @@ export function submitInternalSecurityAudit(
     method: "POST",
     headers: {
       "Content-Type": "application/json",
-      "x-internal-audit-secret": secret,
+      [MOSAIK_INTERNAL_SECRET_HEADER]: secret,
     },
     body: JSON.stringify({
       action: payload.action,
@@ -86,11 +88,11 @@ export async function submitInternalSecurityAuditAsync(
   payload: InternalSecurityAuditPayload,
   options?: InternalSecurityAuditOptions,
 ): Promise<void> {
-  const secret = process.env.INTERNAL_AUDIT_SECRET;
+  const secret = getInternalApiSecret();
   const base = resolveAuditBaseUrl(options?.origin);
 
   if (!secret) {
-    auditSkipWarn(payload, "missing_INTERNAL_AUDIT_SECRET");
+    auditSkipWarn(payload, "missing_internal_api_secret");
     return;
   }
   if (!base) {
@@ -103,7 +105,7 @@ export async function submitInternalSecurityAuditAsync(
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        "x-internal-audit-secret": secret,
+        [MOSAIK_INTERNAL_SECRET_HEADER]: secret,
       },
       body: JSON.stringify({
         action: payload.action,

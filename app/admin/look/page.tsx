@@ -1,14 +1,10 @@
-import { auth } from "@clerk/nextjs/server";
-import { redirect } from "next/navigation";
 import { getAllLookbookItems, getLookbookSectionVisible } from "@/actions/lookbook";
 import { LookAdminClient } from "@/components/LookAdminClient";
 import { getAdminStoreType } from "@/actions/admin-store";
+import { requireAdmin } from "@/lib/security";
 
 export default async function AdminLookPage() {
-  const { sessionClaims } = await auth();
-  if (sessionClaims?.metadata?.role !== "admin") {
-    redirect("/");
-  }
+  await requireAdmin();
 
   const storeType = await getAdminStoreType();
 

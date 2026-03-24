@@ -1,7 +1,5 @@
 "use server";
 
-import { auth } from "@clerk/nextjs/server";
-import { redirect } from "next/navigation";
 import { headers } from "next/headers";
 import { eq, and } from "drizzle-orm";
 import { db } from "@/db";
@@ -10,6 +8,7 @@ import { checkValidatePromoLimit } from "@/lib/rate-limit";
 import { auditLog } from "@/lib/audit";
 import { z } from "zod";
 import { logger } from "@/lib/logger";
+import { requireAdmin } from "@/lib/security";
 
 const DEFAULT_SHIPPING_FEE = 5;
 
@@ -187,11 +186,7 @@ export async function createPromoCode(formData: FormData): Promise<{ success?: b
     return { success: false, error: errorDetails };
   }
 
-  const { userId, sessionClaims } = await auth();
-  if (!userId || sessionClaims?.metadata?.role !== "admin") {
-    auditLog({ userId: userId ?? null, action: "auth.failed_admin", target: "promo.create" });
-    redirect("/");
-  }
+  const { userId } = await requireAdmin();
 
   const { code, discountType, discountValue, minOrderAmount, maxUses, expiresAt } = parsed.data;
 
@@ -227,11 +222,7 @@ export async function createPromoCode(formData: FormData): Promise<{ success?: b
 
 export async function togglePromoStatus(id: number): Promise<{ error?: string }> {
   const validId = z.number().int().positive().parse(id);
-  const { userId, sessionClaims } = await auth();
-  if (!userId || sessionClaims?.metadata?.role !== "admin") {
-    auditLog({ userId: userId ?? null, action: "auth.failed_admin", target: "promo.toggle_status" });
-    redirect("/");
-  }
+  const { userId } = await requireAdmin();
   const [promo] = await db.select().from(promoCodes).where(eq(promoCodes.id, validId)).limit(1);
   if (!promo) return { error: "Promo not found" };
   await db
@@ -244,11 +235,7 @@ export async function togglePromoStatus(id: number): Promise<{ error?: string }>
 
 export async function deletePromoCode(id: number): Promise<{ error?: string }> {
   const validId = z.number().int().positive().parse(id);
-  const { userId, sessionClaims } = await auth();
-  if (!userId || sessionClaims?.metadata?.role !== "admin") {
-    auditLog({ userId: userId ?? null, action: "auth.failed_admin", target: "promo.delete" });
-    redirect("/");
-  }
+  const { userId } = await requireAdmin();
   const [promo] = await db.select({ code: promoCodes.code }).from(promoCodes).where(eq(promoCodes.id, validId)).limit(1);
   await db.delete(promoCodes).where(eq(promoCodes.id, validId));
   auditLog({ userId, action: "promo.delete", target: String(validId), details: promo ? { code: promo.code } : undefined });

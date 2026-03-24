@@ -128,7 +128,7 @@ If a flaw is fully resolved, you may add a one-line **Status** under that flawâ€
 
 - **SQL injection:** Drizzle parameterized queries; `lib/product-search.ts` sanitizes user tokens before `to_tsquery`; `sql.raw("search_vector")` is a fixed identifier, not user input.
 - **Sessions / access:** Clerk manages session cookies; `/account` and `/admin` protected in middleware; checkout success binds display to `userId` or `orderId` + activation token (`app/checkout/success/page.tsx`, `lib/order-activation.ts`).
-- **Internal API:** `app/api/internal/security-audit/route.ts` gated by `INTERNAL_AUDIT_SECRET`.
+- **Internal API:** `app/api/internal/security-audit/route.ts` gated by `INTERNAL_API_SECRET` (header `x-mosaik-internal-secret`; legacy `INTERNAL_AUDIT_SECRET` if unset).
 - **Uploads:** `lib/security.ts` (type, size, filename); HEIC conversion admin-only (`actions/convertHeic.ts`).
 - **`placeOrder`:** Binds `userId` to the signed-in session when a client claims a user id (`actions/placeOrder.ts`).
 

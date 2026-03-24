@@ -1,8 +1,7 @@
 "use server";
 
-import { auth } from "@clerk/nextjs/server";
-import { redirect } from "next/navigation";
 import convert from "heic-convert";
+import { requireAdmin } from "@/lib/security";
 
 const MAX_BYTES = 5 * 1024 * 1024;
 
@@ -10,10 +9,7 @@ const MAX_BYTES = 5 * 1024 * 1024;
 export async function convertHeicToJpegServer(
   file: File
 ): Promise<{ base64: string } | { error: string }> {
-  const { sessionClaims } = await auth();
-  if (sessionClaims?.metadata?.role !== "admin") {
-    redirect("/");
-  }
+  await requireAdmin();
 
   if (!file?.size) return { error: "No file provided" };
   if (file.size > MAX_BYTES) return { error: "File too large (max 5MB)" };

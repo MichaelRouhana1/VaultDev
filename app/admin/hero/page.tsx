@@ -1,14 +1,10 @@
-import { auth } from "@clerk/nextjs/server";
-import { redirect } from "next/navigation";
 import { getAllHeroImages } from "@/actions/hero";
 import { HeroAdminClient } from "@/components/HeroAdminClient";
 import { getAdminStoreType } from "@/actions/admin-store";
+import { requireAdmin } from "@/lib/security";
 
 export default async function AdminHeroPage() {
-  const { sessionClaims } = await auth();
-  if (sessionClaims?.metadata?.role !== "admin") {
-    redirect("/");
-  }
+  await requireAdmin();
 
   const storeType = await getAdminStoreType();
   const allImages = await getAllHeroImages();

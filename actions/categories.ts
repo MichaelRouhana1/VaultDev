@@ -1,8 +1,6 @@
 "use server";
 
 import { cache } from "react";
-import { auth } from "@clerk/nextjs/server";
-import { redirect } from "next/navigation";
 import { asc, eq, inArray, and } from "drizzle-orm";
 import { db } from "@/db";
 import { productCategories } from "@/db/schema";
@@ -16,6 +14,7 @@ export type ProductCategory = typeof productCategories.$inferSelect;
 import { z } from "zod";
 import { categorySchema } from "@/lib/schemas";
 import { logger } from "@/lib/logger";
+import { requireAdmin } from "@/lib/security";
 
 /** Valid slugs for shop filtering (from DB) */
 export const getValidCategorySlugs = cache(async (): Promise<string[]> => {
@@ -80,11 +79,7 @@ export const getCategoriesForHome = cache(async (storeType: string): Promise<Pro
 
 /** Admin: get all categories */
 export async function getAllCategories(): Promise<ProductCategory[]> {
-  const { userId, sessionClaims } = await auth();
-  if (sessionClaims?.metadata?.role !== "admin") {
-    auditLog({ userId: userId ?? null, action: "auth.failed_admin", target: "category.list" });
-    redirect("/");
-  }
+  await requireAdmin();
   return getCategories();
 }
 
@@ -121,11 +116,7 @@ export async function createCategory(formData: FormData): Promise<{ success?: bo
     return { success: false, error: "Too many requests. Please wait before trying again." };
   }
 
-  const { userId, sessionClaims } = await auth();
-  if (sessionClaims?.metadata?.role !== "admin") {
-    auditLog({ userId: userId ?? null, action: "auth.failed_admin", target: "category.create" });
-    redirect("/");
-  }
+  const { userId } = await requireAdmin();
 
   const { slug, label, showOnHome, parentId, level, storeType } = parsed.data;
   const imageFile = formData.get("image") as File | null;
@@ -209,11 +200,7 @@ export async function updateCategory(
     return { success: false, error: "Too many requests. Please wait before trying again." };
   }
 
-  const { userId, sessionClaims } = await auth();
-  if (sessionClaims?.metadata?.role !== "admin") {
-    auditLog({ userId: userId ?? null, action: "auth.failed_admin", target: "category.update" });
-    redirect("/");
-  }
+  const { userId } = await requireAdmin();
 
   const { slug, label, showOnHome, parentId, level, storeType } = parsed.data;
   const imageFile = formData.get("image") as File | null;
@@ -249,11 +236,7 @@ export async function updateCategory(
 
 /** Admin: delete category */
 export async function deleteCategory(id: number): Promise<{ error?: string }> {
-  const { userId, sessionClaims } = await auth();
-  if (sessionClaims?.metadata?.role !== "admin") {
-    auditLog({ userId: userId ?? null, action: "auth.failed_admin", target: "category.delete" });
-    redirect("/");
-  }
+  const { userId } = await requireAdmin();
 
   const validId = z.number().int().positive().parse(id);
 

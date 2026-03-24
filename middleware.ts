@@ -7,6 +7,7 @@ import {
   logAuthRedisError,
   submitInternalSecurityAuditAsync,
 } from "@/lib/internal-security-audit-ingest";
+import { getInternalApiSecret, MOSAIK_INTERNAL_SECRET_HEADER } from "@/lib/internal-api-secret";
 
 let redis: Redis | null = null;
 try {
@@ -49,14 +50,14 @@ export default clerkMiddleware(async (auth, req) => {
         req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ??
         req.headers.get("x-real-ip") ??
         "";
-      const secret = process.env.INTERNAL_AUDIT_SECRET;
+      const secret = getInternalApiSecret();
       if (secret) {
         const origin = req.nextUrl.origin;
         void fetch(`${origin}/api/internal/security-audit`, {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
-            "x-internal-audit-secret": secret,
+            [MOSAIK_INTERNAL_SECRET_HEADER]: secret,
           },
           body: JSON.stringify({
             action: "AUTH_FAILED_ADMIN",

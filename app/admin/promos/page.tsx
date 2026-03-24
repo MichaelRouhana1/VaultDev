@@ -1,16 +1,12 @@
-import { auth } from "@clerk/nextjs/server";
-import { redirect } from "next/navigation";
 import Link from "next/link";
 import { db } from "@/db";
 import { promoCodes } from "@/db/schema";
 import { desc } from "drizzle-orm";
 import { PromosTable } from "./PromosTable";
+import { requireAdmin } from "@/lib/security";
 
 export default async function AdminPromosPage() {
-  const { sessionClaims } = await auth();
-  if (sessionClaims?.metadata?.role !== "admin") {
-    redirect("/");
-  }
+  await requireAdmin();
 
   const codes = await db.select().from(promoCodes).orderBy(desc(promoCodes.id));
 

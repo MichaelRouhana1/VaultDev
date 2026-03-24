@@ -1,4 +1,5 @@
 import { insertAuditLogRow } from "@/lib/audit";
+import { getInternalApiSecret, MOSAIK_INTERNAL_SECRET_HEADER } from "@/lib/internal-api-secret";
 import { z } from "zod";
 
 const bodySchema = z.object({
@@ -9,11 +10,13 @@ const bodySchema = z.object({
 });
 
 /**
- * Edge-safe ingestion: middleware calls this with a shared secret (Node runtime = DB access).
+ * Node-only ingestion: middleware / lib call this with `INTERNAL_API_SECRET` (or legacy `INTERNAL_AUDIT_SECRET`)
+ * in header `x-mosaik-internal-secret`.
  */
 export async function POST(req: Request) {
-  const secret = process.env.INTERNAL_AUDIT_SECRET;
-  if (!secret || req.headers.get("x-internal-audit-secret") !== secret) {
+  const secret = getInternalApiSecret();
+  const headerSecret = req.headers.get(MOSAIK_INTERNAL_SECRET_HEADER);
+  if (!secret || headerSecret !== secret) {
     return new Response("Unauthorized", { status: 401 });
   }
 

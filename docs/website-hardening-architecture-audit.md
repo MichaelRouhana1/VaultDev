@@ -3,27 +3,27 @@
 **Scope:** Next.js 15 (App Router), React 19, Drizzle ORM, Clerk, Supabase/R2, Upstash Redis (optional).  
 **Method:** Review of `package.json`, `middleware.ts`, `next.config.ts`, `db/schema.ts`, security utilities, API routes, critical server actions, and representative storefront/admin flows.  
 **Date:** 2025-03-23  
-**Update:** 2025-03-23 — PostHog analytics removed from the codebase (no third-party analytics SDK; CSP `connect-src` no longer whitelists PostHog).
+**Update:** 2025-03-23 — PostHog removed; activation cookies; internal audit header `x-mosaik-internal-secret`; account deletion + audit redaction; centralized `requireAdmin` / `requireAdminAction`.
 
 ## Executive summary
 
-The codebase shows deliberate OWASP-oriented choices: Clerk for auth, Drizzle for parameterized queries, Zod on several boundaries, CSP with nonces wired into `ClerkProvider`, security headers in `next.config.ts`, admin gating in middleware plus server actions/layout, and optional Redis-backed rate limiting. The strongest residual risks are **secret-bearing URLs** (activation tokens) and **operational fail-open behavior** when Redis is down or unset. Several items below are **configuration or process** risks rather than code bugs.
+The codebase shows deliberate OWASP-oriented choices: Clerk for auth, Drizzle for parameterized queries, Zod on several boundaries, CSP with nonces wired into `ClerkProvider`, security headers in `next.config.ts`, admin gating in middleware plus server actions/layout, and optional Redis-backed rate limiting. The strongest **remaining** operational risk is **fail-open rate limiting** when Redis is down or unset. Configuration risks (Clerk JWT admin claims) remain a process concern.
 
 **[RESOLVED: PostHog Analytics has been completely removed from the codebase, eliminating the third-party data leak vector that previously could have captured full URLs (including activation query parameters) in analytics.]**
+
+**[RESOLVED: Guest activation tokens on `/checkout/success` and `/activate-account` are carried in HttpOnly cookies after checkout or the email verify hop; see `lib/order-activation-cookies.ts` and `/api/auth/verify`.]**
 
 ---
 
 ## 1. Security & Privacy
 
-### 1.1 Activation token exposed in query string (checkout success & email links)
+### 1.1 ~~Activation token exposed in query string~~ — **RESOLVED** (checkout / activate pages)
 
 | Field | Detail |
 |--------|--------|
-| **The Flaw** | Guest order activation uses a UUID passed as the `key` query parameter on `/checkout/success` and as `token` on `/activate-account`. Sensitive tokens in URLs are logged by proxies, visible in browser history, and may leak via the `Referer` header to third parties. |
-| **Location** | `components/CheckoutForm.tsx` (redirect builds `key=`); `app/checkout/success/page.tsx`; `app/activate-account/page.tsx`; email templates if they embed the same pattern (`lib/resend.ts` or related). |
-| **Risk Level** | **High** |
-| **The Why** | Anyone with the URL can complete account takeover steps for that order window. Leaks amplify via support screenshots, shared links, and referrer leakage to any *future* third-party scripts or tools that record URLs. |
-| **Recommendation** | Prefer a **short-lived, HttpOnly cookie** set server-side after validating token once, or a **POST + session** pattern; keep tokens out of query strings. If analytics or error reporting is reintroduced, never forward raw query strings containing `key` / `token`. |
+| **Status** | HttpOnly cookies (`mosaik_activation_token`, `mosaik_activation_order_id`) plus `/api/auth/verify` email handoff. |
+| **Prior risk** | Tokens in `?key=` / `?token=` on success and activate pages. |
+| **Risk Level** | **N/A** (mitigated for in-app flows; email still uses a one-click URL to `/api/auth/verify` only) |
 
 ### 1.2 ~~PostHog (or similar) may record full URLs including secrets~~ — **RESOLVED**
 
@@ -43,22 +43,22 @@ The codebase shows deliberate OWASP-oriented choices: Clerk for auth, Drizzle fo
 | **The Why** | Attackers can brute-force promos, place-order spam, or hammer admin routes during Redis outages or misconfiguration. |
 | **Recommendation** | For production, add **fail-closed** or stricter caps for sensitive actions when Redis is unavailable (e.g. allow only with lower concurrency via in-memory token bucket per instance, or edge/WAF rate limits). Document the tradeoff explicitly in runbooks. |
 
-### 1.4 Internal audit ingestion has no application-layer rate limit
+### 1.4 ~~Internal audit ingestion~~ — **RESOLVED** (secret header); optional rate limit still open
 
 | Field | Detail |
 |--------|--------|
-| **The Flaw** | `/api/internal/security-audit` accepts POSTs authenticated only by `INTERNAL_AUDIT_SECRET` with no per-IP or global throttle in the route. |
-| **Location** | `app/api/internal/security-audit/route.ts` |
-| **Risk Level** | **Low** (becomes **Medium** if the shared secret is ever exposed) |
-| **The Why** | A leaked secret enables unbounded writes to `audit_logs`, causing storage exhaustion and log integrity noise. |
-| **Recommendation** | Add rate limiting (Redis or middleware) keyed by secret hash + IP; cap body size; consider mutual TLS or private network-only exposure in production. |
+| **Status** | **[RESOLVED]** for anonymous abuse: `POST /api/internal/security-audit` returns **401** unless header **`x-mosaik-internal-secret`** matches **`INTERNAL_API_SECRET`** (legacy: **`INTERNAL_AUDIT_SECRET`** if unset). Middleware and `lib/internal-security-audit-ingest.ts` send this header (`lib/internal-api-secret.ts`). |
+| **Remaining (optional)** | Per-IP / global rate limit on the route still recommended if the secret were ever leaked. |
+| **Location** | `app/api/internal/security-audit/route.ts`; `lib/internal-security-audit-ingest.ts`; `middleware.ts` |
+| **Prior risk** | Unguarded endpoint allowed DB spam. |
+| **Risk Level** | **Low** with secret enforced; **Medium** if secret leaks (mitigate with rotation + rate limits). |
 
 ### 1.5 Admin role depends on Clerk JWT / session claims configuration
 
 | Field | Detail |
 |--------|--------|
 | **The Flaw** | Admin checks use `sessionClaims?.metadata?.role === "admin"` (middleware and `lib/security.ts`). If the Clerk JWT template omits `metadata`, no one is admin; if mis-mapped, privilege escalation is possible. |
-| **Location** | `middleware.ts`; `lib/security.ts`; various server actions using `auth()` + `sessionClaims`. |
+| **Location** | `middleware.ts`; `lib/security.ts` (`checkAdminSession`); app code should use `requireAdmin` / `requireAdminAction` only. |
 | **Risk Level** | **Medium** (operational / **Critical** if dashboard misconfiguration ships to prod) |
 | **The Why** | Broken access control is OWASP #1; misconfiguration is a common root cause. |
 | **Recommendation** | Treat as **infrastructure-as-code**: document required Clerk settings (`docs/clerk-roles.md`), add a startup or CI check that verifies claims shape in a staging environment, and keep defense in depth (middleware + layout + each mutating action). |
@@ -87,15 +87,13 @@ The codebase shows deliberate OWASP-oriented choices: Clerk for auth, Drizzle fo
 
 ## 2. Development Practices & Code Quality
 
-### 2.1 Inconsistent admin authorization primitives
+### 2.1 ~~Inconsistent admin authorization primitives~~ — **RESOLVED**
 
 | Field | Detail |
 |--------|--------|
-| **The Flaw** | Some paths use `requireAdmin` / `requireAdminAction`; others inline `sessionClaims?.metadata?.role !== "admin"` with `redirect` or `{ ok: false }`. |
-| **Location** | e.g. `actions/categories.ts`, `actions/landing.ts`, `actions/getAuditLogs.ts`, `actions/adminNotifications.ts` vs `lib/security.ts` helpers. |
-| **Risk Level** | **Low** (maintainability / consistency) |
-| **The Why** | New endpoints may copy the wrong pattern and skip audit logging or standardized error shapes. |
-| **Recommendation** | Standardize on `requireAdmin` / `requireAdminAction` everywhere; optionally wrap “return Forbidden JSON” in one helper for read-only admin APIs. |
+| **Status** | **[RESOLVED]** Admin server actions and RSC admin pages use **`requireAdmin()`** (redirect) or **`requireAdminAction()`** (JSON + optional `auth.failed_admin` audit) from `lib/security.ts`. Middleware retains the direct `sessionClaims` check (Edge-appropriate). |
+| **Prior locations** | e.g. `actions/categories.ts`, `actions/landing.ts`, `actions/promo.ts`, `actions/getAuditLogs.ts`, `app/admin/*/page.tsx`. |
+| **Risk Level** | **N/A** (consistency issue addressed) |
 
 ### 2.2 TypeScript strictness
 
@@ -179,15 +177,14 @@ The codebase shows deliberate OWASP-oriented choices: Clerk for auth, Drizzle fo
 
 ## 5. Privacy & Compliance
 
-### 5.1 Account deletion and “right to be forgotten”
+### 5.1 ~~Account deletion and “right to be forgotten” (audit_logs)~~ — **RESOLVED** (in-app DB scope)
 
 | Field | Detail |
 |--------|--------|
-| **The Flaw** | `deleteAccount` removes wishlists, anonymizes order PII for that user’s orders, and deletes the Clerk user. Residual identifiers may remain in `audit_logs`, backups, or email provider logs. |
-| **Location** | `actions/deleteAccount.ts`; `lib/audit` usage |
-| **Risk Level** | **Medium** (compliance completeness) |
-| **The Why** | GDPR/CCPA expectations often include logs and third-party processors. |
-| **Recommendation** | Document retention for `audit_logs` (existing cleanup UI noted in repo); extend deletion to anonymize audit rows for that `userId` where legal basis allows; align Resend (and any future analytics) deletion policies. |
+| **Status** | **[RESOLVED]** for `audit_logs`: `deleteAccount` runs in a **transaction** that anonymizes rows where `user_id` matches the Clerk user, merges a `subjectPiiRedacted` flag into `details` where `details.target` or `details.email` matches the user, then anonymizes `orders` and deletes the Clerk user. Backups, Resend, and other processors remain out of band. |
+| **Location** | `actions/deleteAccount.ts` |
+| **Risk Level** | **Low** for DB trail; **Medium** until third-party retention is documented. |
+| **Recommendation** | Document Resend/email retention; align backup policies. |
 
 ### 5.2 Admin contact export
 
@@ -221,7 +218,7 @@ The codebase shows deliberate OWASP-oriented choices: Clerk for auth, Drizzle fo
 | **Location** | Cross-cutting |
 | **Risk Level** | **Low** (positive) |
 | **The Why** | Good separation reduces security mistakes. |
-| **Recommendation** | Keep secrets server-only (`R2_*`, `DATABASE_URL`, `INTERNAL_AUDIT_SECRET`); continue documenting in `.env.example` without values. |
+| **Recommendation** | Keep secrets server-only (`R2_*`, `DATABASE_URL`, **`INTERNAL_API_SECRET`**); document in `.env.example`. |
 
 ### 6.2 Single points of failure
 
@@ -247,21 +244,23 @@ The codebase shows deliberate OWASP-oriented choices: Clerk for auth, Drizzle fo
 
 ## Positive controls (summary)
 
-- **Broken access control mitigation:** Middleware + `app/admin/layout.tsx` `requireAdmin()` + server action checks for mutations.  
+- **Broken access control mitigation:** Middleware + `app/admin/layout.tsx` `requireAdmin()` + `requireAdmin` / `requireAdminAction` on mutations and sensitive reads.  
 - **Input validation:** Zod on orders, promos, registration-from-order, internal audit body.  
 - **XSS:** React text rendering for product descriptions; `escapeHtml` / `validateHref` utilities in `lib/security.ts`.  
 - **Headers:** `X-Frame-Options`, `nosniff`, `Referrer-Policy`, `Permissions-Policy`, HSTS in production (`next.config.ts`).  
 - **CSP + Clerk nonce:** `middleware.ts` + `app/layout.tsx` passing `nonce` to `ClerkProvider`.  
 - **Order placement:** `placeOrder` binds `userId` only when `claimedUserId === sessionUserId` (`actions/placeOrder.ts`).  
-- **No bundled third-party analytics:** PostHog removed; fewer scripts and no analytics `connect-src` allowance.
+- **No bundled third-party analytics:** PostHog removed; fewer scripts and no analytics `connect-src` allowance.  
+- **Internal audit route:** Requires `x-mosaik-internal-secret` + `INTERNAL_API_SECRET` (or legacy env).  
+- **Account deletion:** `audit_logs` rows tied to the user are redacted in a transaction.
 
 ---
 
 ## Suggested priority order
 
-1. **High:** Remove activation secrets from URLs (tokens in query strings remain the main high-priority privacy/auth-flow risk).  
-2. **Medium:** Clarify fail-open rate limiting for production; extend account deletion to audit/third-party retention story.  
-3. **Low:** Unify admin auth helpers; tighten internal audit route abuse; CSP/style hardening as incremental work.
+1. **Medium:** Clarify **fail-open rate limiting** for production (Redis down) and add WAF/alternate caps if needed.  
+2. **Low:** Optional rate limit on `/api/internal/security-audit` if secret rotation policy is weak; CSP/style hardening; audit-log export of contacts.  
+3. **Ongoing:** Clerk JWT / admin role configuration checks in staging.
 
 ---
 

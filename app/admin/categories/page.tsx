@@ -1,14 +1,10 @@
-import { auth } from "@clerk/nextjs/server";
-import { redirect } from "next/navigation";
 import { getAllCategories } from "@/actions/categories";
 import { CategoriesAdminClient } from "@/components/CategoriesAdminClient";
 import { getAdminStoreType } from "@/actions/admin-store";
+import { requireAdmin } from "@/lib/security";
 
 export default async function AdminCategoriesPage() {
-  const { sessionClaims } = await auth();
-  if (sessionClaims?.metadata?.role !== "admin") {
-    redirect("/");
-  }
+  await requireAdmin();
 
   const allCategories = await getAllCategories();
   const storeType = await getAdminStoreType();

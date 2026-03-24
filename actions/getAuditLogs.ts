@@ -1,10 +1,10 @@
 "use server";
 
-import { auth } from "@clerk/nextjs/server";
 import { count, desc, eq } from "drizzle-orm";
 import { db } from "@/db";
 import { auditLogs } from "@/db/schema";
 import type { AuditLogRow } from "@/db/schema";
+import { requireAdminAction } from "@/lib/security";
 
 const PAGE_SIZE = 50;
 
@@ -16,9 +16,9 @@ export async function getAuditLogs(options?: {
   action?: string | null;
   page?: number;
 }): Promise<GetAuditLogsResult> {
-  const { sessionClaims } = await auth();
-  if (sessionClaims?.metadata?.role !== "admin") {
-    return { ok: false, error: "Forbidden" };
+  const gate = await requireAdminAction({ auditTarget: "audit.logs.read" });
+  if (!gate.authorized) {
+    return { ok: false, error: gate.response.error };
   }
 
   const page = Math.max(1, options?.page ?? 1);

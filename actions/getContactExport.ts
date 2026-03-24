@@ -1,8 +1,8 @@
 "use server";
 
-import { auth } from "@clerk/nextjs/server";
 import { db } from "@/db";
 import { orders } from "@/db/schema";
+import { requireAdminAction } from "@/lib/security";
 
 export type ContactExportResult =
   | { ok: true; emails: string[]; phones: string[] }
@@ -13,9 +13,9 @@ export type ContactExportResult =
  * Admin-only.
  */
 export async function getContactExport(): Promise<ContactExportResult> {
-  const { sessionClaims } = await auth();
-  if (sessionClaims?.metadata?.role !== "admin") {
-    return { ok: false, error: "Forbidden" };
+  const gate = await requireAdminAction({ auditTarget: "contact.export" });
+  if (!gate.authorized) {
+    return { ok: false, error: gate.response.error };
   }
 
   const rows = await db

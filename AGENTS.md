@@ -21,7 +21,7 @@ VAULT is a fashion e-commerce Next.js 15 app (App Router, Turbopack, React 19, T
 | `RESEND_API_KEY` | Optional — order emails |
 | `UPSTASH_REDIS_REST_URL` | Optional — Upstash Redis for rate limiting |
 | `UPSTASH_REDIS_REST_TOKEN` | Optional — Upstash Redis token |
-| `INTERNAL_AUDIT_SECRET` | Optional — shared secret so Edge middleware can persist admin access denials to `audit_logs` via `/api/internal/security-audit` |
+| `INTERNAL_API_SECRET` | Optional — shared secret for `x-mosaik-internal-secret` when calling `/api/internal/security-audit` (middleware + `lib/internal-security-audit-ingest.ts`). Legacy: `INTERNAL_AUDIT_SECRET` is read if this is unset. |
 
 These must be written to `.env.local` before the app can start. See `.env.example` for a template. The update script handles this automatically from injected environment variables.
 
