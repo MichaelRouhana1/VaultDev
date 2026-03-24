@@ -9,6 +9,7 @@ export const AUDIT_LOG_FILTER_OPTIONS: { value: string; label: string }[] = [
   { value: "BULK_DISCOUNT", label: "Bulk discount" },
   { value: "STOCK_OVERRIDE", label: "Stock override" },
   { value: "RETENTION_CLEANUP", label: "Retention cleanup" },
+  { value: "ADMIN_EXPORTED_CONTACTS", label: "Admin contact export (PII)" },
 ];
 
 export function getAuditActionBadgeClass(action: string): string {
@@ -22,6 +23,7 @@ export function getAuditActionBadgeClass(action: string): string {
     case "BULK_DISCOUNT":
     case "STOCK_OVERRIDE":
     case "RETENTION_CLEANUP":
+    case "ADMIN_EXPORTED_CONTACTS":
       return "bg-amber-500/15 text-amber-800 dark:text-amber-300 border border-amber-500/35";
     default:
       return "bg-muted text-muted-foreground border border-border";
@@ -49,6 +51,7 @@ export function getAuditActionLabel(
     RATE_LIMIT_EXCEEDED: "Rate limit exceeded",
     AUTH_REDIS_ERROR: "Rate limit (Redis) error",
     RETENTION_CLEANUP: "Retention cleanup (pruned old logs)",
+    ADMIN_EXPORTED_CONTACTS: "Admin exported guest contacts (emails & phones)",
   };
   return staticLabels[action] ?? action.replace(/_/g, " ");
 }

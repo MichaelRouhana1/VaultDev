@@ -35,7 +35,9 @@ export type AuditAction =
   /** Manual inventory changes from the product editor (persisted as STOCK_OVERRIDE). */
   | "stock.override"
   /** Retention prune of audit_logs + read notifications (Security logs maintenance). */
-  | "retention.cleanup";
+  | "retention.cleanup"
+  /** Bulk guest email/phone export from orders (admin Security Logs UI). */
+  | "contact.export";
 
 export interface AuditEntry {
   timestamp: string;
@@ -85,6 +87,9 @@ export function mapAuditEntryToPersistedRow(
   switch (entry.action) {
     case "auth.failed_admin":
       action = "AUTH_FAILED_ADMIN";
+      break;
+    case "contact.export":
+      action = "ADMIN_EXPORTED_CONTACTS";
       break;
     case "bulk_discount.apply":
     case "bulk_discount.remove":

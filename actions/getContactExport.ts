@@ -2,6 +2,7 @@
 
 import { db } from "@/db";
 import { orders } from "@/db/schema";
+import { auditLog } from "@/lib/audit";
 import { requireAdminAction } from "@/lib/security";
 
 export type ContactExportResult =
@@ -47,6 +48,18 @@ export async function getContactExport(): Promise<ContactExportResult> {
     a.toLowerCase().localeCompare(b.toLowerCase()),
   );
   const phones = Array.from(phoneSet).sort((a, b) => a.localeCompare(b));
+
+  auditLog({
+    userId: gate.userId,
+    action: "contact.export",
+    target: "orders",
+    details: {
+      count: emails.length + phones.length,
+      emailCount: emails.length,
+      phoneCount: phones.length,
+      sourceOrderRows: rows.length,
+    },
+  });
 
   return { ok: true, emails, phones };
 }
