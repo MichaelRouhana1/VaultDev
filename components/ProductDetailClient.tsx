@@ -14,7 +14,6 @@ import {
   type CarouselApi,
 } from "@/components/ui/carousel";
 import { getProductDisplayPrice, isProductOnSale } from "@/lib/utils";
-import { usePostHog } from "posthog-js/react";
 import type { Product, ProductVariant, ProductColor } from "@/db/schema";
 
 const DEFAULT_SIZES = ["XS", "S", "M", "L", "XL"];
@@ -41,7 +40,6 @@ export function ProductDetailClient({
   const router = useRouter();
   const searchParams = useSearchParams();
   const { addToCart, openCart } = useCart();
-  const posthog = usePostHog();
   const { isInWishlist, hasHydrated, toggleItem } = useWishlist();
   const wishlistState = hasHydrated ? isInWishlist(product.id) : initialInWishlist;
   const [selectedSize, setSelectedSize] = useState<string | null>(null);
@@ -229,18 +227,6 @@ export function ProductDetailClient({
           ? `${product.id}-${selectedColor.id}-${selectedSize}`
           : undefined,
     });
-    try {
-      posthog?.capture("add_to_cart", {
-        product_id: product.id,
-        product_name: product.name,
-        price: displayPrice,
-        size: selectedSize,
-        color: colorName,
-        store_type: product.storeType
-      });
-    } catch {
-      // ignore
-    }
     openCart();
   };
 

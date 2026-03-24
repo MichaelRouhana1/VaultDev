@@ -7,7 +7,6 @@ import { setAdminStoreType } from "@/actions/admin-store";
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import { toast } from "sonner";
-import { usePostHog } from "posthog-js/react";
 
 interface AdminHeaderProps {
   onMenuClick?: () => void;
@@ -20,21 +19,11 @@ export function AdminHeader({ onMenuClick, initialStore }: AdminHeaderProps) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [currentStore, setCurrentStore] = useState(initialStore);
-  const posthog = usePostHog();
 
   const email = user?.primaryEmailAddress?.emailAddress ?? "admin@vault.com";
 
   const toggleStore = async (newStore: "streetwear" | "formal") => {
     if (newStore === currentStore) return;
-    try {
-      posthog?.capture("store_toggle", {
-        from_store: currentStore,
-        to_store: newStore,
-        actor: "admin",
-      });
-    } catch {
-      // Gracefully ignore
-    }
     const previous = currentStore;
     setCurrentStore(newStore);
     startTransition(async () => {

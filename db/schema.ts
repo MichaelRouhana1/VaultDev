@@ -1,3 +1,5 @@
+import { sql } from "drizzle-orm";
+import { relations } from "drizzle-orm";
 import {
   pgTable,
   serial,
@@ -9,8 +11,9 @@ import {
   pgEnum,
   index,
   jsonb,
+  AnyPgColumn,
+  customType,
 } from "drizzle-orm/pg-core";
-import { relations } from "drizzle-orm";
 
 // Enums
 export const productCategoryEnum = pgEnum("product_category", [
@@ -47,9 +50,14 @@ export const promoDiscountTypeEnum = pgEnum("promo_discount_type", [
   "FREE_SHIPPING",
 ]);
 
-// Product categories - admin-managed, slug used for shop filtering
-import { AnyPgColumn } from "drizzle-orm/pg-core";
+/** Matches `drizzle/0006_add_product_search_vector.sql` — keep in sync so `drizzle-kit push` does not drop the column. */
+const tsvector = customType<{ data: unknown; driverData: unknown }>({
+  dataType() {
+    return "tsvector";
+  },
+});
 
+// Product categories - admin-managed, slug used for shop filtering
 export const productCategories = pgTable("product_categories", {
   id: serial("id").primaryKey(),
   slug: text("slug").notNull().unique(),
@@ -72,6 +80,12 @@ export const products = pgTable("products", {
   id: serial("id").primaryKey(),
   name: text("name").notNull(),
   description: text("description"),
+  /** Generated STORED column for FTS — do not insert/update from app code. */
+  searchVector: tsvector("search_vector").generatedAlwaysAs(
+    sql.raw(
+      "to_tsvector('english', coalesce(name, '') || ' ' || coalesce(description, ''))",
+    ),
+  ),
   price: decimal("price", { precision: 10, scale: 2 }).notNull(),
   salePrice: decimal("sale_price", { precision: 10, scale: 2 }),
   saleStartsAt: timestamp("sale_starts_at"),
@@ -87,6 +101,7 @@ export const products = pgTable("products", {
   index("products_store_type_visible_idx").on(t.storeType, t.isVisible),
   /** Filter by category slug on shop */
   index("products_category_slug_idx").on(t.categorySlug),
+  index("products_search_vector_idx").using("gin", t.searchVector),
 ]);
 
 // Product colors - each color has its own image gallery

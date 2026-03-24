@@ -22,8 +22,6 @@ VAULT is a fashion e-commerce Next.js 15 app (App Router, Turbopack, React 19, T
 | `UPSTASH_REDIS_REST_URL` | Optional — Upstash Redis for rate limiting |
 | `UPSTASH_REDIS_REST_TOKEN` | Optional — Upstash Redis token |
 | `INTERNAL_AUDIT_SECRET` | Optional — shared secret so Edge middleware can persist admin access denials to `audit_logs` via `/api/internal/security-audit` |
-| `NEXT_PUBLIC_POSTHOG_KEY` | Optional — PostHog analytics |
-| `NEXT_PUBLIC_POSTHOG_HOST` | Optional — PostHog API host (default: https://us.i.posthog.com) |
 
 These must be written to `.env.local` before the app can start. See `.env.example` for a template. The update script handles this automatically from injected environment variables.
 

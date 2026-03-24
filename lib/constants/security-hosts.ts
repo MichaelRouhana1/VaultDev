@@ -42,22 +42,6 @@ export function getR2PublicHostname(): string | null {
   return parseHttpsHostname(process.env.NEXT_PUBLIC_R2_PUBLIC_URL);
 }
 
-/**
- * PostHog API origin for connect-src (only when configured).
- * Omit when removing analytics — leave env unset and nothing is added.
- */
-export function getPostHogConnectOrigin(): string | null {
-  const raw = process.env.NEXT_PUBLIC_POSTHOG_HOST?.trim();
-  if (!raw) return null;
-  try {
-    const u = new URL(raw.includes("://") ? raw : `https://${raw}`);
-    if (u.protocol !== "https:" && u.protocol !== "http:") return null;
-    return `${u.protocol}//${u.hostname}${u.port ? `:${u.port}` : ""}`;
-  } catch {
-    return null;
-  }
-}
-
 /** https:// + host for CSP (exact project) or wildcard fallback when env missing. */
 export function getSupabaseCspImgSources(): string[] {
   const h = getSupabaseHostname();
@@ -152,8 +136,6 @@ export function buildContentSecurityPolicy(nonce: string): string {
     ...CLERK_WSS_ORIGINS,
     ...getSupabaseCspConnectSources(),
   ];
-  const posthog = getPostHogConnectOrigin();
-  if (posthog) connectParts.push(posthog);
 
   const connectSrc = joinCspSources(connectParts);
 

@@ -48,11 +48,6 @@ Comprehensive documentation of every route, component, and feature in the VAULT 
 - **Toggle Wishlist:** `checkToggleWishlistLimit(userId)`.
 - **Sensitive Ops:** `checkSensitiveOperationLimit(identifier)` for other admin operations.
 
-### PostHog Analytics
-- **Provider:** `PostHogProvider` — initializes when `NEXT_PUBLIC_POSTHOG_KEY` is set.
-- **Pageviews:** Manual `$pageview` capture on `pathname` and `searchParams` changes.
-- **Events:** `add_to_cart`, `initiate_checkout` (and others where `usePostHog()` is used).
-
 ### Content Security Policy (CSP)
 - **Middleware:** Sets CSP headers with nonce for scripts; production uses `'strict-dynamic'`, dev adds `'unsafe-eval'`.
 - **Nonce:** Passed to Clerk via `headers().get("x-nonce")` in root layout.
@@ -68,7 +63,7 @@ Comprehensive documentation of every route, component, and feature in the VAULT 
 
 ### Root Layout
 - **File:** `app/layout.tsx`
-- **Providers:** ClerkProvider, ThemeProvider, PostHogProvider, CartProvider.
+- **Providers:** ClerkProvider, ThemeProvider, WishlistProvider, WishlistSyncProvider, CartProvider.
 - **UI:** Skip-to-content link, Navbar, main content `#main-content`, Toaster (sonner).
 
 ### Global Styling
@@ -198,7 +193,7 @@ Comprehensive documentation of every route, component, and feature in the VAULT 
 
 ### Logic & Actions
 - **Basket:** `useCart()` — `items`, `removeFromCart`, `updateQuantity`, `totalPrice`.
-- **Process Order:** Navigates to `/checkout?cart=<JSON>`; PostHog `initiate_checkout`.
+- **Process Order:** Navigates to `/checkout?cart=<JSON>`.
 - **Wishlist:** Server-fetched from `wishlists` + `products` for signed-in user.
 
 ### State Management
@@ -314,7 +309,6 @@ Comprehensive documentation of every route, component, and feature in the VAULT 
 ### UI Elements
 - Store type badge: "Managing: streetwear | formal".
 - **Stat Cards:** Products (per store), Global Orders, Global Revenue (30D), Global Orders (7D).
-- **AnalyticsStatus** — PostHog status indicator.
 - **Recent Orders Table:** ID, email, total, date, "View" link.
 
 ### Logic & Actions
@@ -496,7 +490,7 @@ Comprehensive documentation of every route, component, and feature in the VAULT 
 | `Navbar` | Main nav: logo, Shop drawer, Search, theme toggle, Account, Cart icon. Hidden on `/`, `/admin`, `/sign-in`, `/sign-up`. |
 | `CartDrawer` | Slide-out cart from CartContext; quantity controls, "Proceed to Checkout". |
 | `ShopDrawer` | Slide-out shop menu with category links. |
-| `ProductCard` | Product image, wishlist heart, size overlay, add-to-cart, color swatches. Uses `toggleWishlist`, `addToCart`, PostHog. |
+| `ProductCard` | Product image, wishlist heart, size overlay, add-to-cart, color swatches. Uses `toggleWishlist`, `addToCart`. |
 | `HeroCarousel` | Hero image carousel with dots/nav. |
 | `HeroFallback` | Fallback hero when no hero images. |
 | `CategoryGrid` | Category tiles with links. |

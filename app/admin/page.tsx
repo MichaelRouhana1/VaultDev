@@ -3,7 +3,6 @@ import { db } from "@/db";
 import { products, orders } from "@/db/schema";
 import { sql, desc, gte, eq } from "drizzle-orm";
 import { getAdminStoreType } from "@/actions/admin-store";
-import { AnalyticsStatus } from "@/components/admin/AnalyticsStatus";
 
 export default async function AdminDashboardPage() {
   const storeType = await getAdminStoreType();
@@ -61,7 +60,6 @@ export default async function AdminDashboardPage() {
         />
         <StatCard title="Global Revenue (30D)" value={`$${revenue30dValue.toFixed(2)}`} />
         <StatCard title="Global Orders (7D)" value={orders7dCount} />
-        <AnalyticsStatus />
       </div>
 
       <section>

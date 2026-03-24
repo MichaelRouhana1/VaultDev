@@ -4,7 +4,6 @@ import { useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { usePostHog } from "posthog-js/react";
 import { useCart } from "@/context/CartContext";
 import { useWishlist } from "@/context/WishlistContext";
 import { getProductDisplayPrice, isProductOnSale, getProductDiscountPercent } from "@/lib/utils";
@@ -29,7 +28,6 @@ export function ProductCard({
   compact = false,
 }: ProductCardProps) {
   const pathname = usePathname();
-  const posthog = usePostHog();
   const { addToCart, openCart } = useCart();
   const { isInWishlist, hasHydrated, toggleItem } = useWishlist();
 
@@ -109,18 +107,6 @@ export function ProductCard({
       productImage,
       productColor: colorName,
     });
-    try {
-      posthog?.capture("add_to_cart", {
-        product_id: product.id,
-        product_name: product.name,
-        price: displayPrice,
-        size,
-        color: colorName,
-        store_type: product.storeType,
-      });
-    } catch {
-      // Graceful degradation
-    }
     openCart();
   };
 
