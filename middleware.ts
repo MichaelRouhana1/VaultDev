@@ -27,7 +27,9 @@ function shouldSkipSiteBasicAuth(req: NextRequest): boolean {
   }
   const secret = getInternalApiSecret();
   if (!secret) return false;
-  return req.headers.get(MOSAIK_INTERNAL_SECRET_HEADER) === secret;
+  const headerSecret = req.headers.get(MOSAIK_INTERNAL_SECRET_HEADER);
+  if (!headerSecret) return false;
+  return timingSafeEqualStr(headerSecret, secret);
 }
 
 function timingSafeEqualStr(a: string, b: string): boolean {

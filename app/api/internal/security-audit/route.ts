@@ -1,5 +1,6 @@
 import { insertAuditLogRow } from "@/lib/audit";
-import { getInternalApiSecret, MOSAIK_INTERNAL_SECRET_HEADER } from "@/lib/internal-api-secret";
+import { internalApiSecretHeaderMatches } from "@/lib/internal-api-secret-match";
+import { MOSAIK_INTERNAL_SECRET_HEADER } from "@/lib/internal-api-secret";
 import { checkInternalSecurityAuditWebhookLimit } from "@/lib/rate-limit";
 import { z } from "zod";
 
@@ -36,9 +37,7 @@ export async function POST(req: Request) {
     return new Response("Too Many Requests", { status: 429, headers });
   }
 
-  const secret = getInternalApiSecret();
-  const headerSecret = req.headers.get(MOSAIK_INTERNAL_SECRET_HEADER);
-  if (!secret || headerSecret !== secret) {
+  if (!internalApiSecretHeaderMatches(req.headers.get(MOSAIK_INTERNAL_SECRET_HEADER))) {
     return new Response("Unauthorized", { status: 401 });
   }
 
