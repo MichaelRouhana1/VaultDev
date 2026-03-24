@@ -68,3 +68,4 @@ export const logger = {
     error: (message: string, error?: unknown, context?: LogContext) =>
         log("error", message, { ...context, error: parseError(error) }),
 };
+

@@ -1,5 +1,7 @@
 import { Ratelimit } from "@upstash/ratelimit";
 import { Redis } from "@upstash/redis";
+import { logger } from "@/lib/logger";
+import { MemorySlidingWindow } from "@/lib/memory-sliding-window";
 import {
   logAuthRedisError,
   submitInternalSecurityAudit,
@@ -13,6 +15,11 @@ const hasRedisEnv =
   typeof token === "string" &&
   token.length > 0;
 const redis = hasRedisEnv ? new Redis({ url: url!, token: token! }) : null;
+
+// Common limited operations: 5 requests per 10 seconds (matches Upstash default below)
+const memoryDefault = new MemorySlidingWindow(5, 10_000);
+/** Stricter fallback when Redis errors (fail-closed bias per instance). */
+const memoryDefaultDegraded = new MemorySlidingWindow(3, 10_000);
 
 // Common limited operations: 5 requests per 10 seconds
 const defaultLimiter = redis
@@ -32,41 +39,89 @@ const registerFromOrderLimiter = redis
     })
   : null;
 
+const memoryRegisterFromOrder = new MemorySlidingWindow(10, 60 * 60 * 1000);
+const memoryRegisterFromOrderDegraded = new MemorySlidingWindow(5, 60 * 60 * 1000);
+
+let warnedNoRedisConfigured = false;
+let lastRedisErrorLogMs = 0;
+const REDIS_ERROR_LOG_INTERVAL_MS = 60_000;
+
+function shouldLogRedisErrorBurst(): boolean {
+  const now = Date.now();
+  if (now - lastRedisErrorLogMs >= REDIS_ERROR_LOG_INTERVAL_MS) {
+    lastRedisErrorLogMs = now;
+    return true;
+  }
+  return false;
+}
+
 export type RateLimitAuditOpts = {
   /** Included in AUTH_REDIS_ERROR when Redis throws */
   auditIp?: string;
 };
 
+async function logRedisFallback(
+  reason: "redis_unconfigured" | "redis_error",
+  details: { identifier: string; errorMessage?: string; auditIp?: string },
+): Promise<void> {
+  if (reason === "redis_unconfigured") {
+    if (warnedNoRedisConfigured) return;
+    warnedNoRedisConfigured = true;
+    await logger.warn("rate_limit_using_memory_only_no_upstash", {
+      note: "UPSTASH_REDIS_* unset; enforcing in-memory sliding window per server instance.",
+      identifier: details.identifier,
+      auditIp: details.auditIp ?? "",
+    });
+    return;
+  }
+  if (shouldLogRedisErrorBurst()) {
+    await logger.warn("rate_limit_redis_error_strict_memory_fallback", {
+      identifier: details.identifier,
+      auditIp: details.auditIp ?? "",
+      errorMessage: details.errorMessage ?? "",
+    });
+  }
+}
+
 export async function checkRateLimit(
   identifier: string,
   opts?: RateLimitAuditOpts,
 ): Promise<{ allowed: boolean; retryAfterMs: number }> {
-  if (!defaultLimiter) {
-    return { allowed: true, retryAfterMs: 0 };
-  }
-  try {
-    const { success, reset } = await defaultLimiter.limit(identifier);
-    return { allowed: success, retryAfterMs: Math.max(0, reset - Date.now()) };
-  } catch (err) {
-    console.error("Rate limit error:", err);
-    const msg = err instanceof Error ? err.message : String(err);
-    logAuthRedisError({
-      layer: "lib/rate-limit",
-      identifier,
-      error: msg,
-      ip: opts?.auditIp ?? "",
-    });
-    submitInternalSecurityAudit({
-      action: "AUTH_REDIS_ERROR",
-      details: {
+  if (defaultLimiter) {
+    try {
+      const { success, reset } = await defaultLimiter.limit(identifier);
+      return { allowed: success, retryAfterMs: Math.max(0, reset - Date.now()) };
+    } catch (err) {
+      console.error("Rate limit error:", err);
+      const msg = err instanceof Error ? err.message : String(err);
+      logAuthRedisError({
         layer: "lib/rate-limit",
         identifier,
         error: msg,
-      },
-      ipAddress: opts?.auditIp ?? "",
-    });
-    return { allowed: true, retryAfterMs: 0 };
+        ip: opts?.auditIp ?? "",
+      });
+      submitInternalSecurityAudit({
+        action: "AUTH_REDIS_ERROR",
+        details: {
+          layer: "lib/rate-limit",
+          identifier,
+          error: msg,
+          fallback: "memory_strict",
+        },
+        ipAddress: opts?.auditIp ?? "",
+      });
+      await logRedisFallback("redis_error", {
+        identifier,
+        errorMessage: msg,
+        auditIp: opts?.auditIp,
+      });
+      const { allowed, retryAfterMs } = memoryDefaultDegraded.consume(identifier);
+      return { allowed, retryAfterMs };
+    }
   }
+
+  await logRedisFallback("redis_unconfigured", { identifier, auditIp: opts?.auditIp });
+  return memoryDefault.consume(identifier);
 }
 
 export async function checkPlaceOrderLimit(identifier: string, opts?: RateLimitAuditOpts) {
@@ -87,36 +142,67 @@ export async function checkSensitiveOperationLimit(identifier: string, opts?: Ra
 
 /**
  * IP-based limit for `registerFromOrder`. On exceed, emits RATE_LIMIT_EXCEEDED audit.
- * On Redis error: fail-open + AUTH_REDIS_ERROR (same as shared limiter).
+ * Uses in-memory fallback when Redis is missing or throws (stricter window on error).
  */
 export async function checkRegisterFromOrderLimit(ip: string): Promise<{ allowed: boolean }> {
   const normalized = ip.trim() || "unknown";
-  if (!registerFromOrderLimiter) {
-    return { allowed: true };
-  }
-  try {
-    const { success } = await registerFromOrderLimiter.limit(normalized);
-    if (!success) {
+
+  if (registerFromOrderLimiter) {
+    try {
+      const { success } = await registerFromOrderLimiter.limit(normalized);
+      if (!success) {
+        submitInternalSecurityAudit({
+          action: "RATE_LIMIT_EXCEEDED",
+          details: { path: "registerFromOrder", layer: "server_action" },
+          ipAddress: normalized,
+        });
+        return { allowed: false };
+      }
+      return { allowed: true };
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      logAuthRedisError({
+        layer: "registerFromOrder-limiter",
+        error: msg,
+        ip: normalized,
+      });
       submitInternalSecurityAudit({
-        action: "RATE_LIMIT_EXCEEDED",
-        details: { path: "registerFromOrder", layer: "server_action" },
+        action: "AUTH_REDIS_ERROR",
+        details: {
+          layer: "registerFromOrder-limiter",
+          error: msg,
+          fallback: "memory_strict",
+        },
         ipAddress: normalized,
       });
-      return { allowed: false };
+      await logRedisFallback("redis_error", {
+        identifier: `registerFromOrder:${normalized}`,
+        errorMessage: msg,
+        auditIp: normalized,
+      });
+      const { allowed } = memoryRegisterFromOrderDegraded.consume(normalized);
+      if (!allowed) {
+        submitInternalSecurityAudit({
+          action: "RATE_LIMIT_EXCEEDED",
+          details: { path: "registerFromOrder", layer: "server_action", fallback: "memory" },
+          ipAddress: normalized,
+        });
+      }
+      return { allowed };
     }
-    return { allowed: true };
-  } catch (err) {
-    const msg = err instanceof Error ? err.message : String(err);
-    logAuthRedisError({
-      layer: "registerFromOrder-limiter",
-      error: msg,
-      ip: normalized,
-    });
+  }
+
+  await logRedisFallback("redis_unconfigured", {
+    identifier: `registerFromOrder:${normalized}`,
+    auditIp: normalized,
+  });
+  const { allowed } = memoryRegisterFromOrder.consume(normalized);
+  if (!allowed) {
     submitInternalSecurityAudit({
-      action: "AUTH_REDIS_ERROR",
-      details: { layer: "registerFromOrder-limiter", error: msg },
+      action: "RATE_LIMIT_EXCEEDED",
+      details: { path: "registerFromOrder", layer: "server_action", fallback: "memory" },
       ipAddress: normalized,
     });
-    return { allowed: true };
   }
+  return { allowed };
 }
