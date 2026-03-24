@@ -27,9 +27,9 @@ interface CheckoutFormProps {
 }
 
 function placeOrderAction(
-  _prevState: { error?: string; orderId?: number; activationToken?: string } | null,
+  _prevState: { error?: string; orderId?: number } | null,
   formData: FormData,
-): Promise<{ error?: string; orderId?: number; activationToken?: string }> {
+): Promise<{ error?: string; orderId?: number }> {
   const itemsJson = formData.get("items") as string;
   if (!itemsJson) {
     return Promise.resolve({ error: "Cart is empty" });
@@ -55,7 +55,7 @@ function placeOrderAction(
       if (!res.orderId) {
         return { error: "Order failed" };
       }
-      return { orderId: res.orderId, activationToken: res.activationToken };
+      return { orderId: res.orderId };
     })
     .catch((err) => ({ error: err instanceof Error ? err.message : "Order failed" }));
 }
@@ -81,13 +81,9 @@ export function CheckoutForm({ cart }: CheckoutFormProps) {
           quantity: i.quantity,
         })),
       );
-      const q = new URLSearchParams({ orderId: String(state.orderId) });
-      if (state.activationToken) {
-        q.set("key", state.activationToken);
-      }
-      router.push(`/checkout/success?${q.toString()}`);
+      router.push("/checkout/success");
     }
-  }, [state?.orderId, state?.activationToken, cart, clearOrderedItems, router]);
+  }, [state?.orderId, cart, clearOrderedItems, router]);
 
   if (state?.orderId) {
     return null;

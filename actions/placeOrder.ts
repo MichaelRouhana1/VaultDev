@@ -3,7 +3,7 @@
 import { randomUUID } from "crypto";
 import { eq, and, sql, inArray } from "drizzle-orm";
 import { z } from "zod";
-import { headers } from "next/headers";
+import { cookies, headers } from "next/headers";
 import { auth as clerkAuth } from "@clerk/nextjs/server";
 import { db } from "@/db";
 import {
@@ -21,6 +21,11 @@ import { checkPlaceOrderLimit } from "@/lib/rate-limit";
 import { logger } from "@/lib/logger";
 import { sendOrderConfirmationEmail } from "@/lib/resend";
 import { getPublicSiteUrl } from "@/lib/utils";
+import {
+  ACTIVATION_ORDER_ID_COOKIE,
+  ACTIVATION_TOKEN_COOKIE,
+  getActivationCookieOptions,
+} from "@/lib/order-activation-cookies";
 
 const DEFAULT_SHIPPING_FEE = 5;
 
@@ -49,7 +54,7 @@ export type PlaceOrderInput = z.infer<typeof placeOrderSchema>;
 
 export async function placeOrder(
   input: PlaceOrderInput,
-): Promise<{ orderId?: number; success?: boolean; error?: string; activationToken?: string }> {
+): Promise<{ orderId?: number; success?: boolean; error?: string }> {
   const headersList = await headers();
   const ip = headersList.get("x-forwarded-for")?.split(",")[0]?.trim() ?? headersList.get("x-real-ip") ?? "unknown";
   const identifier = input.userId ?? input.guestEmail ?? ip;
@@ -270,12 +275,19 @@ export async function placeOrder(
     };
   });
 
+  const cookieStore = await cookies();
+  const cookieOpts = getActivationCookieOptions();
+  cookieStore.set(ACTIVATION_ORDER_ID_COOKIE, String(orderResult.orderId), cookieOpts);
+  if (orderResult.activationToken) {
+    cookieStore.set(ACTIVATION_TOKEN_COOKIE, orderResult.activationToken, cookieOpts);
+  }
+
   const emailTo = orderResult.guestEmail || undefined;
   if (emailTo) {
     const baseUrl = getPublicSiteUrl();
     const activationLink =
       orderResult.activationToken && baseUrl
-        ? `${baseUrl}/activate-account?token=${encodeURIComponent(orderResult.activationToken)}&orderId=${orderResult.orderId}`
+        ? `${baseUrl}/api/auth/verify?token=${encodeURIComponent(orderResult.activationToken)}&orderId=${orderResult.orderId}`
         : undefined;
 
     void sendOrderConfirmationEmail({
@@ -292,8 +304,5 @@ export async function placeOrder(
 
   return {
     orderId: orderResult.orderId,
-    ...(orderResult.activationToken
-      ? { activationToken: orderResult.activationToken }
-      : {}),
   };
 }

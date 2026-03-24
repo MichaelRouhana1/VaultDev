@@ -1,6 +1,7 @@
 "use server";
 
 import { clerkClient } from "@clerk/nextjs/server";
+import { cookies } from "next/headers";
 import { z } from "zod";
 import { eq } from "drizzle-orm";
 import { db } from "@/db";
@@ -8,6 +9,7 @@ import { orders } from "@/db/schema";
 import { getClientIpFromHeaders } from "@/lib/audit";
 import { linkGuestOrdersToUser } from "@/lib/link-guest-orders";
 import { checkRegisterFromOrderLimit } from "@/lib/rate-limit";
+import { clearActivationCookies } from "@/lib/order-activation-cookies";
 
 const registerSchema = z.object({
   orderId: z.coerce.number().int().positive(),
@@ -23,7 +25,7 @@ export type RegisterFromOrderResult =
   | { ok: false; error: string };
 
 /**
- * Guest completes registration using order activation token (success page or /activate-account).
+ * Guest completes registration using order activation token from HttpOnly cookies (checkout success or /activate-account).
  * Creates a Clerk user when none exists; links all guest orders with the same email to the user.
  * Client should call Clerk `signIn.create({ identifier: email, password })` when userExisted is false.
  */
@@ -63,6 +65,7 @@ export async function registerFromOrder(input: unknown): Promise<RegisterFromOrd
   if (existing.data.length > 0) {
     const userId = existing.data[0].id;
     await linkGuestOrdersToUser(userId, email);
+    clearActivationCookies(await cookies());
     return { ok: true, email, userExisted: true };
   }
 
@@ -77,6 +80,7 @@ export async function registerFromOrder(input: unknown): Promise<RegisterFromOrd
 
     await linkGuestOrdersToUser(clerkUser.id, email);
 
+    clearActivationCookies(await cookies());
     return { ok: true, email, userExisted: false };
   } catch (e: unknown) {
     console.error("Clerk createUser failed", e);

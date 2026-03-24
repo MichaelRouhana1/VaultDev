@@ -1,5 +1,7 @@
 import Link from "next/link";
 import { clerkClient } from "@clerk/nextjs/server";
+import { cookies } from "next/headers";
+import { ActivationCookieCleanup } from "@/components/ActivationCookieCleanup";
 import { GuestPasswordRegistrationForm } from "@/components/GuestPasswordRegistrationForm";
 import { Button } from "@/components/ui/button";
 import {
@@ -11,6 +13,10 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { linkGuestOrdersToUser } from "@/lib/link-guest-orders";
+import {
+  ACTIVATION_ORDER_ID_COOKIE,
+  ACTIVATION_TOKEN_COOKIE,
+} from "@/lib/order-activation-cookies";
 import { getValidActivationOrder } from "@/lib/order-activation";
 
 export const metadata = {
@@ -20,11 +26,55 @@ export const metadata = {
 export default async function ActivateAccountPage({
   searchParams,
 }: {
-  searchParams: Promise<{ token?: string; orderId?: string }>;
+  searchParams: Promise<{ state?: string }>;
 }) {
   const sp = await searchParams;
-  const token = sp.token?.trim();
-  const orderIdRaw = sp.orderId ? parseInt(sp.orderId, 10) : NaN;
+  if (sp.state === "invalid") {
+    return (
+      <div className="pt-14">
+        <div className="container mx-auto max-w-md px-4 py-16">
+          <Card>
+            <CardHeader>
+              <CardTitle>Invalid link</CardTitle>
+              <CardDescription>Use the activation button from your order confirmation email.</CardDescription>
+            </CardHeader>
+            <CardFooter>
+              <Button asChild variant="outline">
+                <Link href="/">Home</Link>
+              </Button>
+            </CardFooter>
+          </Card>
+        </div>
+      </div>
+    );
+  }
+
+  if (sp.state === "expired") {
+    return (
+      <div className="pt-14">
+        <div className="container mx-auto max-w-md px-4 py-16">
+          <Card>
+            <CardHeader>
+              <CardTitle>Link expired or invalid</CardTitle>
+              <CardDescription>
+                Request a new order confirmation email or contact support if you need help.
+              </CardDescription>
+            </CardHeader>
+            <CardFooter>
+              <Button asChild variant="outline">
+                <Link href="/">Home</Link>
+              </Button>
+            </CardFooter>
+          </Card>
+        </div>
+      </div>
+    );
+  }
+
+  const cookieStore = await cookies();
+  const token = cookieStore.get(ACTIVATION_TOKEN_COOKIE)?.value?.trim();
+  const orderIdStr = cookieStore.get(ACTIVATION_ORDER_ID_COOKIE)?.value;
+  const orderIdRaw = orderIdStr ? parseInt(orderIdStr, 10) : NaN;
 
   if (!token || !Number.isInteger(orderIdRaw) || orderIdRaw < 1) {
     return (
@@ -32,8 +82,11 @@ export default async function ActivateAccountPage({
         <div className="container mx-auto max-w-md px-4 py-16">
           <Card>
             <CardHeader>
-              <CardTitle>Invalid link</CardTitle>
-              <CardDescription>Use the activation link from your order email.</CardDescription>
+              <CardTitle>Session expired</CardTitle>
+              <CardDescription>
+                Open the activation link from your email again, or use the link from your order confirmation if it
+                is still valid.
+              </CardDescription>
             </CardHeader>
             <CardFooter>
               <Button asChild variant="outline">
@@ -72,6 +125,7 @@ export default async function ActivateAccountPage({
   if (order.userId) {
     return (
       <div className="pt-14">
+        <ActivationCookieCleanup />
         <div className="container mx-auto max-w-md px-4 py-16 text-center">
           <Card>
             <CardHeader>
@@ -97,13 +151,14 @@ export default async function ActivateAccountPage({
     await linkGuestOrdersToUser(existing.data[0].id, email);
     return (
       <div className="pt-14">
+        <ActivationCookieCleanup />
         <div className="container mx-auto max-w-md px-4 py-16">
           <Card>
             <CardHeader>
               <CardTitle>Orders linked</CardTitle>
               <CardDescription>
-                Your guest orders for <span className="font-medium text-foreground">{email}</span> are
-                now connected to your existing account. Sign in to view them.
+                Your guest orders for <span className="font-medium text-foreground">{email}</span> are now connected
+                to your existing account. Sign in to view them.
               </CardDescription>
             </CardHeader>
             <CardContent />
