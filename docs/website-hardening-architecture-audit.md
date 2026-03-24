@@ -3,7 +3,7 @@
 **Scope:** Next.js 15 (App Router), React 19, Drizzle ORM, Clerk, Supabase/R2, Upstash Redis (optional).  
 **Method:** Review of `package.json`, `middleware.ts`, `next.config.ts`, `db/schema.ts`, security utilities, API routes, critical server actions, and representative storefront/admin flows.  
 **Date:** 2025-03-23  
-**Update:** 2025-03-23 — PostHog removed; activation cookies; internal audit header `x-mosaik-internal-secret`; account deletion + audit redaction; centralized `requireAdmin` / `requireAdminAction`.
+**Update:** 2025-03-23 — PostHog removed; activation cookies; internal audit header `x-mosaik-internal-secret`; account deletion + audit redaction; centralized `requireAdmin` / `requireAdminAction`; per-IP rate limit on `POST /api/internal/security-audit` (`checkInternalSecurityAuditWebhookLimit` in `lib/rate-limit.ts`, before secret check).
 
 ## Executive summary
 
@@ -43,15 +43,14 @@ The codebase shows deliberate OWASP-oriented choices: Clerk for auth, Drizzle fo
 | **The Why** | Attackers can brute-force promos, place-order spam, or hammer admin routes during Redis outages or misconfiguration. |
 | **Recommendation** | For production, add **fail-closed** or stricter caps for sensitive actions when Redis is unavailable (e.g. allow only with lower concurrency via in-memory token bucket per instance, or edge/WAF rate limits). Document the tradeoff explicitly in runbooks. |
 
-### 1.4 ~~Internal audit ingestion~~ — **RESOLVED** (secret header); optional rate limit still open
+### 1.4 ~~Internal audit ingestion~~ — **RESOLVED** (secret header + per-IP rate limit)
 
 | Field | Detail |
 |--------|--------|
-| **Status** | **[RESOLVED]** for anonymous abuse: `POST /api/internal/security-audit` returns **401** unless header **`x-mosaik-internal-secret`** matches **`INTERNAL_API_SECRET`** (legacy: **`INTERNAL_AUDIT_SECRET`** if unset). Middleware and `lib/internal-security-audit-ingest.ts` send this header (`lib/internal-api-secret.ts`). |
-| **Remaining (optional)** | Per-IP / global rate limit on the route still recommended if the secret were ever leaked. |
-| **Location** | `app/api/internal/security-audit/route.ts`; `lib/internal-security-audit-ingest.ts`; `middleware.ts` |
-| **Prior risk** | Unguarded endpoint allowed DB spam. |
-| **Risk Level** | **Low** with secret enforced; **Medium** if secret leaks (mitigate with rotation + rate limits). |
+| **Status** | **[RESOLVED]** (1) **401** unless **`x-mosaik-internal-secret`** matches **`INTERNAL_API_SECRET`** (legacy: **`INTERNAL_AUDIT_SECRET`** if unset). Middleware and `lib/internal-security-audit-ingest.ts` send this header (`lib/internal-api-secret.ts`). (2) **429** per client IP **before** secret verification: **10 requests / 10s** and **50 / 1 minute** (Upstash when configured; otherwise in-memory sliding windows per instance, with stricter memory caps if Redis errors — **no** recursive audit POST on that failure path). |
+| **Location** | `app/api/internal/security-audit/route.ts`; `lib/rate-limit.ts` (`checkInternalSecurityAuditWebhookLimit`); `lib/internal-security-audit-ingest.ts`; `middleware.ts` |
+| **Prior risk** | Unguarded endpoint allowed DB spam; leaked secret enabled high-volume audit row injection. |
+| **Risk Level** | **Low** with secret + rate limit; rotate secret if exposed. |
 
 ### 1.5 Admin role depends on Clerk JWT / session claims configuration
 
@@ -251,7 +250,7 @@ The codebase shows deliberate OWASP-oriented choices: Clerk for auth, Drizzle fo
 - **CSP + Clerk nonce:** `middleware.ts` + `app/layout.tsx` passing `nonce` to `ClerkProvider`.  
 - **Order placement:** `placeOrder` binds `userId` only when `claimedUserId === sessionUserId` (`actions/placeOrder.ts`).  
 - **No bundled third-party analytics:** PostHog removed; fewer scripts and no analytics `connect-src` allowance.  
-- **Internal audit route:** Requires `x-mosaik-internal-secret` + `INTERNAL_API_SECRET` (or legacy env).  
+- **Internal audit route:** Requires `x-mosaik-internal-secret` + `INTERNAL_API_SECRET` (or legacy env); per-IP burst + minute rate limit before auth.  
 - **Account deletion:** `audit_logs` rows tied to the user are redacted in a transaction.
 
 ---
@@ -259,7 +258,7 @@ The codebase shows deliberate OWASP-oriented choices: Clerk for auth, Drizzle fo
 ## Suggested priority order
 
 1. **Medium:** Clarify **fail-open rate limiting** for production (Redis down) and add WAF/alternate caps if needed.  
-2. **Low:** Optional rate limit on `/api/internal/security-audit` if secret rotation policy is weak; CSP/style hardening; audit-log export of contacts.  
+2. **Low:** ~~Optional rate limit on `/api/internal/security-audit`~~ **Done** (`checkInternalSecurityAuditWebhookLimit`). Remaining: CSP/style fine-tuning as needed; audit-log export of contacts is audited (`ADMIN_EXPORTED_CONTACTS`).  
 3. **Ongoing:** Clerk JWT / admin role configuration checks in staging.
 
 ---

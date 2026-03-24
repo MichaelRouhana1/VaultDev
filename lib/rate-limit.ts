@@ -42,6 +42,26 @@ const registerFromOrderLimiter = redis
 const memoryRegisterFromOrder = new MemorySlidingWindow(10, 60 * 60 * 1000);
 const memoryRegisterFromOrderDegraded = new MemorySlidingWindow(5, 60 * 60 * 1000);
 
+/** `POST /api/internal/security-audit`: burst + sustained cap per IP (before secret check). */
+const internalAuditBurstLimiter = redis
+  ? new Ratelimit({
+      redis,
+      limiter: Ratelimit.slidingWindow(10, "10 s"),
+      prefix: "@upstash/ratelimit:internalSecurityAudit:10s",
+    })
+  : null;
+const internalAuditMinuteLimiter = redis
+  ? new Ratelimit({
+      redis,
+      limiter: Ratelimit.slidingWindow(50, "1 m"),
+      prefix: "@upstash/ratelimit:internalSecurityAudit:1m",
+    })
+  : null;
+const memoryInternalAuditBurst = new MemorySlidingWindow(10, 10_000);
+const memoryInternalAuditBurstDegraded = new MemorySlidingWindow(5, 10_000);
+const memoryInternalAuditMinute = new MemorySlidingWindow(50, 60_000);
+const memoryInternalAuditMinuteDegraded = new MemorySlidingWindow(25, 60_000);
+
 let warnedNoRedisConfigured = false;
 let lastRedisErrorLogMs = 0;
 const REDIS_ERROR_LOG_INTERVAL_MS = 60_000;
@@ -205,4 +225,56 @@ export async function checkRegisterFromOrderLimit(ip: string): Promise<{ allowed
     });
   }
   return { allowed };
+}
+
+/**
+ * Rate limit for `POST /api/internal/security-audit` (per client IP).
+ * Enforces **both** 10 requests / 10s and 50 / 1 minute. Uses Upstash when configured,
+ * otherwise in-memory sliding windows (per instance). On Redis errors, does **not** call
+ * `submitInternalSecurityAudit` (avoids self-POST / recursion).
+ */
+export async function checkInternalSecurityAuditWebhookLimit(
+  ip: string,
+): Promise<{ allowed: boolean; retryAfterMs: number }> {
+  const key = ip.trim() || "unknown";
+
+  if (internalAuditBurstLimiter && internalAuditMinuteLimiter) {
+    try {
+      const burst = await internalAuditBurstLimiter.limit(key);
+      if (!burst.success) {
+        return { allowed: false, retryAfterMs: Math.max(0, burst.reset - Date.now()) };
+      }
+      const minute = await internalAuditMinuteLimiter.limit(key);
+      if (!minute.success) {
+        return { allowed: false, retryAfterMs: Math.max(0, minute.reset - Date.now()) };
+      }
+      return { allowed: true, retryAfterMs: 0 };
+    } catch (err) {
+      console.error("Internal security-audit webhook rate limit (Redis):", err);
+      const msg = err instanceof Error ? err.message : String(err);
+      logAuthRedisError({
+        layer: "lib/rate-limit:internalSecurityAudit",
+        identifier: key,
+        error: msg,
+        ip: key,
+      });
+      if (shouldLogRedisErrorBurst()) {
+        void logger.warn("internal_security_audit_webhook_rate_limit_redis_error_memory_fallback", {
+          ip: key,
+          errorMessage: msg,
+        });
+      }
+      const b = memoryInternalAuditBurstDegraded.consume(key);
+      if (!b.allowed) return b;
+      return memoryInternalAuditMinuteDegraded.consume(key);
+    }
+  }
+
+  await logRedisFallback("redis_unconfigured", {
+    identifier: `internalSecurityAuditWebhook:${key}`,
+    auditIp: key,
+  });
+  const b = memoryInternalAuditBurst.consume(key);
+  if (!b.allowed) return b;
+  return memoryInternalAuditMinute.consume(key);
 }
