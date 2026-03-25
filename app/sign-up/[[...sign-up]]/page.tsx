@@ -8,6 +8,7 @@ export default function SignUpPage() {
         appearance={mosaikClerkAppearance}
         routing="path"
         path="/sign-up"
+        fallbackRedirectUrl="/account"
       />
     </div>
   );

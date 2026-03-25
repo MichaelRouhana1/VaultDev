@@ -39,6 +39,8 @@ export default async function RootLayout({
       dynamic
       nonce={nonce}
       appearance={mosaikClerkAppearance}
+      signInFallbackRedirectUrl="/account"
+      signUpFallbackRedirectUrl="/account"
     >
       <html lang="en" suppressHydrationWarning>
         <body

@@ -10,6 +10,7 @@ export default function SignInPage() {
         appearance={mosaikClerkAppearance}
         routing="path"
         path="/sign-in"
+        fallbackRedirectUrl="/account"
       />
     </div>
   );

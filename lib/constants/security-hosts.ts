@@ -19,6 +19,15 @@ export const CLERK_HTTPS_ORIGINS = [
 /** Clerk WebSockets (sessions / realtime); production keys often use *.clerk.com frontends. */
 export const CLERK_WSS_ORIGINS = ["wss://*.clerk.accounts.dev", "wss://*.clerk.com"] as const;
 
+/** Clerk client telemetry (`connect-src` if omitted → console CSP errors). */
+const CLERK_TELEMETRY_ORIGIN = "https://clerk-telemetry.com" as const;
+
+/**
+ * Cloudflare Turnstile (Clerk bot protection / CAPTCHA iframe + script).
+ * @see https://developers.cloudflare.com/turnstile/reference/content-security-policy/
+ */
+const CLOUDFLARE_CHALLENGES_ORIGIN = "https://challenges.cloudflare.com" as const;
+
 const PEXELS_HOST = "images.pexels.com" as const;
 const CLERK_IMG_HOST = "img.clerk.com" as const;
 
@@ -121,7 +130,7 @@ function joinCspSources(parts: string[]): string {
  * **Images:** `blob:` is required for admin image crop / preview (`URL.createObjectURL`). `data:`
  * is omitted unless we add inline data-URI images.
  *
- * **Frames:** Stripe checkout iframe (`js.stripe.com`) + Clerk hosted flows.
+ * **Frames:** Stripe checkout iframe (`js.stripe.com`), Clerk hosted flows, Cloudflare Turnstile.
  *
  * **Clickjacking:** `frame-ancestors 'none'` (redundant with `X-Frame-Options: DENY` in
  * `next.config.ts` but enforced by CSP-aware clients).
@@ -136,12 +145,15 @@ export function buildContentSecurityPolicy(nonce: string): string {
         "'strict-dynamic'",
         "'self'",
         ...CLERK_HTTPS_ORIGINS,
+        CLOUDFLARE_CHALLENGES_ORIGIN,
       ])
     : joinCspSources([
         `'nonce-${nonce}'`,
+        "'strict-dynamic'",
         "'unsafe-eval'",
         "'self'",
         ...CLERK_HTTPS_ORIGINS,
+        CLOUDFLARE_CHALLENGES_ORIGIN,
       ]);
 
   const r2Host = getR2PublicHostname();
@@ -159,6 +171,8 @@ export function buildContentSecurityPolicy(nonce: string): string {
     "'self'",
     ...CLERK_HTTPS_ORIGINS,
     ...CLERK_WSS_ORIGINS,
+    CLERK_TELEMETRY_ORIGIN,
+    CLOUDFLARE_CHALLENGES_ORIGIN,
     ...getSupabaseCspConnectSources(),
   ];
   const upstash = getUpstashRestOrigin();
@@ -172,6 +186,7 @@ export function buildContentSecurityPolicy(nonce: string): string {
     "'self'",
     ...CLERK_HTTPS_ORIGINS,
     "https://js.stripe.com",
+    CLOUDFLARE_CHALLENGES_ORIGIN,
   ]);
 
   const cspHeader = `

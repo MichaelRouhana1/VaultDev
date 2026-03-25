@@ -20,7 +20,28 @@ The app reads the role from the **session token / JWT claims**, not from `curren
 
 4. Save.
 
-Use **public** metadata (not private) so it can be exposed in the session token. Ensure your Clerk **JWT template** (Sessions → customize session token) includes `metadata` / `role` if you use a custom template; the default Clerk+Next.js setup often exposes `publicMetadata` under `sessionClaims.metadata` depending on your template.
+### Required: put public metadata on the session token
+
+Setting **Public metadata** in the user profile is **not enough** by itself. VAULT checks `sessionClaims.metadata.role` (the **session JWT**), which only contains what you add under **Sessions → Customize session token**.
+
+1. In [Clerk Dashboard](https://dashboard.clerk.com), open your application.
+2. Go to **Sessions** (or **Configure → Sessions**).
+3. Find **Customize session token** (Claims editor).
+4. Add a claim so `public_metadata` is exposed as `metadata` (matches `middleware.ts` / `lib/security.ts`):
+
+   ```json
+   {
+     "metadata": "{{user.public_metadata}}"
+   }
+   ```
+
+   If you already have other custom claims, merge `metadata` into that JSON object (do not duplicate top-level keys).
+
+5. **Save** the session token template.
+
+Without this step, `sessionClaims.metadata` is undefined and `/admin` will always redirect home even with `{ "role": "admin" }` on the user.
+
+Use **public** metadata (not private) on the user so it is safe to embed in the JWT.
 
 ## When role changes take effect
 
