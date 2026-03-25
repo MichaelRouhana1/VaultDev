@@ -184,18 +184,18 @@ export function CartDrawer({ isOpen, onClose }: CartDrawerProps) {
 
         {items.length > 0 && (
           <div className="p-6 border-t border-border bg-muted">
-            <div className="flex flex-wrap items-center gap-x-4 gap-y-1 mb-4 text-sm">
+            <div className="mb-4 flex w-full items-center justify-between gap-4 text-sm">
               <Link
                 href="/cart"
                 onClick={onClose}
-                className="text-muted-foreground hover:text-foreground"
+                className="shrink-0 text-muted-foreground hover:text-foreground"
               >
                 View full cart →
               </Link>
               <Link
                 href="/cart?tab=favorites"
                 onClick={onClose}
-                className="text-muted-foreground hover:text-foreground"
+                className="shrink-0 text-right text-muted-foreground hover:text-foreground"
               >
                 View favourites →
               </Link>

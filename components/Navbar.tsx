@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { UserButton, useAuth } from "@clerk/nextjs";
@@ -9,13 +9,37 @@ import { useCart } from "@/context/CartContext";
 import { CartDrawer } from "@/components/CartDrawer";
 import { ShopDrawer } from "@/components/ShopDrawer";
 import { getCategories, getStoreCategories } from "@/actions/categories";
+import {
+  mosaikClerkUserButtonPopoverElementsDark,
+  mosaikClerkUserButtonPopoverElementsLight,
+  mosaikClerkUserButtonVariablesDark,
+  mosaikClerkUserButtonVariablesLight,
+} from "@/lib/clerk-auth-appearance";
 import type { ProductCategory } from "@/actions/categories";
 
 export function Navbar() {
   const pathname = usePathname();
   const { sessionClaims } = useAuth();
   const { totalItems, setOpenCart } = useCart();
-  const { theme, setTheme } = useTheme();
+  const { theme, setTheme, resolvedTheme } = useTheme();
+  const [userButtonThemeReady, setUserButtonThemeReady] = useState(false);
+
+  useEffect(() => {
+    setUserButtonThemeReady(true);
+  }, []);
+
+  const userButtonAppearance = useMemo(() => {
+    const isDark = userButtonThemeReady && resolvedTheme === "dark";
+    const popover = isDark ? mosaikClerkUserButtonPopoverElementsDark : mosaikClerkUserButtonPopoverElementsLight;
+    const variables = isDark ? mosaikClerkUserButtonVariablesDark : mosaikClerkUserButtonVariablesLight;
+    return {
+      variables,
+      elements: {
+        avatarBox: "w-5 h-5",
+        ...popover,
+      },
+    };
+  }, [userButtonThemeReady, resolvedTheme]);
   const [cartOpen, setCartOpen] = useState(false);
   const [shopDrawerOpen, setShopDrawerOpen] = useState(false);
   const [burgerOpen, setBurgerOpen] = useState(false);
@@ -130,11 +154,9 @@ export function Navbar() {
               </Link>
               <UserButton
                 afterSignOutUrl="/"
-                appearance={{
-                  elements: {
-                    avatarBox: "w-5 h-5",
-                  },
-                }}
+                userProfileUrl="/account"
+                userProfileMode="navigation"
+                appearance={userButtonAppearance}
               />
             </div>
             {/* Account icon - mobile/tablet only */}
