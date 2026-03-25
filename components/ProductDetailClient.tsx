@@ -26,6 +26,8 @@ interface ProductDetailClientProps {
   similarProducts: Product[];
   variantsByProductId: Record<number, ProductVariant[]>;
   wishlistProductIds: number[];
+  /** From URL — used for cart product links */
+  listStoreType: "streetwear" | "formal";
 }
 
 export function ProductDetailClient({
@@ -36,6 +38,7 @@ export function ProductDetailClient({
   similarProducts,
   variantsByProductId,
   wishlistProductIds,
+  listStoreType,
 }: ProductDetailClientProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -222,6 +225,7 @@ export function ProductDetailClient({
       productName: product.name,
       productImage,
       productColor: colorName,
+      storeTypeForUrl: listStoreType,
       sku:
         colors.length > 1 && selectedColor
           ? `${product.id}-${selectedColor.id}-${selectedSize}`

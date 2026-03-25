@@ -112,6 +112,7 @@ export default async function ProductPage({
         similarProducts={similarProductsWithImages}
         variantsByProductId={variantsByProductId}
         wishlistProductIds={wishlistProductIds}
+        listStoreType={st}
       />
     </div>
   );

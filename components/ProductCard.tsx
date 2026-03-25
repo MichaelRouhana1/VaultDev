@@ -12,6 +12,12 @@ import type { ProductVariant, ProductColor } from "@/db/schema";
 
 const DEFAULT_SIZES = ["XS", "S", "M", "L", "XL"];
 
+/** PDP URL segment when not inferrable from pathname (e.g. /cart). */
+function storeTypeForProductUrl(product: Product): "streetwear" | "formal" {
+  if (product.storeType === "formal") return "formal";
+  return "streetwear";
+}
+
 interface ProductCardProps {
   product: Product;
   variants?: ProductVariant[];
@@ -32,8 +38,9 @@ export function ProductCard({
   const { isInWishlist, hasHydrated, toggleItem } = useWishlist();
 
   const storeTypeMatch = pathname?.match(/^\/(streetwear|formal)/);
-  const storeType = storeTypeMatch ? storeTypeMatch[1] : null;
-  const productUrl = storeType ? `/${storeType}/product/${product.id}` : `/shop/${product.id}`;
+  const pathStoreType = storeTypeMatch?.[1] as "streetwear" | "formal" | undefined;
+  const listStoreType = pathStoreType ?? storeTypeForProductUrl(product);
+  const productUrl = `/${listStoreType}/product/${product.id}`;
   const wishlistState = hasHydrated ? isInWishlist(product.id) : inWishlist;
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
   const [selectedColorIndex, setSelectedColorIndex] = useState(0);
@@ -106,6 +113,7 @@ export function ProductCard({
       productName: product.name,
       productImage,
       productColor: colorName,
+      storeTypeForUrl: listStoreType,
     });
     openCart();
   };

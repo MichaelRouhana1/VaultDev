@@ -26,6 +26,8 @@ export interface CartItemDisplay {
   productName: string;
   productImage?: string;
   productColor?: string;
+  /** PDP path segment; omitted in old localStorage carts defaults to streetwear in UI */
+  storeTypeForUrl?: "streetwear" | "formal";
   sku: string;
 }
 
@@ -96,7 +98,11 @@ export function CartProvider({ children }: { children: ReactNode }) {
         const next = existing
           ? prev.map((i) =>
               i.sku === sku
-                ? { ...i, quantity: i.quantity + item.quantity }
+                ? {
+                    ...i,
+                    quantity: i.quantity + item.quantity,
+                    ...(item.storeTypeForUrl != null ? { storeTypeForUrl: item.storeTypeForUrl } : {}),
+                  }
                 : i
             )
           : [...prev, { ...item, sku }];

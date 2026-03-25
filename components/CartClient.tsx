@@ -3,14 +3,13 @@
 import { useState, useEffect } from "react";
 import Link from "next/link";
 import Image from "next/image";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useCart } from "@/context/CartContext";
 import { useAuth } from "@clerk/nextjs";
 import { useWishlist } from "@/context/WishlistContext";
 import { getWishlistProductsData } from "@/actions/getWishlistProductsData";
 import { ProductCard } from "@/components/ProductCard";
-import type { Product } from "@/db/schema";
-import type { ProductVariant } from "@/db/schema";
+import type { Product, ProductColor, ProductVariant } from "@/db/schema";
 
 const FREE_DELIVERY_THRESHOLD = 100;
 
@@ -20,14 +19,17 @@ interface CartClientProps {
   wishlistProducts: Product[];
   wishlistProductIds: number[];
   variantsByProductId: Record<number, ProductVariant[]>;
+  wishlistColorsByProductId: Record<number, ProductColor[]>;
 }
 
 export function CartClient({
   wishlistProducts,
   wishlistProductIds,
   variantsByProductId,
+  wishlistColorsByProductId,
 }: CartClientProps) {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { items, removeFromCart, updateQuantity, totalPrice } = useCart();
   const { isSignedIn } = useAuth();
   const { wishlistIds, hasHydrated } = useWishlist();
@@ -36,16 +38,28 @@ export function CartClient({
   const [guestVariantsByProductId, setGuestVariantsByProductId] = useState<
     Record<number, ProductVariant[]>
   >({});
+  const [guestColorsByProductId, setGuestColorsByProductId] = useState<
+    Record<number, ProductColor[]>
+  >({});
+
+  useEffect(() => {
+    const tab = searchParams.get("tab");
+    if (tab === "favorites" || tab === "favourites") {
+      setActiveTab("favorites");
+    }
+  }, [searchParams]);
 
   useEffect(() => {
     if (!hasHydrated || isSignedIn) {
       setGuestWishlistProducts([]);
       setGuestVariantsByProductId({});
+      setGuestColorsByProductId({});
       return;
     }
     if (wishlistIds.length === 0) {
       setGuestWishlistProducts([]);
       setGuestVariantsByProductId({});
+      setGuestColorsByProductId({});
       return;
     }
     let cancelled = false;
@@ -54,6 +68,7 @@ export function CartClient({
       if (!cancelled) {
         setGuestWishlistProducts(data.products);
         setGuestVariantsByProductId(data.variantsByProductId);
+        setGuestColorsByProductId(data.colorsByProductId);
       }
     })();
     return () => {
@@ -63,6 +78,7 @@ export function CartClient({
 
   const displayWishlistProducts = isSignedIn ? wishlistProducts : guestWishlistProducts;
   const displayVariantsByProductId = isSignedIn ? variantsByProductId : guestVariantsByProductId;
+  const displayColorsByProductId = isSignedIn ? wishlistColorsByProductId : guestColorsByProductId;
   const favouritesCount = isSignedIn ? wishlistProductIds.length : wishlistIds.length;
 
   const amountToFreeDelivery = Math.max(0, FREE_DELIVERY_THRESHOLD - totalPrice);
@@ -127,7 +143,7 @@ export function CartClient({
                     className="flex flex-col bg-card/50 border border-border p-4"
                   >
                     <Link
-                      href={`/shop/${item.productId}`}
+                      href={`/${item.storeTypeForUrl ?? "streetwear"}/product/${item.productId}`}
                       className="aspect-[3/4] overflow-hidden bg-muted relative block"
                     >
                       {item.productImage ? (
@@ -146,7 +162,7 @@ export function CartClient({
                       )}
                     </Link>
                     <Link
-                      href={`/shop/${item.productId}`}
+                      href={`/${item.storeTypeForUrl ?? "streetwear"}/product/${item.productId}`}
                       className="text-sm font-medium text-foreground hover:opacity-60 mt-3 line-clamp-2"
                     >
                       {item.productName}
@@ -291,6 +307,7 @@ export function CartClient({
                   key={product.id}
                   product={product}
                   variants={displayVariantsByProductId[product.id] ?? []}
+                  colors={displayColorsByProductId[product.id] ?? []}
                   inWishlist
                 />
               ))}

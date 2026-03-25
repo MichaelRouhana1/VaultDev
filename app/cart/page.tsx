@@ -1,8 +1,9 @@
 import { auth } from "@clerk/nextjs/server";
 import { eq, desc, inArray } from "drizzle-orm";
 import { db } from "@/db";
-import { wishlists, products, productVariants } from "@/db/schema";
+import { wishlists, products, productVariants, productColors } from "@/db/schema";
 import { CartClient } from "@/components/CartClient";
+import { getProductColorsByProductIds } from "@/actions/storefront-products";
 
 export default async function CartPage() {
   const { userId } = await auth();
@@ -26,14 +27,22 @@ export default async function CartPage() {
   }
 
   const variantsByProductId: Record<number, typeof productVariants.$inferSelect[]> = {};
+  const colorsByProductId: Record<number, typeof productColors.$inferSelect[]> = {};
   if (wishlistProductIds.length > 0) {
-    const variants = await db
-      .select()
-      .from(productVariants)
-      .where(inArray(productVariants.productId, wishlistProductIds));
+    const [variants, colorsList] = await Promise.all([
+      db
+        .select()
+        .from(productVariants)
+        .where(inArray(productVariants.productId, wishlistProductIds)),
+      getProductColorsByProductIds(wishlistProductIds),
+    ]);
     for (const v of variants) {
       if (!variantsByProductId[v.productId]) variantsByProductId[v.productId] = [];
       variantsByProductId[v.productId].push(v);
+    }
+    for (const c of colorsList) {
+      if (!colorsByProductId[c.productId]) colorsByProductId[c.productId] = [];
+      colorsByProductId[c.productId].push(c);
     }
   }
 
@@ -43,6 +52,7 @@ export default async function CartPage() {
         wishlistProducts={wishlistProducts}
         wishlistProductIds={wishlistProductIds}
         variantsByProductId={variantsByProductId}
+        wishlistColorsByProductId={colorsByProductId}
       />
     </div>
   );
