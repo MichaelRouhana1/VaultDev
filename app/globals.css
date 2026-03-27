@@ -88,6 +88,9 @@
   --sidebar-accent-foreground: #111111;
   --sidebar-border: #e5e5e5;
   --sidebar-ring: #BEBEBE;
+  /* Global scrollbar (Gemini-style thumb); WebKit uses border trick for thin floating thumb */
+  --scrollbar-thumb: #52525b;
+  --scrollbar-thumb-hover: #71717a;
 }
 
 .dark {
@@ -123,9 +126,38 @@
   --sidebar-accent-foreground: #ffffff;
   --sidebar-border: #262626;
   --sidebar-ring: #BEBEBE;
+  --scrollbar-thumb: #d4d4d8;
+  --scrollbar-thumb-hover: #e4e4e7;
 }
 
 @layer base {
+  /* Firefox / standard: thin track, thumb follows --scrollbar-* (set in :root / .dark) */
+  html {
+    scrollbar-width: thin;
+    scrollbar-color: var(--scrollbar-thumb) transparent;
+  }
+
+  /* WebKit (Chrome, Safari, Edge, Opera): floating pill thumb */
+  *::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+
+  *::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  *::-webkit-scrollbar-thumb {
+    border: 3px solid transparent;
+    background-clip: padding-box;
+    background-color: var(--scrollbar-thumb);
+    border-radius: 9999px;
+  }
+
+  *::-webkit-scrollbar-thumb:hover {
+    background-color: var(--scrollbar-thumb-hover);
+  }
+
   * {
     @apply border-border outline-ring/50;
   }

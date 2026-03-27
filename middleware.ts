@@ -16,6 +16,33 @@ import {
   storeSlugFromPathname,
 } from "@/lib/preferred-store";
 
+/** Hostname substrings for organic search referrers — show store picker at `/` instead of cookie redirect. */
+const SEARCH_ENGINE_HOST_MARKERS = [
+  "google.",
+  "bing.",
+  "yahoo.",
+  "duckduckgo.",
+] as const;
+
+function refererHostnameIsSearchEngine(hostname: string): boolean {
+  const h = hostname.toLowerCase();
+  return SEARCH_ENGINE_HOST_MARKERS.some((marker) => h.includes(marker));
+}
+
+/**
+ * True when the browser sent a Referer from a known search property (parsed hostname).
+ * Null/empty referer → false (direct navigation keeps cookie redirect behavior).
+ */
+function refererIsFromSearchEngine(refererHeader: string | null): boolean {
+  if (!refererHeader) return false;
+  try {
+    const { hostname } = new URL(refererHeader);
+    return refererHostnameIsSearchEngine(hostname);
+  } catch {
+    return false;
+  }
+}
+
 function isSitePasswordRequired(): boolean {
   return process.env.REQUIRE_SITE_PASSWORD === "true";
 }
@@ -116,7 +143,8 @@ export default clerkMiddleware(async (auth, req) => {
     (req.method === "GET" || req.method === "HEAD")
   ) {
     const pref = req.cookies.get(PREFERRED_STORE_COOKIE)?.value;
-    if (isValidPreferredStore(pref)) {
+    const fromSearch = refererIsFromSearchEngine(req.headers.get("referer"));
+    if (isValidPreferredStore(pref) && !fromSearch) {
       return NextResponse.redirect(new URL(`/${pref}`, req.url));
     }
   }
