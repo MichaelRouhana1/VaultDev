@@ -14,7 +14,7 @@ const PRODUCTS_PER_PAGE = 12;
 const VALID_LEGACY_CATEGORIES = ["CLOTHING", "SHOES", "ACCESSORIES", "BAGS", "OTHER"] as const;
 
 interface ShopClientProps {
-  products: Product[];
+  products: (Product & { categorySlug?: string | null })[];
   variantsByProductId: Record<number, ProductVariant[]>;
   colorsByProductId?: Record<number, ProductColor[]>;
   wishlistProductIds: number[];

@@ -3,13 +3,13 @@
 import { cache } from "react";
 import { asc, eq, inArray, and } from "drizzle-orm";
 import { db } from "@/db";
-import { productCategories } from "@/db/schema";
+import { categories } from "@/db/schema";
 import { uploadProductImage } from "@/lib/uploadImages";
 import { auditLog } from "@/lib/audit";
 import { headers } from "next/headers";
 import { checkSensitiveOperationLimit } from "@/lib/rate-limit";
 
-export type ProductCategory = typeof productCategories.$inferSelect;
+export type ProductCategory = typeof categories.$inferSelect;
 
 import { z } from "zod";
 import { categorySchema } from "@/lib/schemas";
@@ -18,16 +18,16 @@ import { requireAdmin } from "@/lib/security";
 
 /** Valid slugs for shop filtering (from DB) */
 export const getValidCategorySlugs = cache(async (): Promise<string[]> => {
-  const cats = await db.select({ slug: productCategories.slug }).from(productCategories);
+  const cats = await db.select({ slug: categories.slug }).from(categories);
   return cats.map((c) => c.slug);
 });
 
 /** Get all category slugs for a specific storeType */
 export const getStoreCategorySlugs = cache(async (storeType: string): Promise<string[]> => {
   const cats = await db
-    .select({ slug: productCategories.slug })
-    .from(productCategories)
-    .where(inArray(productCategories.storeType, [storeType, "both"] as ("streetwear" | "formal" | "both")[]));
+    .select({ slug: categories.slug })
+    .from(categories)
+    .where(inArray(categories.storeType, [storeType, "both"] as ("streetwear" | "formal" | "both")[]));
   return cats.map((c) => c.slug);
 });
 
@@ -35,45 +35,45 @@ export const getStoreCategorySlugs = cache(async (storeType: string): Promise<st
 export const getStoreCategories = cache(async (storeType: string): Promise<ProductCategory[]> => {
   return db
     .select()
-    .from(productCategories)
-    .where(inArray(productCategories.storeType, [storeType, "both"] as ("streetwear" | "formal" | "both")[]))
-    .orderBy(asc(productCategories.sortOrder), asc(productCategories.id));
+    .from(categories)
+    .where(inArray(categories.storeType, [storeType, "both"] as ("streetwear" | "formal" | "both")[]))
+    .orderBy(asc(categories.sortOrder), asc(categories.id));
 });
 
 /** All categories for burger menu, shop, etc. */
 export const getCategories = cache(async (storeType?: string): Promise<ProductCategory[]> => {
   const conditions = [];
   if (storeType) {
-    conditions.push(inArray(productCategories.storeType, [storeType, "both"] as ("streetwear" | "formal" | "both")[]));
+    conditions.push(inArray(categories.storeType, [storeType, "both"] as ("streetwear" | "formal" | "both")[]));
   }
   return db
     .select()
-    .from(productCategories)
+    .from(categories)
     .where(conditions.length > 0 ? and(...conditions) : undefined)
-    .orderBy(asc(productCategories.sortOrder), asc(productCategories.id));
+    .orderBy(asc(categories.sortOrder), asc(categories.id));
 });
 
 /** Fetch subcategories for a given parent */
 export const getSubcategories = cache(async (parentId: number): Promise<ProductCategory[]> => {
   return db
     .select()
-    .from(productCategories)
-    .where(eq(productCategories.parentId, parentId))
-    .orderBy(asc(productCategories.sortOrder), asc(productCategories.id));
+    .from(categories)
+    .where(eq(categories.parentId, parentId))
+    .orderBy(asc(categories.sortOrder), asc(categories.id));
 });
 
 /** Categories to show on home page (show_on_home, limit 6 per store) */
 export const getCategoriesForHome = cache(async (storeType: string): Promise<ProductCategory[]> => {
   return db
     .select()
-    .from(productCategories)
+    .from(categories)
     .where(
       and(
-        eq(productCategories.showOnHome, true),
-        inArray(productCategories.storeType, [storeType, "both"] as ("streetwear" | "formal" | "both")[]),
+        eq(categories.showOnHome, true),
+        inArray(categories.storeType, [storeType, "both"] as ("streetwear" | "formal" | "both")[]),
       ),
     )
-    .orderBy(asc(productCategories.sortOrder))
+    .orderBy(asc(categories.sortOrder))
     .limit(6);
 });
 
@@ -121,14 +121,14 @@ export async function createCategory(formData: FormData): Promise<{ success?: bo
   const { slug, label, showOnHome, parentId, level, storeType } = parsed.data;
   const imageFile = formData.get("image") as File | null;
 
-  const existing = await db.select().from(productCategories).where(eq(productCategories.slug, slug)).limit(1);
+  const existing = await db.select().from(categories).where(eq(categories.slug, slug)).limit(1);
   if (existing.length > 0) return { error: "A category with this slug already exists" };
 
   if (showOnHome) {
     const homeCount = await db
-      .select({ id: productCategories.id })
-      .from(productCategories)
-      .where(and(eq(productCategories.showOnHome, true), eq(productCategories.storeType, storeType)));
+      .select({ id: categories.id })
+      .from(categories)
+      .where(and(eq(categories.showOnHome, true), eq(categories.storeType, storeType)));
     if (homeCount.length >= 6) return { error: `Maximum 6 categories can be shown on the ${storeType} home page` };
   }
 
@@ -139,11 +139,11 @@ export async function createCategory(formData: FormData): Promise<{ success?: bo
     imageUrl = result.url ?? null;
   }
 
-  const allCats = await db.select({ sortOrder: productCategories.sortOrder }).from(productCategories);
+  const allCats = await db.select({ sortOrder: categories.sortOrder }).from(categories);
   const nextSortOrder =
     allCats.length === 0 ? 0 : Math.max(0, ...allCats.map((r) => r.sortOrder ?? 0)) + 1;
 
-  await db.insert(productCategories).values({
+  await db.insert(categories).values({
     slug,
     label,
     image: imageUrl,
@@ -205,17 +205,17 @@ export async function updateCategory(
   const { slug, label, showOnHome, parentId, level, storeType } = parsed.data;
   const imageFile = formData.get("image") as File | null;
 
-  const [existing] = await db.select().from(productCategories).where(eq(productCategories.id, validId)).limit(1);
+  const [existing] = await db.select().from(categories).where(eq(categories.id, validId)).limit(1);
   if (!existing) return { error: "Category not found" };
 
-  const existingSlug = await db.select().from(productCategories).where(eq(productCategories.slug, slug)).limit(1);
+  const existingSlug = await db.select().from(categories).where(eq(categories.slug, slug)).limit(1);
   if (existingSlug.length > 0 && existingSlug[0].id !== id) return { error: "A category with this slug already exists" };
 
   if (showOnHome && !existing.showOnHome) {
     const homeCount = await db
-      .select({ id: productCategories.id })
-      .from(productCategories)
-      .where(and(eq(productCategories.showOnHome, true), eq(productCategories.storeType, storeType)));
+      .select({ id: categories.id })
+      .from(categories)
+      .where(and(eq(categories.showOnHome, true), eq(categories.storeType, storeType)));
     if (homeCount.length >= 6) return { error: `Maximum 6 categories can be shown on the ${storeType} home page` };
   }
 
@@ -227,9 +227,9 @@ export async function updateCategory(
   }
 
   await db
-    .update(productCategories)
+    .update(categories)
     .set({ slug, label, image: imageUrl, showOnHome, parentId, level, storeType })
-    .where(eq(productCategories.id, validId));
+    .where(eq(categories.id, validId));
   auditLog({ userId: userId!, action: "category.update", target: String(validId), details: { slug, label } });
   return {};
 }
@@ -240,10 +240,10 @@ export async function deleteCategory(id: number): Promise<{ error?: string }> {
 
   const validId = z.number().int().positive().parse(id);
 
-  const [existing] = await db.select().from(productCategories).where(eq(productCategories.id, validId)).limit(1);
+  const [existing] = await db.select().from(categories).where(eq(categories.id, validId)).limit(1);
   if (!existing) return { error: "Category not found" };
 
-  await db.delete(productCategories).where(eq(productCategories.id, validId));
+  await db.delete(categories).where(eq(categories.id, validId));
   auditLog({ userId: userId!, action: "category.delete", target: String(validId), details: { slug: existing.slug } });
   return {};
 }

@@ -2,7 +2,7 @@
 
 import { eq } from "drizzle-orm";
 import { db } from "@/db";
-import { products, productVariants, productColors } from "@/db/schema";
+import { categories, productCategories, products, productVariants, productColors } from "@/db/schema";
 import { uploadProductImages } from "@/lib/uploadImages";
 import { getValidCategorySlugs } from "@/actions/categories";
 import { auditLog } from "@/lib/audit";
@@ -138,6 +138,16 @@ export async function updateProduct(
     colorImageUrls.push(urls);
   }
 
+  const [catRow] = await db
+    .select({ id: categories.id })
+    .from(categories)
+    .where(eq(categories.slug, categorySlug))
+    .limit(1);
+  if (!catRow) {
+    logger.error("Category slug not found in updateProduct", undefined, { categorySlug, productId });
+    return { success: false, error: "Invalid category" };
+  }
+
   await db.transaction(async (tx) => {
     await tx
       .update(products)
@@ -145,12 +155,16 @@ export async function updateProduct(
         name: name.trim(),
         description: description?.trim() || null,
         price: parseFloat(price).toFixed(2),
-        category: "CLOTHING",
-        categorySlug,
         color: colorEntries[0]?.name ?? null,
         isVisible,
       })
       .where(eq(products.id, validProductId));
+
+    await tx.delete(productCategories).where(eq(productCategories.productId, validProductId));
+    await tx.insert(productCategories).values({
+      productId: validProductId,
+      categoryId: catRow.id,
+    });
 
     const existingColors = await tx
       .select()

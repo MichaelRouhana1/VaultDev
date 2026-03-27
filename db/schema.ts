@@ -13,17 +13,10 @@ import {
   jsonb,
   AnyPgColumn,
   customType,
+  primaryKey,
 } from "drizzle-orm/pg-core";
 
 // Enums
-export const productCategoryEnum = pgEnum("product_category", [
-  "CLOTHING",
-  "SHOES",
-  "ACCESSORIES",
-  "BAGS",
-  "OTHER",
-]);
-
 export const categoryLevelEnum = pgEnum("category_level", [
   "root",
   "main",
@@ -57,25 +50,27 @@ const tsvector = customType<{ data: unknown; driverData: unknown }>({
   },
 });
 
-// Product categories - admin-managed, slug used for shop filtering
-export const productCategories = pgTable("product_categories", {
+/**
+ * Hierarchical shop categories (Bershka-style tree). URLs use `slug`.
+ * Physical table name: `categories` (renamed from legacy `product_categories`).
+ */
+export const categories = pgTable("categories", {
   id: serial("id").primaryKey(),
   slug: text("slug").notNull().unique(),
   label: text("label").notNull(),
   image: text("image"),
   showOnHome: boolean("show_on_home").notNull().default(false),
   sortOrder: integer("sort_order").notNull().default(0),
-  parentId: integer("parent_id").references((): AnyPgColumn => productCategories.id),
+  parentId: integer("parent_id").references((): AnyPgColumn => categories.id),
   level: categoryLevelEnum("level").notNull().default("main"),
   storeType: storeTypeEnum("store_type").notNull().default("streetwear"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 }, (t) => [
-  index("product_categories_store_type_idx").on(t.storeType),
-  /** Home grid: show_on_home + store_type */
-  index("product_categories_home_idx").on(t.showOnHome, t.storeType),
+  index("categories_store_type_idx").on(t.storeType),
+  index("categories_home_idx").on(t.showOnHome, t.storeType),
 ]);
 
-// Products - category_slug references product_categories.slug
+// Products — catalog attributes only; categories via `product_categories` join table.
 export const products = pgTable("products", {
   id: serial("id").primaryKey(),
   name: text("name").notNull(),
@@ -91,18 +86,30 @@ export const products = pgTable("products", {
   saleStartsAt: timestamp("sale_starts_at"),
   saleEndsAt: timestamp("sale_ends_at"),
   isSaleActive: boolean("is_sale_active").notNull().default(true),
-  category: productCategoryEnum("category").notNull(),
-  categorySlug: text("category_slug"),
   color: text("color"),
   isVisible: boolean("is_visible").notNull().default(true),
   storeType: storeTypeEnum("store_type").notNull().default("streetwear"),
 }, (t) => [
-  /** Storefront listing: store_type + is_visible (shop / home / similar products) */
   index("products_store_type_visible_idx").on(t.storeType, t.isVisible),
-  /** Filter by category slug on shop */
-  index("products_category_slug_idx").on(t.categorySlug),
   index("products_search_vector_idx").using("gin", t.searchVector),
 ]);
+
+/** Many-to-many: products ↔ category tree nodes (filtering, PDP, admin). */
+export const productCategories = pgTable(
+  "product_categories",
+  {
+    productId: integer("product_id")
+      .notNull()
+      .references(() => products.id, { onDelete: "cascade" }),
+    categoryId: integer("category_id")
+      .notNull()
+      .references(() => categories.id, { onDelete: "cascade" }),
+  },
+  (t) => [
+    primaryKey({ columns: [t.productId, t.categoryId] }),
+    index("product_categories_category_id_idx").on(t.categoryId),
+  ],
+);
 
 // Product colors - each color has its own image gallery
 export const productColors = pgTable("product_colors", {
@@ -184,21 +191,29 @@ export const orderItems = pgTable("order_items", {
 });
 
 // Relations
-export const productCategoriesRelations = relations(productCategories, ({ one, many }) => ({
-  parent: one(productCategories, {
-    fields: [productCategories.parentId],
-    references: [productCategories.id],
+export const categoriesRelations = relations(categories, ({ one, many }) => ({
+  parent: one(categories, {
+    fields: [categories.parentId],
+    references: [categories.id],
     relationName: "parent_to_child",
   }),
-  children: many(productCategories, { relationName: "parent_to_child" }),
-  products: many(products),
+  children: many(categories, { relationName: "parent_to_child" }),
+  productLinks: many(productCategories),
 }));
 
-export const productsRelations = relations(products, ({ one, many }) => ({
-  productCategory: one(productCategories, {
-    fields: [products.categorySlug],
-    references: [productCategories.slug],
+export const productCategoriesRelations = relations(productCategories, ({ one }) => ({
+  product: one(products, {
+    fields: [productCategories.productId],
+    references: [products.id],
   }),
+  category: one(categories, {
+    fields: [productCategories.categoryId],
+    references: [categories.id],
+  }),
+}));
+
+export const productsRelations = relations(products, ({ many }) => ({
+  categoryLinks: many(productCategories),
   variants: many(productVariants),
   colors: many(productColors),
   orderItems: many(orderItems),
@@ -317,8 +332,16 @@ export const wishlistsRelations = relations(wishlists, ({ one }) => ({
 }));
 
 // Exported types
-export type ProductCategory = typeof productCategories.$inferSelect;
-export type NewProductCategory = typeof productCategories.$inferInsert;
+export type Category = typeof categories.$inferSelect;
+export type NewCategory = typeof categories.$inferInsert;
+
+/** @deprecated Use `Category` — name kept for incremental refactors */
+export type ProductCategory = Category;
+/** @deprecated Use `NewCategory` */
+export type NewProductCategory = NewCategory;
+
+export type ProductCategoryLink = typeof productCategories.$inferSelect;
+export type NewProductCategoryLink = typeof productCategories.$inferInsert;
 
 export type Product = typeof products.$inferSelect;
 export type NewProduct = typeof products.$inferInsert;

@@ -1,7 +1,8 @@
 "use server";
 
+import { eq } from "drizzle-orm";
 import { db } from "@/db";
-import { products, productVariants, productColors } from "@/db/schema";
+import { categories, productCategories, products, productVariants, productColors } from "@/db/schema";
 import { uploadProductImages } from "@/lib/uploadImages";
 import { getValidCategorySlugs } from "@/actions/categories";
 import { auditLog } from "@/lib/audit";
@@ -80,6 +81,16 @@ export async function createProduct(formData: FormData): Promise<{ success?: boo
     colorImageUrls.push(result.urls);
   }
 
+  const [catRow] = await db
+    .select({ id: categories.id })
+    .from(categories)
+    .where(eq(categories.slug, categorySlug))
+    .limit(1);
+  if (!catRow) {
+    logger.error("Category slug not found in createProduct", undefined, { categorySlug });
+    return { success: false, error: "Invalid category" };
+  }
+
   const productId = await db.transaction(async (tx) => {
     const [product] = await tx
       .insert(products)
@@ -87,13 +98,13 @@ export async function createProduct(formData: FormData): Promise<{ success?: boo
         name,
         description: description || null,
         price: parseFloat(price).toFixed(2),
-        category: "CLOTHING",
-        categorySlug,
         storeType,
         color: colorEntries[0]?.name ?? null,
         isVisible,
       })
       .returning({ id: products.id });
+
+    await tx.insert(productCategories).values({ productId: product.id, categoryId: catRow.id });
 
     const colorIds: number[] = [];
     for (let i = 0; i < colorEntries.length; i++) {

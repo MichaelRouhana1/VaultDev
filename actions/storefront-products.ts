@@ -6,12 +6,45 @@
  */
 
 import { cache } from "react";
-import { and, desc, eq, inArray, ne, sql } from "drizzle-orm";
+import { and, desc, eq, inArray, ne, sql, exists } from "drizzle-orm";
 import { db } from "@/db";
-import { productColors, products, productVariants } from "@/db/schema";
+import { categories, productCategories, productColors, products, productVariants } from "@/db/schema";
 import { buildProductSearchWhere } from "@/lib/product-search";
 
 export type StoreTypeFilter = "streetwear" | "formal";
+
+/** First linked category slug for PDP / breadcrumbs (deterministic by category id). */
+export const getPrimaryCategorySlugForProduct = cache(async (productId: number): Promise<string | null> => {
+  const [row] = await db
+    .select({ slug: categories.slug })
+    .from(productCategories)
+    .innerJoin(categories, eq(categories.id, productCategories.categoryId))
+    .where(eq(productCategories.productId, productId))
+    .orderBy(productCategories.categoryId)
+    .limit(1);
+  return row?.slug ?? null;
+});
+
+/** Primary slug per product (shop filters / ProductCard) — first link by `category_id`. */
+export const getPrimaryCategorySlugByProductIds = cache(async (productIds: number[]) => {
+  const ids = [...new Set(productIds)].filter((id) => Number.isFinite(id));
+  if (ids.length === 0) return {} as Record<number, string>;
+  const rows = await db
+    .select({
+      productId: productCategories.productId,
+      slug: categories.slug,
+      categoryId: productCategories.categoryId,
+    })
+    .from(productCategories)
+    .innerJoin(categories, eq(categories.id, productCategories.categoryId))
+    .where(inArray(productCategories.productId, ids))
+    .orderBy(productCategories.categoryId);
+  const map: Record<number, string> = {};
+  for (const r of rows) {
+    if (map[r.productId] === undefined) map[r.productId] = r.slug;
+  }
+  return map;
+});
 
 /** Home “discover” strip: visible products for store + first color image via lateral join. */
 export const getHomeDiscoverProductsWithFirstImage = cache(
@@ -36,8 +69,14 @@ export const getHomeDiscoverProductsWithFirstImage = cache(
         saleStartsAt: products.saleStartsAt,
         saleEndsAt: products.saleEndsAt,
         isSaleActive: products.isSaleActive,
-        category: products.category,
-        categorySlug: products.categorySlug,
+        categorySlug: sql<string | null>`(
+          SELECT c.slug
+          FROM product_categories pc
+          INNER JOIN categories c ON c.id = pc.category_id
+          WHERE pc.product_id = ${products.id}
+          ORDER BY pc.category_id
+          LIMIT 1
+        )`.as("category_slug"),
         color: products.color,
         isVisible: products.isVisible,
         storeType: products.storeType,
@@ -58,7 +97,20 @@ export const getShopProductsForStore = cache(
   ) => {
     const baseFilters = [eq(products.isVisible, true), eq(products.storeType, storeType)];
     if (filters.categorySlug) {
-      baseFilters.push(eq(products.categorySlug, filters.categorySlug));
+      baseFilters.push(
+        exists(
+          db
+            .select()
+            .from(productCategories)
+            .innerJoin(categories, eq(categories.id, productCategories.categoryId))
+            .where(
+              and(
+                eq(productCategories.productId, products.id),
+                eq(categories.slug, filters.categorySlug),
+              ),
+            ),
+        ),
+      );
     }
     const fts = buildProductSearchWhere(filters.searchQuery ?? "");
     if (fts) baseFilters.push(fts);
@@ -113,7 +165,18 @@ export const getSimilarVisibleProductsExcept = cache(
       .where(
         and(
           eq(products.isVisible, true),
-          eq(products.categorySlug, categorySlug),
+          exists(
+            db
+              .select()
+              .from(productCategories)
+              .innerJoin(categories, eq(categories.id, productCategories.categoryId))
+              .where(
+                and(
+                  eq(productCategories.productId, products.id),
+                  eq(categories.slug, categorySlug),
+                ),
+              ),
+          ),
           eq(products.storeType, storeType),
           ne(products.id, excludeProductId),
         ),

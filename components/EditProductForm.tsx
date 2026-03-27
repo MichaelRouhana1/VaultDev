@@ -55,7 +55,7 @@ export function EditProductForm({
   colors = [],
   categories,
 }: {
-  product: Product & { images?: string[] };
+  product: Product & { images?: string[]; categorySlug?: string | null };
   variants?: ProductVariant[];
   colors?: ProductColor[];
   categories: ProductCategory[];

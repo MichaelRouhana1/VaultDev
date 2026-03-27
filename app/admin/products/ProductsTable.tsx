@@ -49,7 +49,6 @@ interface ProductWithMeta {
   saleStartsAt?: Date | string | null;
   saleEndsAt?: Date | string | null;
   isSaleActive?: boolean;
-  category: string;
   images: string[];
   isVisible: boolean;
   totalStock: number;

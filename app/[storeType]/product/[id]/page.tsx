@@ -12,6 +12,7 @@ import {
   getSimilarVisibleProductsExcept,
   getProductVariantsByProductIds,
   getProductColorsByProductIds,
+  getPrimaryCategorySlugForProduct,
 } from "@/actions/storefront-products";
 
 export async function generateMetadata({ params }: { params: Promise<{ id: string; storeType: string }> }): Promise<Metadata> {
@@ -48,8 +49,10 @@ export default async function ProductPage({
   const firstColorImages = colors[0]?.imageUrls ?? [];
   const productWithImages = { ...product, images: firstColorImages };
 
-  const categorySlug = product.categorySlug ?? "trousers";
-  const similarProducts = await getSimilarVisibleProductsExcept(categorySlug, st, productId, 10);
+  const primaryCategorySlug = await getPrimaryCategorySlugForProduct(productId);
+  const similarProducts = primaryCategorySlug
+    ? await getSimilarVisibleProductsExcept(primaryCategorySlug, st, productId, 10)
+    : [];
 
   const similarProductIds = similarProducts.map((p) => p.id);
   const [similarVariants, similarColors] =
@@ -97,10 +100,10 @@ export default async function ProductPage({
         <Link href="/" className="hover:text-foreground">Home</Link>
         <span>/</span>
         <Link href={`/${storeType}/shop`} className="hover:text-foreground capitalize">{storeType}</Link>
-        {product.categorySlug && (
+        {primaryCategorySlug && (
           <>
             <span>/</span>
-            <span className="text-foreground capitalize">{product.categorySlug.replace(/-/g, ' ')}</span>
+            <span className="text-foreground capitalize">{primaryCategorySlug.replace(/-/g, " ")}</span>
           </>
         )}
       </div>

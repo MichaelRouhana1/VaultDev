@@ -1,8 +1,8 @@
 import { Suspense } from "react";
 import Link from "next/link";
 import { db } from "@/db";
-import { products, productVariants, productColors } from "@/db/schema";
-import { inArray, desc, eq, and } from "drizzle-orm";
+import { categories, productCategories, products, productVariants, productColors } from "@/db/schema";
+import { inArray, desc, eq, and, exists } from "drizzle-orm";
 import { ProductsTable } from "./ProductsTable";
 import { getCategories } from "@/actions/categories";
 import { getAdminStoreType } from "@/actions/admin-store";
@@ -17,14 +17,24 @@ export default async function AdminProductsPage({
   const q = params.q?.trim();
   const category = params.category;
 
-  const categories = await getCategories();
-  const categoryLabels = Object.fromEntries(categories.map((c) => [c.slug, c.label]));
+  const categoryList = await getCategories();
+  const categoryLabels = Object.fromEntries(categoryList.map((c) => [c.slug, c.label]));
 
   const adminStore = await getAdminStoreType();
 
   const whereConditions = [eq(products.storeType, adminStore)];
   if (category && category !== "all") {
-    whereConditions.push(eq(products.categorySlug, category));
+    whereConditions.push(
+      exists(
+        db
+          .select()
+          .from(productCategories)
+          .innerJoin(categories, eq(categories.id, productCategories.categoryId))
+          .where(
+            and(eq(productCategories.productId, products.id), eq(categories.slug, category)),
+          ),
+      ),
+    );
   }
   const ftsClause = buildProductSearchWhere(q ?? "");
   if (ftsClause) {
@@ -38,6 +48,24 @@ export default async function AdminProductsPage({
     .orderBy(desc(products.id));
 
   const productIds = productList.map((p) => p.id);
+  const slugRows =
+    productIds.length > 0
+      ? await db
+          .select({
+            productId: productCategories.productId,
+            slug: categories.slug,
+          })
+          .from(productCategories)
+          .innerJoin(categories, eq(categories.id, productCategories.categoryId))
+          .where(inArray(productCategories.productId, productIds))
+      : [];
+  const primarySlugByProductId: Record<number, string> = {};
+  for (const row of slugRows) {
+    if (primarySlugByProductId[row.productId] === undefined) {
+      primarySlugByProductId[row.productId] = row.slug;
+    }
+  }
+
   const [variants, colorsList] =
     productIds.length > 0
       ? await Promise.all([
@@ -94,7 +122,8 @@ export default async function AdminProductsPage({
     totalStock: stockByProduct[p.id] ?? 0,
     stockBySize: stockBySizeByProduct[p.id] ?? {},
     stockByColor: stockByColorByProduct[p.id] ?? [],
-    categoryLabel: categoryLabels[p.categorySlug ?? ""] ?? p.categorySlug ?? p.category ?? "—",
+    categoryLabel:
+      categoryLabels[primarySlugByProductId[p.id] ?? ""] ?? primarySlugByProductId[p.id] ?? "—",
     colorLabel: (p as { color?: string | null }).color ?? deriveColor(p.name, p.description),
   }));
 
@@ -120,7 +149,7 @@ export default async function AdminProductsPage({
           products={productsWithStock}
           initialQuery={q}
           initialCategory={category}
-          categories={categories}
+          categories={categoryList}
           storeType={adminStore}
         />
       </Suspense>

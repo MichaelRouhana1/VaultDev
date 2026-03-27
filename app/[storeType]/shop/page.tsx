@@ -8,6 +8,7 @@ import {
   getShopProductsForStore,
   getProductVariantsByProductIds,
   getProductColorsByProductIds,
+  getPrimaryCategorySlugByProductIds,
 } from "@/actions/storefront-products";
 import { Suspense } from "react";
 import { notFound } from "next/navigation";
@@ -74,6 +75,7 @@ export default async function ShopPage({ params, searchParams }: ShopPageProps) 
   });
 
   const productIds = productList.map((p) => p.id);
+  const primarySlugByProductId = await getPrimaryCategorySlugByProductIds(productIds);
   const [variantsList, colorsList] =
     productIds.length > 0
       ? await Promise.all([
@@ -100,6 +102,7 @@ export default async function ShopPage({ params, searchParams }: ShopPageProps) 
   const productsWithImages = productList.map((p) => ({
     ...p,
     images: firstImageByProductId[p.id] ? [firstImageByProductId[p.id]] : [],
+    categorySlug: primarySlugByProductId[p.id] ?? null,
   }));
 
   const variantsByProductId = variantsList.reduce<Record<number, typeof productVariants.$inferSelect[]>>(

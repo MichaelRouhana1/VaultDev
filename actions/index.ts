@@ -22,4 +22,6 @@ export {
   getPublicProductTitleForMetadata,
   getPublicProductDetailForStore,
   getSimilarVisibleProductsExcept,
+  getPrimaryCategorySlugForProduct,
+  getPrimaryCategorySlugByProductIds,
 } from "./storefront-products";

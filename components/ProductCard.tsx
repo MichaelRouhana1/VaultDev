@@ -119,7 +119,7 @@ export function ProductCard({
   };
 
   const colorLabel =
-    activeColor?.name ?? product.color ?? product.description?.split(",")[0] ?? product.category ?? "—";
+    activeColor?.name ?? product.color ?? product.description?.split(",")[0] ?? "—";
 
   return (
     <article

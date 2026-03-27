@@ -1,7 +1,7 @@
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import { db } from "@/db";
-import { products, productVariants, productColors } from "@/db/schema";
+import { categories, productCategories, products, productVariants, productColors } from "@/db/schema";
 import { eq } from "drizzle-orm";
 import { EditProductForm } from "@/components/EditProductForm";
 import { getCategories } from "@/actions/categories";
@@ -30,9 +30,19 @@ export default async function EditProductPage({
   ]);
 
   const storeType = await getAdminStoreType();
-  const categories = await getCategories(storeType);
+  const categoryRows = await getCategories(storeType);
   const firstColorImages = colors[0]?.imageUrls ?? [];
-  const productWithImages = { ...product, images: firstColorImages };
+  const [catLink] = await db
+    .select({ slug: categories.slug })
+    .from(productCategories)
+    .innerJoin(categories, eq(categories.id, productCategories.categoryId))
+    .where(eq(productCategories.productId, productId))
+    .limit(1);
+  const productWithImages = {
+    ...product,
+    images: firstColorImages,
+    categorySlug: catLink?.slug ?? null,
+  };
 
   return (
     <div>
@@ -47,7 +57,7 @@ export default async function EditProductPage({
         product={productWithImages}
         variants={variants}
         colors={colors}
-        categories={categories}
+        categories={categoryRows}
       />
     </div>
   );

@@ -9,9 +9,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { productCategoryEnum } from "@/db/schema";
-
-const CATEGORIES = productCategoryEnum.enumValues;
+/** Legacy shop route filter values (sidebar not used on `[storeType]/shop`). */
+const CATEGORIES = ["CLOTHING", "SHOES", "ACCESSORIES", "BAGS", "OTHER"] as const;
 const SORT_OPTIONS = [
   { value: "newest", label: "Newest" },
   { value: "price-asc", label: "Price: Low to High" },

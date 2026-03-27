@@ -85,6 +85,13 @@
       "when": 1774282200722,
       "tag": "0011_p4_storefront_indexes",
       "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "7",
+      "when": 1774300000000,
+      "tag": "0012_categories_m2m",
+      "breakpoints": true
     }
   ]
 }
