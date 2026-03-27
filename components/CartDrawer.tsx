@@ -182,41 +182,41 @@ export function CartDrawer({ isOpen, onClose }: CartDrawerProps) {
           )}
         </div>
 
-        {items.length > 0 && (
-          <div className="p-6 border-t border-border bg-muted">
-            <div className="mb-4 flex w-full items-center justify-between gap-4 text-sm">
-              <Link
-                href="/cart"
-                onClick={onClose}
-                className="shrink-0 text-muted-foreground hover:text-foreground"
-              >
-                View full cart →
-              </Link>
-              <Link
-                href="/cart?tab=favorites"
-                onClick={onClose}
-                className="shrink-0 text-right text-muted-foreground hover:text-foreground"
-              >
-                View favourites →
-              </Link>
-            </div>
-            <div className="flex items-center justify-between mb-4">
-              <span className="text-lg font-semibold text-foreground">
-                Total
-              </span>
-              <span className="text-xl font-bold text-foreground">
-                ${totalPrice.toFixed(2)}
-              </span>
-            </div>
-            <button
-              type="button"
-              onClick={handleProceedToCheckout}
-              className="w-full py-3 px-4 font-medium text-primary-foreground bg-primary hover:opacity-90 transition-opacity"
+        <div className="shrink-0 border-t border-border bg-muted p-6">
+          <div
+            className={`flex w-full items-center justify-between gap-4 text-sm ${items.length > 0 ? "mb-4" : ""}`}
+          >
+            <Link
+              href="/cart"
+              onClick={onClose}
+              className="shrink-0 text-muted-foreground hover:text-foreground"
             >
-              Proceed to Checkout
-            </button>
+              View full cart →
+            </Link>
+            <Link
+              href="/cart?tab=favorites"
+              onClick={onClose}
+              className="shrink-0 text-right text-muted-foreground hover:text-foreground"
+            >
+              View favourites →
+            </Link>
           </div>
-        )}
+          {items.length > 0 && (
+            <>
+              <div className="mb-4 flex items-center justify-between">
+                <span className="text-lg font-semibold text-foreground">Total</span>
+                <span className="text-xl font-bold text-foreground">${totalPrice.toFixed(2)}</span>
+              </div>
+              <button
+                type="button"
+                onClick={handleProceedToCheckout}
+                className="w-full py-3 px-4 font-medium text-primary-foreground bg-primary hover:opacity-90 transition-opacity"
+              >
+                Proceed to Checkout
+              </button>
+            </>
+          )}
+        </div>
       </aside>
     </>
   );

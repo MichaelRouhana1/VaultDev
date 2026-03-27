@@ -574,8 +574,7 @@ export function ProductDetailClient({
                           fill
                           className="object-cover"
                           onError={() => handleImageError(urlIndex)}
-
-                          sizes="200px"
+                          sizes="(max-width: 1024px) 45vw, (max-width: 1536px) 32vw, 480px"
                         />
                       ) : (
                         <div className="flex h-full w-full items-center justify-center text-muted-foreground text-sm">

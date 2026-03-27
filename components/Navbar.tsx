@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useMemo } from "react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { useParams, usePathname } from "next/navigation";
 import { UserButton, useAuth } from "@clerk/nextjs";
 import { useTheme } from "next-themes";
 import { useCart } from "@/context/CartContext";
@@ -16,9 +16,23 @@ import {
   mosaikClerkUserButtonVariablesLight,
 } from "@/lib/clerk-auth-appearance";
 import type { ProductCategory } from "@/actions/categories";
+import { hrefForStore, type StoreTypeSlug } from "@/lib/preferred-store";
+import { cn } from "@/lib/utils";
+
+function activeStoreFromRoute(
+  paramsStore: string | string[] | undefined,
+  pathname: string | null,
+): StoreTypeSlug | null {
+  const raw = Array.isArray(paramsStore) ? paramsStore[0] : paramsStore;
+  if (raw === "streetwear" || raw === "formal") return raw;
+  const seg = pathname?.split("/").filter(Boolean)[0];
+  if (seg === "streetwear" || seg === "formal") return seg;
+  return null;
+}
 
 export function Navbar() {
   const pathname = usePathname();
+  const params = useParams<{ storeType?: string }>();
   const { sessionClaims } = useAuth();
   const { totalItems, setOpenCart } = useCart();
   const { theme, setTheme, resolvedTheme } = useTheme();
@@ -62,8 +76,9 @@ export function Navbar() {
     }
   }, [pathname]);
 
-  const storeType = pathname?.split('/')[1];
+  const storeType = pathname?.split("/")[1];
   const isStoreType = storeType === "streetwear" || storeType === "formal";
+  const activeStore = activeStoreFromRoute(params.storeType, pathname);
 
   const isAdmin = (sessionClaims?.metadata as { role?: string })?.role === "admin";
 
@@ -71,12 +86,24 @@ export function Navbar() {
   if (pathname?.startsWith("/sign-in") || pathname?.startsWith("/sign-up")) return null;
   if (pathname === "/") return null;
 
+  const pathForSwitch = pathname ?? "/";
+  const streetwearHref = hrefForStore(pathForSwitch, "streetwear");
+  const formalHref = hrefForStore(pathForSwitch, "formal");
+
+  const storeLinkClass = (slug: StoreTypeSlug) =>
+    cn(
+      "text-[10px] sm:text-xs tracking-[0.22em] uppercase transition-colors",
+      activeStore === slug
+        ? "font-semibold text-foreground underline decoration-1 underline-offset-4"
+        : "font-normal text-foreground/45 hover:text-foreground/80",
+    );
+
   return (
     <nav className="fixed top-0 left-0 right-0 z-50 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 border-b border-border">
       <div className="w-full px-4 sm:px-6 lg:px-8">
         <div className="relative flex items-center justify-between h-14">
-          {/* Left: Burger + Primary navigation */}
-          <div className="flex items-center gap-4 sm:gap-6 lg:gap-8 shrink-0">
+          {/* Left: Burger + Primary navigation + store switcher (desktop, next to Shop) */}
+          <div className="flex items-center gap-4 sm:gap-6 lg:gap-8 shrink-0 min-w-0">
             {/* Burger menu button - visible on smaller screens */}
             <button
               type="button"
@@ -105,11 +132,26 @@ export function Navbar() {
             <button
               type="button"
               onClick={() => setShopDrawerOpen(true)}
-              className="hidden lg:inline text-sm font-normal text-foreground hover:opacity-70 transition-opacity"
+              className="hidden lg:inline text-sm font-normal text-foreground hover:opacity-70 transition-opacity shrink-0"
               aria-label="Open shop menu"
             >
               Shop
             </button>
+            <div
+              className="hidden lg:flex items-center gap-2 sm:gap-3 pl-4 ml-1 border-l border-border/60 shrink-0"
+              role="navigation"
+              aria-label="Store selection"
+            >
+              <Link href={streetwearHref} className={storeLinkClass("streetwear")}>
+                Streetwear
+              </Link>
+              <span className="text-foreground/25 text-[10px] select-none" aria-hidden>
+                |
+              </span>
+              <Link href={formalHref} className={storeLinkClass("formal")}>
+                Formal
+              </Link>
+            </div>
           </div>
 
           {/* Center: Logo */}
@@ -229,7 +271,31 @@ export function Navbar() {
                 </svg>
                 Shop
               </button>
-              <div className="border-t border-border my-3" />
+              <div
+                className="flex items-center gap-3 px-4 py-2 border-b border-border mb-1"
+                role="navigation"
+                aria-label="Store selection"
+              >
+                <Link
+                  href={streetwearHref}
+                  onClick={() => setBurgerOpen(false)}
+                  className={cn(storeLinkClass("streetwear"), "py-1")}
+                  role="menuitem"
+                >
+                  Streetwear
+                </Link>
+                <span className="text-foreground/25 text-xs select-none" aria-hidden>
+                  |
+                </span>
+                <Link
+                  href={formalHref}
+                  onClick={() => setBurgerOpen(false)}
+                  className={cn(storeLinkClass("formal"), "py-1")}
+                  role="menuitem"
+                >
+                  Formal
+                </Link>
+              </div>
               <Link
                 href={isStoreType ? `/${storeType}/shop` : "/shop"}
                 onClick={() => setBurgerOpen(false)}

@@ -10,6 +10,11 @@ import {
 import { getInternalApiSecret, MOSAIK_INTERNAL_SECRET_HEADER } from "@/lib/internal-api-secret";
 import { MemorySlidingWindow } from "@/lib/memory-sliding-window";
 import { loggerWarnStructured } from "@/lib/logger-structured";
+import {
+  isValidPreferredStore,
+  PREFERRED_STORE_COOKIE,
+  storeSlugFromPathname,
+} from "@/lib/preferred-store";
 
 function isSitePasswordRequired(): boolean {
   return process.env.REQUIRE_SITE_PASSWORD === "true";
@@ -102,6 +107,17 @@ export default clerkMiddleware(async (auth, req) => {
         status: 401,
         headers: { "WWW-Authenticate": 'Basic realm="Secure Area"' },
       });
+    }
+  }
+
+  const pathname = req.nextUrl.pathname;
+  if (
+    pathname === "/" &&
+    (req.method === "GET" || req.method === "HEAD")
+  ) {
+    const pref = req.cookies.get(PREFERRED_STORE_COOKIE)?.value;
+    if (isValidPreferredStore(pref)) {
+      return NextResponse.redirect(new URL(`/${pref}`, req.url));
     }
   }
 
@@ -235,6 +251,17 @@ export default clerkMiddleware(async (auth, req) => {
   });
 
   response.headers.set("Content-Security-Policy", cspHeader);
+
+  const storeFromPath = storeSlugFromPathname(pathname);
+  if (storeFromPath) {
+    response.cookies.set(PREFERRED_STORE_COOKIE, storeFromPath, {
+      path: "/",
+      maxAge: 60 * 60 * 24 * 365,
+      sameSite: "lax",
+      secure: process.env.NODE_ENV === "production",
+    });
+  }
+
   return response;
 });
 
