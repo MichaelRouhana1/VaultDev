@@ -50,9 +50,7 @@ export default async function ProductPage({
   const productWithImages = { ...product, images: firstColorImages };
 
   const primaryCategorySlug = await getPrimaryCategorySlugForProduct(productId);
-  const similarProducts = primaryCategorySlug
-    ? await getSimilarVisibleProductsExcept(primaryCategorySlug, st, productId, 10)
-    : [];
+  const similarProducts = await getSimilarVisibleProductsExcept(productId, st, 10);
 
   const similarProductIds = similarProducts.map((p) => p.id);
   const [similarVariants, similarColors] =

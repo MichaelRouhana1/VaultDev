@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { createProduct } from "@/actions/createProduct";
 import { Button } from "@/components/ui/button";
@@ -13,23 +13,39 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { CategorySelector } from "@/components/admin/CategorySelector";
 import { PriceInput } from "@/components/admin/PriceInput";
-import { StoreTypeSelect } from "@/components/admin/StoreTypeSelect";
+import { ProductTaxonomyFields } from "@/components/admin/ProductTaxonomyFields";
+import {
+  ProductCollectionsFields,
+  type CollectionOption,
+} from "@/components/admin/ProductCollectionsFields";
 import { ImageUploader, type ColorEntry } from "@/components/admin/ImageUploader";
 import { InventoryManager } from "@/components/admin/InventoryManager";
-import type { ProductCategory } from "@/actions/categories";
+import type { ProductFormCategoryTree } from "@/actions/categories";
 
 const SIZES = ["XS", "S", "M", "L", "XL"] as const;
 
 export function CreateProductForm({
-  categories,
-  initialStoreType = "streetwear"
+  categoryTrees,
+  collectionsByStore,
+  initialStoreType = "streetwear",
 }: {
-  categories: ProductCategory[];
-  initialStoreType?: "streetwear" | "formal" | "both";
+  categoryTrees: Record<"streetwear" | "formal", ProductFormCategoryTree>;
+  collectionsByStore: Record<"streetwear" | "formal", CollectionOption[]>;
+  initialStoreType?: "streetwear" | "formal";
 }) {
   const router = useRouter();
+  const [listingStore, setListingStore] = useState<"streetwear" | "formal">(initialStoreType);
+  const [collectionIds, setCollectionIds] = useState<number[]>([]);
+  const skipClearCollectionsRef = useRef(true);
+  useEffect(() => {
+    if (skipClearCollectionsRef.current) {
+      skipClearCollectionsRef.current = false;
+      return;
+    }
+    setCollectionIds([]);
+  }, [listingStore]);
+
   const [colors, setColors] = useState<ColorEntry[]>([]);
   const [state, setState] = useState<{ error?: string; productId?: number } | null>(null);
   const [isPending, setIsPending] = useState(false);
@@ -95,6 +111,7 @@ export function CreateProductForm({
     setState(null);
 
     const formData = new FormData(form);
+    collectionIds.forEach((id) => formData.append("collectionIds", String(id)));
     formData.set("color_count", String(colors.length));
     colors.forEach((color, i) => {
       formData.set(`color_${i}_name`, color.name.trim());
@@ -144,8 +161,18 @@ export function CreateProductForm({
           </div>
           <div className="grid gap-4 sm:grid-cols-2">
             <PriceInput />
-            <CategorySelector categories={categories} />
-            <StoreTypeSelect initialStoreType={initialStoreType} />
+            <ProductTaxonomyFields
+              categoryTrees={categoryTrees}
+              initialStoreType={initialStoreType}
+              listingStore={listingStore}
+              onListingStoreChange={setListingStore}
+            />
+            <ProductCollectionsFields
+              collectionsByStore={collectionsByStore}
+              listingStore={listingStore}
+              selectedIds={collectionIds}
+              onChange={setCollectionIds}
+            />
           </div>
           <div className="flex items-center gap-2">
             <input

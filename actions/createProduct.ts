@@ -1,14 +1,17 @@
 "use server";
 
-import { eq } from "drizzle-orm";
 import { db } from "@/db";
-import { categories, productCategories, products, productVariants, productColors } from "@/db/schema";
+import { products, productVariants, productColors, productCollections } from "@/db/schema";
 import { uploadProductImages } from "@/lib/uploadImages";
-import { getValidCategorySlugs } from "@/actions/categories";
 import { auditLog } from "@/lib/audit";
 import { productSchema } from "@/lib/schemas";
 import { logger } from "@/lib/logger";
 import { requireAdminAction } from "@/lib/security";
+import { validateProductCategoryAssignment } from "@/lib/product-category-assign";
+import {
+  parseCollectionIdsFromFormData,
+  validateProductCollectionAssignments,
+} from "@/lib/product-collections";
 
 const SIZES = ["XS", "S", "M", "L", "XL"] as const;
 
@@ -17,8 +20,9 @@ export async function createProduct(formData: FormData): Promise<{ success?: boo
     name: formData.get("name"),
     description: formData.get("description") || null,
     price: formData.get("price"),
-    categorySlug: formData.get("category"),
-    storeType: formData.get("storeType") || "both",
+    storeType: formData.get("storeType"),
+    mainCategoryId: formData.get("mainCategoryId"),
+    subcategoryId: formData.get("subcategoryId") ?? "",
     isVisible: formData.get("isVisible") === "true",
     color_count: parseInt(String(formData.get("color_count") ?? "0"), 10),
   });
@@ -33,15 +37,30 @@ export async function createProduct(formData: FormData): Promise<{ success?: boo
   if (!gate.authorized) return gate.response;
   const { userId } = gate;
 
-  const { name, description, price, categorySlug, storeType, isVisible, color_count: colorCount } = parsed.data;
+  const {
+    name,
+    description,
+    price,
+    storeType,
+    mainCategoryId,
+    subcategoryId,
+    isVisible,
+    color_count: colorCount,
+  } = parsed.data;
 
-  const validSlugs = await getValidCategorySlugs();
-  if (!validSlugs.includes(categorySlug)) {
-    logger.error("Invalid category slug in createProduct", undefined, { categorySlug });
-    return { error: "Invalid category" };
+  const assignErr = await validateProductCategoryAssignment(storeType, mainCategoryId, subcategoryId);
+  if (assignErr) {
+    logger.error("Invalid product category assignment", undefined, { assignErr, mainCategoryId, subcategoryId });
+    return { success: false, error: assignErr };
   }
 
-  // Parse colors from formData
+  const collectionIds = parseCollectionIdsFromFormData(formData);
+  const collErr = await validateProductCollectionAssignments(storeType, collectionIds);
+  if (collErr) {
+    logger.error("Invalid product collection assignment", undefined, { collErr, collectionIds });
+    return { success: false, error: collErr };
+  }
+
   const colorEntries: Array<{
     name: string;
     hexCode: string | null;
@@ -69,7 +88,6 @@ export async function createProduct(formData: FormData): Promise<{ success?: boo
     });
   }
 
-  // Upload images for each color
   const colorImageUrls: string[][] = [];
   for (let i = 0; i < colorEntries.length; i++) {
     const prefix = `product-${Date.now()}-${i}`;
@@ -81,16 +99,6 @@ export async function createProduct(formData: FormData): Promise<{ success?: boo
     colorImageUrls.push(result.urls);
   }
 
-  const [catRow] = await db
-    .select({ id: categories.id })
-    .from(categories)
-    .where(eq(categories.slug, categorySlug))
-    .limit(1);
-  if (!catRow) {
-    logger.error("Category slug not found in createProduct", undefined, { categorySlug });
-    return { success: false, error: "Invalid category" };
-  }
-
   const productId = await db.transaction(async (tx) => {
     const [product] = await tx
       .insert(products)
@@ -99,12 +107,12 @@ export async function createProduct(formData: FormData): Promise<{ success?: boo
         description: description || null,
         price: parseFloat(price).toFixed(2),
         storeType,
+        mainCategoryId,
+        subcategoryId,
         color: colorEntries[0]?.name ?? null,
         isVisible,
       })
       .returning({ id: products.id });
-
-    await tx.insert(productCategories).values({ productId: product.id, categoryId: catRow.id });
 
     const colorIds: number[] = [];
     for (let i = 0; i < colorEntries.length; i++) {
@@ -132,6 +140,15 @@ export async function createProduct(formData: FormData): Promise<{ success?: boo
           stock,
         });
       }
+    }
+
+    if (collectionIds.length > 0) {
+      await tx.insert(productCollections).values(
+        collectionIds.map((collectionId) => ({
+          productId: product.id,
+          collectionId,
+        })),
+      );
     }
 
     return product.id;

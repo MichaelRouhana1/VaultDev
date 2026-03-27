@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useDropzone } from "react-dropzone";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
@@ -20,7 +20,12 @@ import { ensureBrowserDisplayableImage } from "@/lib/ensureBrowserDisplayableIma
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import type { Product, ProductVariant, ProductColor } from "@/db/schema";
-import type { ProductCategory } from "@/actions/categories";
+import type { ProductFormCategoryTree } from "@/actions/categories";
+import { ProductTaxonomyFields } from "@/components/admin/ProductTaxonomyFields";
+import {
+  ProductCollectionsFields,
+  type CollectionOption,
+} from "@/components/admin/ProductCollectionsFields";
 
 const SIZES = ["XS", "S", "M", "L", "XL"] as const;
 
@@ -49,19 +54,36 @@ function toColorEntry(c: ProductColor, variants: ProductVariant[]): ColorEntry {
   };
 }
 
+type ListingStore = "streetwear" | "formal";
+
 export function EditProductForm({
   product,
   variants = [],
   colors = [],
-  categories,
+  categoryTrees,
+  collectionsByStore,
+  initialCollectionIds,
 }: {
-  product: Product & { images?: string[]; categorySlug?: string | null };
+  product: Product & { images?: string[] };
   variants?: ProductVariant[];
   colors?: ProductColor[];
-  categories: ProductCategory[];
+  categoryTrees: Record<ListingStore, ProductFormCategoryTree>;
+  collectionsByStore: Record<ListingStore, CollectionOption[]>;
+  initialCollectionIds: number[];
 }) {
   const router = useRouter();
   const formRef = useRef<HTMLFormElement>(null);
+  const initialListing: ListingStore = product.storeType === "formal" ? "formal" : "streetwear";
+  const [listingStore, setListingStore] = useState<ListingStore>(initialListing);
+  const [collectionIds, setCollectionIds] = useState<number[]>(() => [...initialCollectionIds]);
+  const skipClearCollectionsRef = useRef(true);
+  useEffect(() => {
+    if (skipClearCollectionsRef.current) {
+      skipClearCollectionsRef.current = false;
+      return;
+    }
+    setCollectionIds([]);
+  }, [listingStore]);
   const [colorsState, setColorsState] = useState<ColorEntry[]>(() =>
     colors.length > 0
       ? colors.map((c) => toColorEntry(c, variants))
@@ -154,6 +176,7 @@ export function EditProductForm({
     setState(null);
 
     const formData = new FormData(formRef.current);
+    collectionIds.forEach((id) => formData.append("collectionIds", String(id)));
     formData.set("color_count", String(colorsState.length));
     colorsState.forEach((color, i) => {
       formData.set(`color_${i}_id`, String(color.id));
@@ -222,22 +245,20 @@ export function EditProductForm({
                 defaultValue={price}
               />
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="category">Category</Label>
-              <select
-                id="category"
-                name="category"
-                required
-                defaultValue={product.categorySlug ?? "trousers"}
-                className="border-input h-9 w-full rounded-md border bg-transparent px-3 py-1 text-sm shadow-xs focus:outline-none focus:ring-2 focus:ring-ring"
-              >
-                {categories.map((cat) => (
-                  <option key={cat.id} value={cat.slug}>
-                    {cat.label}
-                  </option>
-                ))}
-              </select>
-            </div>
+            <ProductTaxonomyFields
+              categoryTrees={categoryTrees}
+              initialStoreType={initialListing}
+              initialMainCategoryId={product.mainCategoryId}
+              initialSubcategoryId={product.subcategoryId}
+              listingStore={listingStore}
+              onListingStoreChange={setListingStore}
+            />
+            <ProductCollectionsFields
+              collectionsByStore={collectionsByStore}
+              listingStore={listingStore}
+              selectedIds={collectionIds}
+              onChange={setCollectionIds}
+            />
           </div>
           <div className="flex items-center gap-2">
             <input

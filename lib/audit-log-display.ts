@@ -52,6 +52,9 @@ export function getAuditActionLabel(
     AUTH_REDIS_ERROR: "Rate limit (Redis) error",
     RETENTION_CLEANUP: "Retention cleanup (pruned old logs)",
     ADMIN_EXPORTED_CONTACTS: "Admin exported guest contacts (emails & phones)",
+    COLLECTION_CREATE: "Collection created",
+    COLLECTION_UPDATE: "Collection updated",
+    COLLECTION_DELETE: "Collection deleted",
   };
   return staticLabels[action] ?? action.replace(/_/g, " ");
 }

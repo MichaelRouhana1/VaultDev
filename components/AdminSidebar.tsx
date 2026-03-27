@@ -11,6 +11,7 @@ const NAV_ITEMS = [
   { label: "Landing", href: "/admin/landing" },
   { label: "Get the Look", href: "/admin/look" },
   { label: "Categories", href: "/admin/categories" },
+  { label: "Collections", href: "/admin/collections" },
   { label: "Products", href: "/admin/products" },
   { label: "Promo Codes", href: "/admin/promos" },
   { label: "Orders", href: "/admin/orders" },

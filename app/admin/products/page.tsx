@@ -1,12 +1,14 @@
 import { Suspense } from "react";
 import Link from "next/link";
 import { db } from "@/db";
-import { categories, productCategories, products, productVariants, productColors } from "@/db/schema";
-import { inArray, desc, eq, and, exists } from "drizzle-orm";
+import { categories, products, productVariants, productColors } from "@/db/schema";
+import { inArray, desc, eq, and, sql } from "drizzle-orm";
+import { alias } from "drizzle-orm/pg-core";
 import { ProductsTable } from "./ProductsTable";
 import { getCategories } from "@/actions/categories";
 import { getAdminStoreType } from "@/actions/admin-store";
 import { buildProductSearchWhere } from "@/lib/product-search";
+import { conditionProductsMatchCategorySlug } from "@/lib/shop-category-filter";
 
 export default async function AdminProductsPage({
   searchParams,
@@ -24,17 +26,7 @@ export default async function AdminProductsPage({
 
   const whereConditions = [eq(products.storeType, adminStore)];
   if (category && category !== "all") {
-    whereConditions.push(
-      exists(
-        db
-          .select()
-          .from(productCategories)
-          .innerJoin(categories, eq(categories.id, productCategories.categoryId))
-          .where(
-            and(eq(productCategories.productId, products.id), eq(categories.slug, category)),
-          ),
-      ),
-    );
+    whereConditions.push(await conditionProductsMatchCategorySlug(category));
   }
   const ftsClause = buildProductSearchWhere(q ?? "");
   if (ftsClause) {
@@ -48,16 +40,19 @@ export default async function AdminProductsPage({
     .orderBy(desc(products.id));
 
   const productIds = productList.map((p) => p.id);
+  const pmain = alias(categories, "admin_product_main");
+  const psub = alias(categories, "admin_product_sub");
   const slugRows =
     productIds.length > 0
       ? await db
           .select({
-            productId: productCategories.productId,
-            slug: categories.slug,
+            productId: products.id,
+            slug: sql<string>`COALESCE(${psub.slug}, ${pmain.slug})`,
           })
-          .from(productCategories)
-          .innerJoin(categories, eq(categories.id, productCategories.categoryId))
-          .where(inArray(productCategories.productId, productIds))
+          .from(products)
+          .innerJoin(pmain, eq(products.mainCategoryId, pmain.id))
+          .leftJoin(psub, eq(products.subcategoryId, psub.id))
+          .where(inArray(products.id, productIds))
       : [];
   const primarySlugByProductId: Record<number, string> = {};
   for (const row of slugRows) {

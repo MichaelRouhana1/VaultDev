@@ -1,9 +1,9 @@
 "use server";
 
 import { cache } from "react";
-import { asc, eq, inArray, and } from "drizzle-orm";
+import { asc, eq, inArray, and, isNull, ne, count, sql } from "drizzle-orm";
 import { db } from "@/db";
-import { categories } from "@/db/schema";
+import { categories, products } from "@/db/schema";
 import { uploadProductImage } from "@/lib/uploadImages";
 import { auditLog } from "@/lib/audit";
 import { headers } from "next/headers";
@@ -15,6 +15,21 @@ import { z } from "zod";
 import { categorySchema } from "@/lib/schemas";
 import { logger } from "@/lib/logger";
 import { requireAdmin } from "@/lib/security";
+
+async function assertMainCategoryParent(
+  parentId: number | null,
+  excludeCategoryId?: number,
+): Promise<string | null> {
+  if (parentId == null) return null;
+  if (excludeCategoryId != null && parentId === excludeCategoryId) {
+    return "A category cannot be its own parent";
+  }
+  const [par] = await db.select().from(categories).where(eq(categories.id, parentId)).limit(1);
+  if (!par) return "Parent category not found";
+  if (par.parentId !== null) return "Parent must be a main category";
+  if (par.level !== "main") return "Parent must be a main category";
+  return null;
+}
 
 /** Valid slugs for shop filtering (from DB) */
 export const getValidCategorySlugs = cache(async (): Promise<string[]> => {
@@ -61,6 +76,52 @@ export const getSubcategories = cache(async (parentId: number): Promise<ProductC
     .where(eq(categories.parentId, parentId))
     .orderBy(asc(categories.sortOrder), asc(categories.id));
 });
+
+/** Main categories for product forms: top-level, not `root` (e.g. not store roots). */
+export const getMainCategoriesForProductForm = cache(
+  async (storeType: "streetwear" | "formal"): Promise<ProductCategory[]> => {
+    return db
+      .select()
+      .from(categories)
+      .where(
+        and(
+          isNull(categories.parentId),
+          ne(categories.level, "root"),
+          inArray(categories.storeType, [storeType, "both"]),
+        ),
+      )
+      .orderBy(asc(categories.sortOrder), asc(categories.id));
+  },
+);
+
+export type ProductFormCategoryTree = {
+  mains: ProductCategory[];
+  subsByParentId: Record<number, ProductCategory[]>;
+};
+
+/** Mains + subs grouped by `parent_id` for cascading product category pickers. */
+export const getProductFormCategoryTree = cache(
+  async (storeType: "streetwear" | "formal"): Promise<ProductFormCategoryTree> => {
+    const mains = await getMainCategoriesForProductForm(storeType);
+    const subs = await db
+      .select()
+      .from(categories)
+      .where(
+        and(
+          sql`${categories.parentId} IS NOT NULL`,
+          inArray(categories.storeType, [storeType, "both"]),
+        ),
+      )
+      .orderBy(asc(categories.sortOrder), asc(categories.id));
+    const subsByParentId: Record<number, ProductCategory[]> = {};
+    for (const s of subs) {
+      if (s.parentId == null) continue;
+      if (!subsByParentId[s.parentId]) subsByParentId[s.parentId] = [];
+      subsByParentId[s.parentId].push(s);
+    }
+    return { mains, subsByParentId };
+  },
+);
 
 /** Categories to show on home page (show_on_home, limit 6 per store) */
 export const getCategoriesForHome = cache(async (storeType: string): Promise<ProductCategory[]> => {
@@ -118,8 +179,12 @@ export async function createCategory(formData: FormData): Promise<{ success?: bo
 
   const { userId } = await requireAdmin();
 
-  const { slug, label, showOnHome, parentId, level, storeType } = parsed.data;
+  const { slug, label, showOnHome, parentId, storeType } = parsed.data;
+  const level = parentId ? "sub" : "main";
   const imageFile = formData.get("image") as File | null;
+
+  const parentErr = await assertMainCategoryParent(parentId);
+  if (parentErr) return { error: parentErr };
 
   const existing = await db.select().from(categories).where(eq(categories.slug, slug)).limit(1);
   if (existing.length > 0) return { error: "A category with this slug already exists" };
@@ -202,14 +267,20 @@ export async function updateCategory(
 
   const { userId } = await requireAdmin();
 
-  const { slug, label, showOnHome, parentId, level, storeType } = parsed.data;
+  const { slug, label, showOnHome, parentId: formParentId, storeType } = parsed.data;
   const imageFile = formData.get("image") as File | null;
 
   const [existing] = await db.select().from(categories).where(eq(categories.id, validId)).limit(1);
   if (!existing) return { error: "Category not found" };
 
+  const resolvedParentId = existing.level === "root" ? null : formParentId;
+  const parentErr = await assertMainCategoryParent(resolvedParentId, validId);
+  if (parentErr) return { error: parentErr };
+
+  const level = resolvedParentId ? "sub" : existing.level === "root" ? "root" : "main";
+
   const existingSlug = await db.select().from(categories).where(eq(categories.slug, slug)).limit(1);
-  if (existingSlug.length > 0 && existingSlug[0].id !== id) return { error: "A category with this slug already exists" };
+  if (existingSlug.length > 0 && existingSlug[0].id !== validId) return { error: "A category with this slug already exists" };
 
   if (showOnHome && !existing.showOnHome) {
     const homeCount = await db
@@ -228,7 +299,7 @@ export async function updateCategory(
 
   await db
     .update(categories)
-    .set({ slug, label, image: imageUrl, showOnHome, parentId, level, storeType })
+    .set({ slug, label, image: imageUrl, showOnHome, parentId: resolvedParentId, level, storeType })
     .where(eq(categories.id, validId));
   auditLog({ userId: userId!, action: "category.update", target: String(validId), details: { slug, label } });
   return {};
@@ -242,6 +313,18 @@ export async function deleteCategory(id: number): Promise<{ error?: string }> {
 
   const [existing] = await db.select().from(categories).where(eq(categories.id, validId)).limit(1);
   if (!existing) return { error: "Category not found" };
+
+  const [child] = await db.select({ id: categories.id }).from(categories).where(eq(categories.parentId, validId)).limit(1);
+  if (child) return { error: "Delete or reassign subcategories first." };
+
+  const [mainUse] = await db.select({ c: count() }).from(products).where(eq(products.mainCategoryId, validId));
+  if (Number(mainUse?.c ?? 0) > 0) {
+    return { error: "Cannot delete: products are assigned to this main category." };
+  }
+  const [subUse] = await db.select({ c: count() }).from(products).where(eq(products.subcategoryId, validId));
+  if (Number(subUse?.c ?? 0) > 0) {
+    return { error: "Cannot delete: products are assigned to this subcategory." };
+  }
 
   await db.delete(categories).where(eq(categories.id, validId));
   auditLog({ userId: userId!, action: "category.delete", target: String(validId), details: { slug: existing.slug } });

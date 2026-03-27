@@ -29,6 +29,12 @@ export const storeTypeEnum = pgEnum("store_type", [
   "both",
 ]);
 
+/** Products belong to exactly one storefront: streetwear OR formal (not `both`). */
+export const productListingStoreTypeEnum = pgEnum("product_listing_store_type", [
+  "streetwear",
+  "formal",
+]);
+
 export const orderStatusEnum = pgEnum("order_status", [
   "PENDING",
   "PROCESSING",
@@ -70,7 +76,7 @@ export const categories = pgTable("categories", {
   index("categories_home_idx").on(t.showOnHome, t.storeType),
 ]);
 
-// Products — catalog attributes only; categories via `product_categories` join table.
+// Products — `storeType` is streetwear | formal only; categories via main + optional sub FKs.
 export const products = pgTable("products", {
   id: serial("id").primaryKey(),
   name: text("name").notNull(),
@@ -88,28 +94,19 @@ export const products = pgTable("products", {
   isSaleActive: boolean("is_sale_active").notNull().default(true),
   color: text("color"),
   isVisible: boolean("is_visible").notNull().default(true),
-  storeType: storeTypeEnum("store_type").notNull().default("streetwear"),
+  storeType: productListingStoreTypeEnum("store_type").notNull().default("streetwear"),
+  /** Top-level shop category (`parent_id` IS NULL, not `level = root`). */
+  mainCategoryId: integer("main_category_id")
+    .notNull()
+    .references(() => categories.id),
+  /** Optional leaf category; when set, must reference a row whose `parent_id` = `mainCategoryId`. */
+  subcategoryId: integer("subcategory_id").references(() => categories.id),
 }, (t) => [
   index("products_store_type_visible_idx").on(t.storeType, t.isVisible),
+  index("products_main_category_id_idx").on(t.mainCategoryId),
+  index("products_subcategory_id_idx").on(t.subcategoryId),
   index("products_search_vector_idx").using("gin", t.searchVector),
 ]);
-
-/** Many-to-many: products ↔ category tree nodes (filtering, PDP, admin). */
-export const productCategories = pgTable(
-  "product_categories",
-  {
-    productId: integer("product_id")
-      .notNull()
-      .references(() => products.id, { onDelete: "cascade" }),
-    categoryId: integer("category_id")
-      .notNull()
-      .references(() => categories.id, { onDelete: "cascade" }),
-  },
-  (t) => [
-    primaryKey({ columns: [t.productId, t.categoryId] }),
-    index("product_categories_category_id_idx").on(t.categoryId),
-  ],
-);
 
 // Product colors - each color has its own image gallery
 export const productColors = pgTable("product_colors", {
@@ -134,6 +131,38 @@ export const productVariants = pgTable("product_variants", {
   size: text("size").notNull(),
   stock: integer("stock").notNull().default(0),
 }, (t) => [index("product_variants_product_id_idx").on(t.productId)]);
+
+/** Marketing / merchandising groups (many-to-many with products). */
+export const collections = pgTable(
+  "collections",
+  {
+    id: serial("id").primaryKey(),
+    name: text("name").notNull(),
+    slug: text("slug").notNull().unique(),
+    storeType: storeTypeEnum("store_type").notNull().default("streetwear"),
+    description: text("description"),
+    imageUrl: text("image_url"),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  },
+  (t) => [index("collections_store_type_idx").on(t.storeType)],
+);
+
+export const productCollections = pgTable(
+  "product_collections",
+  {
+    productId: integer("product_id")
+      .notNull()
+      .references(() => products.id, { onDelete: "cascade" }),
+    collectionId: integer("collection_id")
+      .notNull()
+      .references(() => collections.id, { onDelete: "cascade" }),
+  },
+  (t) => [
+    primaryKey({ columns: [t.productId, t.collectionId] }),
+    index("product_collections_collection_id_idx").on(t.collectionId),
+  ],
+);
 
 // Promo codes
 export const promoCodes = pgTable("promo_codes", {
@@ -198,26 +227,39 @@ export const categoriesRelations = relations(categories, ({ one, many }) => ({
     relationName: "parent_to_child",
   }),
   children: many(categories, { relationName: "parent_to_child" }),
-  productLinks: many(productCategories),
 }));
 
-export const productCategoriesRelations = relations(productCategories, ({ one }) => ({
-  product: one(products, {
-    fields: [productCategories.productId],
-    references: [products.id],
-  }),
-  category: one(categories, {
-    fields: [productCategories.categoryId],
+export const productsRelations = relations(products, ({ one, many }) => ({
+  mainCategory: one(categories, {
+    fields: [products.mainCategoryId],
     references: [categories.id],
+    relationName: "product_main_category",
   }),
-}));
-
-export const productsRelations = relations(products, ({ many }) => ({
-  categoryLinks: many(productCategories),
+  subcategory: one(categories, {
+    fields: [products.subcategoryId],
+    references: [categories.id],
+    relationName: "product_subcategory",
+  }),
   variants: many(productVariants),
   colors: many(productColors),
+  productCollectionLinks: many(productCollections),
   orderItems: many(orderItems),
   wishlistItems: many(wishlists),
+}));
+
+export const collectionsRelations = relations(collections, ({ many }) => ({
+  productCollectionLinks: many(productCollections),
+}));
+
+export const productCollectionsRelations = relations(productCollections, ({ one }) => ({
+  product: one(products, {
+    fields: [productCollections.productId],
+    references: [products.id],
+  }),
+  collection: one(collections, {
+    fields: [productCollections.collectionId],
+    references: [collections.id],
+  }),
 }));
 
 export const productColorsRelations = relations(productColors, ({ one, many }) => ({
@@ -340,9 +382,6 @@ export type ProductCategory = Category;
 /** @deprecated Use `NewCategory` */
 export type NewProductCategory = NewCategory;
 
-export type ProductCategoryLink = typeof productCategories.$inferSelect;
-export type NewProductCategoryLink = typeof productCategories.$inferInsert;
-
 export type Product = typeof products.$inferSelect;
 export type NewProduct = typeof products.$inferInsert;
 
@@ -381,3 +420,9 @@ export type NewAuditLogRow = typeof auditLogs.$inferInsert;
 
 export type Notification = typeof notifications.$inferSelect;
 export type NewNotification = typeof notifications.$inferInsert;
+
+export type Collection = typeof collections.$inferSelect;
+export type NewCollection = typeof collections.$inferInsert;
+
+export type ProductCollection = typeof productCollections.$inferSelect;
+export type NewProductCollection = typeof productCollections.$inferInsert;

@@ -1,11 +1,11 @@
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import { db } from "@/db";
-import { categories, productCategories, products, productVariants, productColors } from "@/db/schema";
+import { products, productVariants, productColors, productCollections } from "@/db/schema";
 import { eq } from "drizzle-orm";
 import { EditProductForm } from "@/components/EditProductForm";
-import { getCategories } from "@/actions/categories";
-import { getAdminStoreType } from "@/actions/admin-store";
+import { getProductFormCategoryTree } from "@/actions/categories";
+import { getCollectionsForProductForm } from "@/actions/collections";
 
 export default async function EditProductPage({
   params,
@@ -29,19 +29,26 @@ export default async function EditProductPage({
     db.select().from(productColors).where(eq(productColors.productId, productId)),
   ]);
 
-  const storeType = await getAdminStoreType();
-  const categoryRows = await getCategories(storeType);
   const firstColorImages = colors[0]?.imageUrls ?? [];
-  const [catLink] = await db
-    .select({ slug: categories.slug })
-    .from(productCategories)
-    .innerJoin(categories, eq(categories.id, productCategories.categoryId))
-    .where(eq(productCategories.productId, productId))
-    .limit(1);
+  const [streetwear, formal, colSw, colFo, existingCollRows] = await Promise.all([
+    getProductFormCategoryTree("streetwear"),
+    getProductFormCategoryTree("formal"),
+    getCollectionsForProductForm("streetwear"),
+    getCollectionsForProductForm("formal"),
+    db
+      .select({ collectionId: productCollections.collectionId })
+      .from(productCollections)
+      .where(eq(productCollections.productId, productId)),
+  ]);
+  const categoryTrees = { streetwear, formal } as const;
+  const collectionsByStore = {
+    streetwear: colSw.map((c) => ({ id: c.id, name: c.name, slug: c.slug })),
+    formal: colFo.map((c) => ({ id: c.id, name: c.name, slug: c.slug })),
+  } as const;
+  const initialCollectionIds = existingCollRows.map((r) => r.collectionId);
   const productWithImages = {
     ...product,
     images: firstColorImages,
-    categorySlug: catLink?.slug ?? null,
   };
 
   return (
@@ -57,7 +64,9 @@ export default async function EditProductPage({
         product={productWithImages}
         variants={variants}
         colors={colors}
-        categories={categoryRows}
+        categoryTrees={categoryTrees}
+        collectionsByStore={collectionsByStore}
+        initialCollectionIds={initialCollectionIds}
       />
     </div>
   );

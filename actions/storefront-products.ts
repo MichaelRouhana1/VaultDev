@@ -6,42 +6,50 @@
  */
 
 import { cache } from "react";
-import { and, desc, eq, inArray, ne, sql, exists } from "drizzle-orm";
+import { and, desc, eq, inArray, ne, sql } from "drizzle-orm";
+import { alias } from "drizzle-orm/pg-core";
 import { db } from "@/db";
-import { categories, productCategories, productColors, products, productVariants } from "@/db/schema";
+import { categories, productColors, products, productVariants } from "@/db/schema";
 import { buildProductSearchWhere } from "@/lib/product-search";
+import { conditionProductsMatchCategorySlug } from "@/lib/shop-category-filter";
 
 export type StoreTypeFilter = "streetwear" | "formal";
 
-/** First linked category slug for PDP / breadcrumbs (deterministic by category id). */
+const mainCat = alias(categories, "slug_main_cat");
+const subCat = alias(categories, "slug_sub_cat");
+
+/** Breadcrumb / listing: prefer subcategory slug, else main. */
 export const getPrimaryCategorySlugForProduct = cache(async (productId: number): Promise<string | null> => {
   const [row] = await db
-    .select({ slug: categories.slug })
-    .from(productCategories)
-    .innerJoin(categories, eq(categories.id, productCategories.categoryId))
-    .where(eq(productCategories.productId, productId))
-    .orderBy(productCategories.categoryId)
+    .select({
+      subSlug: subCat.slug,
+      mainSlug: mainCat.slug,
+    })
+    .from(products)
+    .innerJoin(mainCat, eq(products.mainCategoryId, mainCat.id))
+    .leftJoin(subCat, eq(products.subcategoryId, subCat.id))
+    .where(eq(products.id, productId))
     .limit(1);
-  return row?.slug ?? null;
+  if (!row) return null;
+  return row.subSlug ?? row.mainSlug ?? null;
 });
 
-/** Primary slug per product (shop filters / ProductCard) — first link by `category_id`. */
 export const getPrimaryCategorySlugByProductIds = cache(async (productIds: number[]) => {
   const ids = [...new Set(productIds)].filter((id) => Number.isFinite(id));
   if (ids.length === 0) return {} as Record<number, string>;
   const rows = await db
     .select({
-      productId: productCategories.productId,
-      slug: categories.slug,
-      categoryId: productCategories.categoryId,
+      productId: products.id,
+      subSlug: subCat.slug,
+      mainSlug: mainCat.slug,
     })
-    .from(productCategories)
-    .innerJoin(categories, eq(categories.id, productCategories.categoryId))
-    .where(inArray(productCategories.productId, ids))
-    .orderBy(productCategories.categoryId);
+    .from(products)
+    .innerJoin(mainCat, eq(products.mainCategoryId, mainCat.id))
+    .leftJoin(subCat, eq(products.subcategoryId, subCat.id))
+    .where(inArray(products.id, ids));
   const map: Record<number, string> = {};
   for (const r of rows) {
-    if (map[r.productId] === undefined) map[r.productId] = r.slug;
+    map[r.productId] = r.subSlug ?? r.mainSlug ?? "";
   }
   return map;
 });
@@ -69,13 +77,9 @@ export const getHomeDiscoverProductsWithFirstImage = cache(
         saleStartsAt: products.saleStartsAt,
         saleEndsAt: products.saleEndsAt,
         isSaleActive: products.isSaleActive,
-        categorySlug: sql<string | null>`(
-          SELECT c.slug
-          FROM product_categories pc
-          INNER JOIN categories c ON c.id = pc.category_id
-          WHERE pc.product_id = ${products.id}
-          ORDER BY pc.category_id
-          LIMIT 1
+        categorySlug: sql<string | null>`COALESCE(
+          (SELECT slug FROM categories WHERE id = ${products.subcategoryId}),
+          (SELECT slug FROM categories WHERE id = ${products.mainCategoryId})
         )`.as("category_slug"),
         color: products.color,
         isVisible: products.isVisible,
@@ -97,20 +101,7 @@ export const getShopProductsForStore = cache(
   ) => {
     const baseFilters = [eq(products.isVisible, true), eq(products.storeType, storeType)];
     if (filters.categorySlug) {
-      baseFilters.push(
-        exists(
-          db
-            .select()
-            .from(productCategories)
-            .innerJoin(categories, eq(categories.id, productCategories.categoryId))
-            .where(
-              and(
-                eq(productCategories.productId, products.id),
-                eq(categories.slug, filters.categorySlug),
-              ),
-            ),
-        ),
-      );
+      baseFilters.push(await conditionProductsMatchCategorySlug(filters.categorySlug));
     }
     const fts = buildProductSearchWhere(filters.searchQuery ?? "");
     if (fts) baseFilters.push(fts);
@@ -152,33 +143,28 @@ export const getPublicProductDetailForStore = cache(
   },
 );
 
+/** Similar products: same subcategory if set, otherwise same main category. */
 export const getSimilarVisibleProductsExcept = cache(
-  async (
-    categorySlug: string,
-    storeType: StoreTypeFilter,
-    excludeProductId: number,
-    limit = 10,
-  ) => {
+  async (forProductId: number, storeType: StoreTypeFilter, limit = 10) => {
+    const [p] = await db
+      .select()
+      .from(products)
+      .where(and(eq(products.id, forProductId), eq(products.storeType, storeType)))
+      .limit(1);
+    if (!p) return [];
+    const groupCond =
+      p.subcategoryId != null
+        ? eq(products.subcategoryId, p.subcategoryId)
+        : eq(products.mainCategoryId, p.mainCategoryId);
     return db
       .select()
       .from(products)
       .where(
         and(
           eq(products.isVisible, true),
-          exists(
-            db
-              .select()
-              .from(productCategories)
-              .innerJoin(categories, eq(categories.id, productCategories.categoryId))
-              .where(
-                and(
-                  eq(productCategories.productId, products.id),
-                  eq(categories.slug, categorySlug),
-                ),
-              ),
-          ),
           eq(products.storeType, storeType),
-          ne(products.id, excludeProductId),
+          groupCond,
+          ne(products.id, forProductId),
         ),
       )
       .limit(limit);

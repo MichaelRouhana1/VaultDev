@@ -2,14 +2,18 @@
 
 import { eq } from "drizzle-orm";
 import { db } from "@/db";
-import { categories, productCategories, products, productVariants, productColors } from "@/db/schema";
+import { products, productVariants, productColors, productCollections } from "@/db/schema";
 import { uploadProductImages } from "@/lib/uploadImages";
-import { getValidCategorySlugs } from "@/actions/categories";
 import { auditLog } from "@/lib/audit";
 import { z } from "zod";
 import { updateProductSchema } from "@/lib/schemas";
 import { logger } from "@/lib/logger";
 import { requireAdminAction } from "@/lib/security";
+import { validateProductCategoryAssignment } from "@/lib/product-category-assign";
+import {
+  parseCollectionIdsFromFormData,
+  validateProductCollectionAssignments,
+} from "@/lib/product-collections";
 
 const SIZES = ["XS", "S", "M", "L", "XL"] as const;
 
@@ -28,7 +32,9 @@ export async function updateProduct(
     name: formData.get("name"),
     description: formData.get("description") || null,
     price: formData.get("price"),
-    categorySlug: formData.get("category"),
+    storeType: formData.get("storeType"),
+    mainCategoryId: formData.get("mainCategoryId"),
+    subcategoryId: formData.get("subcategoryId") ?? "",
     isVisible: formData.get("isVisible") === "true",
     color_count: parseInt(String(formData.get("color_count") ?? "0"), 10),
   });
@@ -43,12 +49,28 @@ export async function updateProduct(
   if (!gate.authorized) return gate.response;
   const { userId } = gate;
 
-  const { name, description, price, categorySlug, isVisible, color_count: colorCount } = parsed.data;
+  const {
+    name,
+    description,
+    price,
+    storeType,
+    mainCategoryId,
+    subcategoryId,
+    isVisible,
+    color_count: colorCount,
+  } = parsed.data;
 
-  const validSlugs = await getValidCategorySlugs();
-  if (!validSlugs.includes(categorySlug)) {
-    logger.error("Invalid category slug in updateProduct", undefined, { categorySlug, productId });
-    return { error: "Invalid category" };
+  const assignErr = await validateProductCategoryAssignment(storeType, mainCategoryId, subcategoryId);
+  if (assignErr) {
+    logger.error("Invalid product category assignment in updateProduct", undefined, { assignErr, productId });
+    return { success: false, error: assignErr };
+  }
+
+  const collectionIds = parseCollectionIdsFromFormData(formData);
+  const collErr = await validateProductCollectionAssignments(storeType, collectionIds);
+  if (collErr) {
+    logger.error("Invalid product collection assignment in updateProduct", undefined, { collErr, productId });
+    return { success: false, error: collErr };
   }
 
   type ColorEntry = {
@@ -138,16 +160,6 @@ export async function updateProduct(
     colorImageUrls.push(urls);
   }
 
-  const [catRow] = await db
-    .select({ id: categories.id })
-    .from(categories)
-    .where(eq(categories.slug, categorySlug))
-    .limit(1);
-  if (!catRow) {
-    logger.error("Category slug not found in updateProduct", undefined, { categorySlug, productId });
-    return { success: false, error: "Invalid category" };
-  }
-
   await db.transaction(async (tx) => {
     await tx
       .update(products)
@@ -155,16 +167,13 @@ export async function updateProduct(
         name: name.trim(),
         description: description?.trim() || null,
         price: parseFloat(price).toFixed(2),
+        storeType,
+        mainCategoryId,
+        subcategoryId,
         color: colorEntries[0]?.name ?? null,
         isVisible,
       })
       .where(eq(products.id, validProductId));
-
-    await tx.delete(productCategories).where(eq(productCategories.productId, validProductId));
-    await tx.insert(productCategories).values({
-      productId: validProductId,
-      categoryId: catRow.id,
-    });
 
     const existingColors = await tx
       .select()
@@ -226,6 +235,16 @@ export async function updateProduct(
           stock,
         });
       }
+    }
+
+    await tx.delete(productCollections).where(eq(productCollections.productId, validProductId));
+    if (collectionIds.length > 0) {
+      await tx.insert(productCollections).values(
+        collectionIds.map((collectionId) => ({
+          productId: validProductId,
+          collectionId,
+        })),
+      );
     }
   });
 
