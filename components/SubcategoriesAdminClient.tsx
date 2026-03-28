@@ -13,24 +13,23 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Checkbox } from "@/components/ui/checkbox";
 
-interface CategoriesAdminClientProps {
-  categories: ProductCategory[];
+interface SubcategoriesAdminClientProps {
+  subcategories: ProductCategory[];
+  mainCategories: ProductCategory[];
   initialStoreType: "streetwear" | "formal";
 }
 
-export function CategoriesAdminClient({ categories: initialCategories, initialStoreType }: CategoriesAdminClientProps) {
+export function SubcategoriesAdminClient({
+  subcategories: initialSubs,
+  mainCategories,
+  initialStoreType,
+}: SubcategoriesAdminClientProps) {
   const router = useRouter();
-  const [categories, setCategories] = useState(initialCategories);
+  const [subcategories, setSubcategories] = useState(initialSubs);
   useEffect(() => {
-    setCategories(initialCategories);
-  }, [initialCategories]);
-
-  const mainRows = useMemo(
-    () => categories.filter((c) => c.parentId == null && c.level === "main"),
-    [categories],
-  );
+    setSubcategories(initialSubs);
+  }, [initialSubs]);
 
   const [editingId, setEditingId] = useState<number | null>(null);
   const [adding, setAdding] = useState(false);
@@ -39,16 +38,18 @@ export function CategoriesAdminClient({ categories: initialCategories, initialSt
 
   const [formSlug, setFormSlug] = useState("");
   const [formLabel, setFormLabel] = useState("");
-  const [formShowOnHome, setFormShowOnHome] = useState(false);
   const [formImage, setFormImage] = useState<File | null>(null);
   const [formStoreType, setFormStoreType] = useState<"streetwear" | "formal" | "both">(initialStoreType);
+  const [formParentId, setFormParentId] = useState("");
+
+  const mainById = useMemo(() => Object.fromEntries(mainCategories.map((m) => [m.id, m])), [mainCategories]);
 
   const resetForm = useCallback(() => {
     setFormSlug("");
     setFormLabel("");
-    setFormShowOnHome(false);
     setFormImage(null);
     setFormStoreType(initialStoreType);
+    setFormParentId("");
     setEditingId(null);
     setAdding(false);
     setError(null);
@@ -63,22 +64,26 @@ export function CategoriesAdminClient({ categories: initialCategories, initialSt
     resetForm();
     setFormSlug(cat.slug);
     setFormLabel(cat.label);
-    setFormShowOnHome(cat.showOnHome);
     const catStoreType = (cat.storeType ?? "both") as "streetwear" | "formal" | "both";
     setFormStoreType(catStoreType);
+    setFormParentId(cat.parentId != null ? String(cat.parentId) : "");
     setEditingId(cat.id);
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
+    if (!formParentId) {
+      setError("Select a main category.");
+      return;
+    }
     const formData = new FormData();
     formData.set("slug", formSlug);
     formData.set("label", formLabel);
-    formData.set("showOnHome", String(formShowOnHome));
+    formData.set("showOnHome", "false");
     formData.set("storeType", formStoreType);
-    formData.set("parentId", "");
-    formData.set("level", "main");
+    formData.set("parentId", formParentId);
+    formData.set("level", "sub");
     if (formImage) formData.set("image", formImage);
 
     if (editingId) {
@@ -106,21 +111,22 @@ export function CategoriesAdminClient({ categories: initialCategories, initialSt
       setError(result.error);
       return;
     }
-    setCategories((prev) => prev.filter((c) => c.id !== id));
+    setSubcategories((prev) => prev.filter((c) => c.id !== id));
     router.refresh();
   };
 
-  const showOnHomeCount = mainRows.filter((c) => c.showOnHome).length;
-  const showOnHomeDisabled = showOnHomeCount >= 6 && !formShowOnHome;
+  const mainCategoryOptions = useMemo(() => {
+    return [...mainCategories].sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0));
+  }, [mainCategories]);
 
-  const [sortByHomeFirst, setSortByHomeFirst] = useState(false);
-  const sortedCategories = useMemo(() => {
-    if (!sortByHomeFirst) return mainRows;
-    return [...mainRows].sort((a, b) => {
-      if (a.showOnHome === b.showOnHome) return (a.sortOrder ?? 0) - (b.sortOrder ?? 0);
-      return a.showOnHome ? -1 : 1;
-    });
-  }, [mainRows, sortByHomeFirst]);
+  useEffect(() => {
+    if (!formParentId) return;
+    const pid = Number(formParentId);
+    const p = mainCategories.find((c) => c.id === pid);
+    if (!p || (p.storeType !== "both" && p.storeType !== formStoreType)) {
+      setFormParentId("");
+    }
+  }, [formStoreType, formParentId, mainCategories]);
 
   const { getRootProps, getInputProps } = useDropzone({
     onDrop: (files) => files[0] && setFormImage(files[0]),
@@ -130,38 +136,43 @@ export function CategoriesAdminClient({ categories: initialCategories, initialSt
     disabled: !adding && editingId === null,
   });
 
+  const rows = useMemo(
+    () => subcategories.filter((c) => c.parentId != null),
+    [subcategories],
+  );
+
   return (
     <div className="space-y-8">
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold">Product Categories</h1>
+        <h1 className="text-2xl font-bold">Subcategories</h1>
         <Button onClick={startAdd} disabled={adding || editingId !== null}>
-          Add Category
+          Add Subcategory
         </Button>
       </div>
 
       <p className="text-sm text-muted-foreground">
-        Main categories control the home page (max 6 with &quot;Show on home&quot;) and top-level shop navigation. Subcategories are managed under{" "}
-        <span className="font-medium text-foreground">Subcategories</span>.
+        Subcategories belong to a main category and never appear on the home page. Manage top-level categories under{" "}
+        <span className="font-medium text-foreground">Categories</span>.
       </p>
 
       {(adding || editingId !== null) && (
         <form onSubmit={handleSubmit} className="border border-border rounded-lg p-6 space-y-4 max-w-md">
-          <h2 className="text-lg font-semibold">{editingId ? "Edit Category" : "New Category"}</h2>
+          <h2 className="text-lg font-semibold">{editingId ? "Edit Subcategory" : "New Subcategory"}</h2>
           {error && <p className="text-sm text-destructive">{error}</p>}
           <div className="space-y-2">
-            <Label htmlFor="slug">Slug (URL-friendly, e.g. trousers)</Label>
+            <Label htmlFor="sub-slug">Slug (URL-friendly)</Label>
             <Input
-              id="slug"
+              id="sub-slug"
               value={formSlug}
               onChange={(e) => setFormSlug(e.target.value)}
-              placeholder="trousers"
+              placeholder="skinny-jeans"
               required
             />
           </div>
           <div className="space-y-2">
-            <Label htmlFor="storeType">Store</Label>
+            <Label htmlFor="sub-storeType">Store</Label>
             <select
-              id="storeType"
+              id="sub-storeType"
               value={formStoreType}
               onChange={(e) => setFormStoreType(e.target.value as "streetwear" | "formal" | "both")}
               className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background disabled:cursor-not-allowed disabled:opacity-50"
@@ -172,28 +183,35 @@ export function CategoriesAdminClient({ categories: initialCategories, initialSt
             </select>
           </div>
           <div className="space-y-2">
-            <Label htmlFor="label">Label (display name)</Label>
+            <Label htmlFor="sub-parentId">Parent category (main)</Label>
+            <select
+              id="sub-parentId"
+              value={formParentId}
+              onChange={(e) => setFormParentId(e.target.value)}
+              required
+              className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              <option value="" disabled>
+                Select a main category
+              </option>
+              {mainCategoryOptions
+                .filter((m) => m.storeType === "both" || m.storeType === formStoreType)
+                .map((m) => (
+                  <option key={m.id} value={String(m.id)}>
+                    {m.label}
+                  </option>
+                ))}
+            </select>
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="sub-label">Label (display name)</Label>
             <Input
-              id="label"
+              id="sub-label"
               value={formLabel}
               onChange={(e) => setFormLabel(e.target.value)}
-              placeholder="Trousers"
+              placeholder="Skinny jeans"
               required
             />
-          </div>
-          <div className="flex items-center gap-2">
-            <Checkbox
-              id="showOnHome"
-              checked={formShowOnHome}
-              onCheckedChange={(c) => !showOnHomeDisabled && setFormShowOnHome(!!c)}
-              disabled={showOnHomeDisabled}
-            />
-            <Label
-              htmlFor="showOnHome"
-              className={showOnHomeDisabled ? "cursor-not-allowed text-muted-foreground" : "cursor-pointer"}
-            >
-              Show on home page (max 6{showOnHomeDisabled ? ", limit reached" : ""})
-            </Label>
           </div>
           <div className="space-y-2">
             <Label>Image</Label>
@@ -218,26 +236,19 @@ export function CategoriesAdminClient({ categories: initialCategories, initialSt
       )}
 
       <div className="border border-border rounded-lg overflow-x-auto">
-        <table className="w-full text-sm min-w-[500px]">
+        <table className="w-full text-sm min-w-[560px]">
           <thead className="bg-muted">
             <tr>
               <th className="text-left p-4 font-medium">Image</th>
               <th className="text-left p-4 font-medium">Store</th>
-              <th className="text-left p-4 font-medium">Type</th>
+              <th className="text-left p-4 font-medium">Parent</th>
               <th className="text-left p-4 font-medium">Slug</th>
               <th className="text-left p-4 font-medium">Label</th>
-              <th
-                className="text-left p-4 font-medium cursor-pointer hover:bg-muted/80 select-none"
-                onClick={() => setSortByHomeFirst((prev) => !prev)}
-                title={sortByHomeFirst ? "Click to restore default order" : "Click to show Home=Yes first"}
-              >
-                Home {sortByHomeFirst && "↓"}
-              </th>
               <th className="text-right p-4 font-medium">Actions</th>
             </tr>
           </thead>
           <tbody>
-            {sortedCategories.map((cat) => (
+            {rows.map((cat) => (
               <tr key={cat.id} className="border-t border-border">
                 <td className="p-4">
                   <div className="w-12 h-16 relative bg-muted overflow-hidden">
@@ -249,16 +260,18 @@ export function CategoriesAdminClient({ categories: initialCategories, initialSt
                   </div>
                 </td>
                 <td className="p-4 capitalize">{cat.storeType ?? "streetwear"}</td>
-                <td className="p-4">
-                  <span className="inline-block text-xs font-medium rounded px-2 py-0.5 capitalize bg-secondary text-secondary-foreground">
-                    Main
-                  </span>
+                <td className="p-4 text-muted-foreground">
+                  {cat.parentId != null ? mainById[cat.parentId]?.label ?? "—" : "—"}
                 </td>
                 <td className="p-4 font-mono text-muted-foreground">{cat.slug}</td>
                 <td className="p-4">{cat.label}</td>
-                <td className="p-4">{cat.showOnHome ? "Yes" : "No"}</td>
                 <td className="p-4 text-right">
-                  <Button variant="outline" size="sm" onClick={() => startEdit(cat)} disabled={adding || editingId !== null}>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => startEdit(cat)}
+                    disabled={adding || editingId !== null}
+                  >
                     Edit
                   </Button>
                   <Button
@@ -275,8 +288,8 @@ export function CategoriesAdminClient({ categories: initialCategories, initialSt
             ))}
           </tbody>
         </table>
-        {mainRows.length === 0 && (
-          <div className="p-12 text-center text-muted-foreground">No main categories yet. Add one to get started.</div>
+        {rows.length === 0 && (
+          <div className="p-12 text-center text-muted-foreground">No subcategories yet. Add one to get started.</div>
         )}
       </div>
     </div>

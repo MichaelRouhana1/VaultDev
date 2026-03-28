@@ -6,9 +6,10 @@ import { ProductCard } from "@/components/ProductCard";
 import { CategoryHeader } from "@/components/CategoryHeader";
 import { UtilityBar, type SortOption } from "@/components/UtilityBar";
 import { ShopSearchBar } from "@/components/ShopSearchBar";
-import { FilterPanel, type FilterState } from "@/components/FilterPanel";
+import { FilterPanel, type FilterState, type ShopFilterPanelContext, type SubcategoryFilterOption } from "@/components/FilterPanel";
 import type { Product, ProductVariant, ProductColor } from "@/db/schema";
 import type { ProductCategory } from "@/actions/categories";
+import type { ProductCategoryFilterTags } from "@/actions/storefront-products";
 
 const PRODUCTS_PER_PAGE = 12;
 const VALID_LEGACY_CATEGORIES = ["CLOTHING", "SHOES", "ACCESSORIES", "BAGS", "OTHER"] as const;
@@ -19,7 +20,11 @@ interface ShopClientProps {
   colorsByProductId?: Record<number, ProductColor[]>;
   wishlistProductIds: number[];
   categoryLabel?: string | null;
-  storeCategories?: ProductCategory[];
+  storeMainCategories: ProductCategory[];
+  subcategoriesForFilters: { slug: string; label: string; parentSlug: string | null }[];
+  shopFilterContext: ShopFilterPanelContext;
+  activeMainSlugForFilters: string | null;
+  categoryFilterTags: Record<number, ProductCategoryFilterTags>;
   storeType: string;
   initialQuery?: string;
 }
@@ -30,7 +35,11 @@ export function ShopClient({
   colorsByProductId = {},
   wishlistProductIds,
   categoryLabel,
-  storeCategories,
+  storeMainCategories,
+  subcategoriesForFilters,
+  shopFilterContext,
+  activeMainSlugForFilters,
+  categoryFilterTags,
   storeType,
   initialQuery,
 }: ShopClientProps) {
@@ -42,17 +51,16 @@ export function ShopClient({
 
   const [filterPanelOpen, setFilterPanelOpen] = useState(false);
   const [sort, setSort] = useState<SortOption>(
-    ["recommended", "newest", "price-low", "price-high", "name-asc", "name-desc"].includes(
-      sortParam
-    )
+    ["recommended", "newest", "price-low", "price-high", "name-asc", "name-desc"].includes(sortParam)
       ? (sortParam as SortOption)
-      : "newest"
+      : "newest",
   );
   const [filters, setFilters] = useState<FilterState>({
     priceMin: 0,
     priceMax: 500,
     size: [],
     color: [],
+    mainCategory: [],
     subcategory: [],
   });
   const [visibleCount, setVisibleCount] = useState(PRODUCTS_PER_PAGE);
@@ -72,11 +80,7 @@ export function ShopClient({
   }, [category]);
 
   useEffect(() => {
-    if (
-      products.length > 0 &&
-      priceBounds.max > 0 &&
-      !priceInitialized.current
-    ) {
+    if (products.length > 0 && priceBounds.max > 0 && !priceInitialized.current) {
       priceInitialized.current = true;
       setFilters((prev) => ({
         ...prev,
@@ -109,8 +113,18 @@ export function ShopClient({
       return price >= priceMin && price <= priceMax;
     });
 
+    if (filters.mainCategory.length > 0) {
+      list = list.filter((p) => {
+        const t = categoryFilterTags[p.id];
+        return t != null && filters.mainCategory.includes(t.mainSlug);
+      });
+    }
+
     if (filters.subcategory.length > 0) {
-      list = list.filter((p) => filters.subcategory.includes(p.categorySlug || ""));
+      list = list.filter((p) => {
+        const t = categoryFilterTags[p.id];
+        return t?.subSlug != null && filters.subcategory.includes(t.subSlug);
+      });
     }
 
     if (filters.size.length > 0) {
@@ -143,7 +157,7 @@ export function ShopClient({
     }
 
     return list;
-  }, [products, variantsByProductId, filters, sort]);
+  }, [products, variantsByProductId, filters, sort, categoryFilterTags]);
 
   const visibleProducts = filteredAndSorted.slice(0, visibleCount);
   const hasMore = visibleCount < filteredAndSorted.length;
@@ -157,25 +171,30 @@ export function ShopClient({
       ? category
       : null;
 
+  const mainCategoryOptions = useMemo(
+    () => storeMainCategories.map((c) => ({ value: c.slug, label: c.label })),
+    [storeMainCategories],
+  );
+
+  const subcategoryOptionsAll: SubcategoryFilterOption[] = useMemo(
+    () =>
+      subcategoriesForFilters.map((s) => ({
+        value: s.slug,
+        label: s.label,
+        parentSlug: s.parentSlug,
+      })),
+    [subcategoriesForFilters],
+  );
+
   return (
     <div className="w-full min-h-screen bg-background">
-      {/* Category title section - scrolls away with page */}
       <CategoryHeader category={validCategory} categorySlug={categorySlug} categoryLabel={categoryLabel} />
 
-      {/* Search bar */}
       <div className="px-6 py-3 border-b border-border">
-        <ShopSearchBar
-          storeType={storeType}
-          initialQuery={initialQuery}
-        />
+        <ShopSearchBar storeType={storeType} initialQuery={initialQuery} />
       </div>
-      {/* Filter and sort bar - sticky, stays visible when scrolling */}
       <div className="sticky top-14 z-30 bg-background border-b border-border">
-        <UtilityBar
-          onFiltersClick={() => setFilterPanelOpen(true)}
-          sort={sort}
-          onSortChange={handleSortChange}
-        />
+        <UtilityBar onFiltersClick={() => setFilterPanelOpen(true)} sort={sort} onSortChange={handleSortChange} />
       </div>
       <FilterPanel
         isOpen={filterPanelOpen}
@@ -183,13 +202,14 @@ export function ShopClient({
         filters={filters}
         onFiltersChange={setFilters}
         priceBounds={priceBounds}
-        subcategories={storeCategories?.map(c => ({ value: c.slug, label: c.label }))}
+        shopFilterContext={shopFilterContext}
+        activeMainSlugForFilters={activeMainSlugForFilters}
+        mainCategories={mainCategoryOptions}
+        subcategories={subcategoryOptionsAll}
       />
       <main className="w-full px-6 py-8">
         {filteredAndSorted.length === 0 ? (
-          <p className="text-center text-sm font-light text-muted-foreground py-16">
-            No products match your filters.
-          </p>
+          <p className="text-center text-sm font-light text-muted-foreground py-16">No products match your filters.</p>
         ) : (
           <>
             <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">

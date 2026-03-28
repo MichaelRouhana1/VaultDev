@@ -54,6 +54,41 @@ export const getPrimaryCategorySlugByProductIds = cache(async (productIds: numbe
   return map;
 });
 
+export type ProductCategoryFilterTags = {
+  displaySlug: string;
+  mainSlug: string;
+  subSlug: string | null;
+};
+
+/** For shop filter panel: primary slug, main slug, and optional sub slug per product. */
+export const getProductCategoryFilterTagsByProductIds = cache(
+  async (productIds: number[]): Promise<Record<number, ProductCategoryFilterTags>> => {
+    const ids = [...new Set(productIds)].filter((id) => Number.isFinite(id));
+    if (ids.length === 0) return {};
+    const rows = await db
+      .select({
+        productId: products.id,
+        subSlug: subCat.slug,
+        mainSlug: mainCat.slug,
+      })
+      .from(products)
+      .innerJoin(mainCat, eq(products.mainCategoryId, mainCat.id))
+      .leftJoin(subCat, eq(products.subcategoryId, subCat.id))
+      .where(inArray(products.id, ids));
+    const map: Record<number, ProductCategoryFilterTags> = {};
+    for (const r of rows) {
+      const main = r.mainSlug ?? "";
+      const sub = r.subSlug ?? null;
+      map[r.productId] = {
+        displaySlug: sub ?? main,
+        mainSlug: main,
+        subSlug: sub,
+      };
+    }
+    return map;
+  },
+);
+
 /** Home “discover” strip: visible products for store + first color image via lateral join. */
 export const getHomeDiscoverProductsWithFirstImage = cache(
   async (storeType: StoreTypeFilter) => {

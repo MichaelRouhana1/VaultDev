@@ -10,6 +10,7 @@ export {
   getStoreCategorySlugs,
   getStoreCategories,
   getCategories,
+  getAllSubcategories,
   getSubcategories,
   getCategoriesForHome,
 } from "./categories";
@@ -24,4 +25,5 @@ export {
   getSimilarVisibleProductsExcept,
   getPrimaryCategorySlugForProduct,
   getPrimaryCategorySlugByProductIds,
+  getProductCategoryFilterTagsByProductIds,
 } from "./storefront-products";

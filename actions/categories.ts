@@ -1,7 +1,7 @@
 "use server";
 
 import { cache } from "react";
-import { asc, eq, inArray, and, isNull, ne, count, sql } from "drizzle-orm";
+import { asc, eq, inArray, and, isNull, isNotNull, ne, count, sql } from "drizzle-orm";
 import { db } from "@/db";
 import { categories, products } from "@/db/schema";
 import { uploadProductImage } from "@/lib/uploadImages";
@@ -46,25 +46,52 @@ export const getStoreCategorySlugs = cache(async (storeType: string): Promise<st
   return cats.map((c) => c.slug);
 });
 
-/** Get only the category definitions for a specific store type */
+/** Main categories only (top-level shop / nav); excludes roots and subcategories. */
 export const getStoreCategories = cache(async (storeType: string): Promise<ProductCategory[]> => {
   return db
     .select()
     .from(categories)
-    .where(inArray(categories.storeType, [storeType, "both"] as ("streetwear" | "formal" | "both")[]))
+    .where(
+      and(
+        isNull(categories.parentId),
+        ne(categories.level, "root"),
+        inArray(categories.storeType, [storeType, "both"] as ("streetwear" | "formal" | "both")[]),
+      ),
+    )
     .orderBy(asc(categories.sortOrder), asc(categories.id));
 });
 
-/** All categories for burger menu, shop, etc. */
+/** Main categories only (optional store filter). Used for admin “Categories” and any caller that expects top-level rows. */
 export const getCategories = cache(async (storeType?: string): Promise<ProductCategory[]> => {
-  const conditions = [];
-  if (storeType) {
-    conditions.push(inArray(categories.storeType, [storeType, "both"] as ("streetwear" | "formal" | "both")[]));
-  }
+  const base = and(isNull(categories.parentId), ne(categories.level, "root"));
+  const where =
+    storeType != null && storeType !== ""
+      ? and(
+          base,
+          inArray(categories.storeType, [storeType, "both"] as ("streetwear" | "formal" | "both")[]),
+        )
+      : base;
   return db
     .select()
     .from(categories)
-    .where(conditions.length > 0 ? and(...conditions) : undefined)
+    .where(where)
+    .orderBy(asc(categories.sortOrder), asc(categories.id));
+});
+
+/** All subcategories (`parent_id` set). Optional store filter (streetwear / formal / both). */
+export const getAllSubcategories = cache(async (storeType?: string): Promise<ProductCategory[]> => {
+  const sub = isNotNull(categories.parentId);
+  const where =
+    storeType != null && storeType !== ""
+      ? and(
+          sub,
+          inArray(categories.storeType, [storeType, "both"] as ("streetwear" | "formal" | "both")[]),
+        )
+      : sub;
+  return db
+    .select()
+    .from(categories)
+    .where(where)
     .orderBy(asc(categories.sortOrder), asc(categories.id));
 });
 
@@ -123,7 +150,7 @@ export const getProductFormCategoryTree = cache(
   },
 );
 
-/** Categories to show on home page (show_on_home, limit 6 per store) */
+/** Categories to show on home page (main rows only; `show_on_home`, limit 6 per store). */
 export const getCategoriesForHome = cache(async (storeType: string): Promise<ProductCategory[]> => {
   return db
     .select()
@@ -131,6 +158,8 @@ export const getCategoriesForHome = cache(async (storeType: string): Promise<Pro
     .where(
       and(
         eq(categories.showOnHome, true),
+        isNull(categories.parentId),
+        ne(categories.level, "root"),
         inArray(categories.storeType, [storeType, "both"] as ("streetwear" | "formal" | "both")[]),
       ),
     )
@@ -138,10 +167,13 @@ export const getCategoriesForHome = cache(async (storeType: string): Promise<Pro
     .limit(6);
 });
 
-/** Admin: get all categories */
+/** Admin: all category rows (mains, subs, roots) for screens that need the full tree. */
 export async function getAllCategories(): Promise<ProductCategory[]> {
   await requireAdmin();
-  return getCategories();
+  return db
+    .select()
+    .from(categories)
+    .orderBy(asc(categories.sortOrder), asc(categories.id));
 }
 
 /** Admin: create category */
@@ -181,6 +213,7 @@ export async function createCategory(formData: FormData): Promise<{ success?: bo
 
   const { slug, label, showOnHome, parentId, storeType } = parsed.data;
   const level = parentId ? "sub" : "main";
+  const effectiveShowOnHome = parentId ? false : showOnHome;
   const imageFile = formData.get("image") as File | null;
 
   const parentErr = await assertMainCategoryParent(parentId);
@@ -189,7 +222,7 @@ export async function createCategory(formData: FormData): Promise<{ success?: bo
   const existing = await db.select().from(categories).where(eq(categories.slug, slug)).limit(1);
   if (existing.length > 0) return { error: "A category with this slug already exists" };
 
-  if (showOnHome) {
+  if (effectiveShowOnHome) {
     const homeCount = await db
       .select({ id: categories.id })
       .from(categories)
@@ -212,7 +245,7 @@ export async function createCategory(formData: FormData): Promise<{ success?: bo
     slug,
     label,
     image: imageUrl,
-    showOnHome,
+    showOnHome: effectiveShowOnHome,
     sortOrder: nextSortOrder,
     parentId,
     level,
@@ -278,11 +311,12 @@ export async function updateCategory(
   if (parentErr) return { error: parentErr };
 
   const level = resolvedParentId ? "sub" : existing.level === "root" ? "root" : "main";
+  const effectiveShowOnHome = resolvedParentId ? false : showOnHome;
 
   const existingSlug = await db.select().from(categories).where(eq(categories.slug, slug)).limit(1);
   if (existingSlug.length > 0 && existingSlug[0].id !== validId) return { error: "A category with this slug already exists" };
 
-  if (showOnHome && !existing.showOnHome) {
+  if (effectiveShowOnHome && !existing.showOnHome) {
     const homeCount = await db
       .select({ id: categories.id })
       .from(categories)
@@ -299,7 +333,15 @@ export async function updateCategory(
 
   await db
     .update(categories)
-    .set({ slug, label, image: imageUrl, showOnHome, parentId: resolvedParentId, level, storeType })
+    .set({
+      slug,
+      label,
+      image: imageUrl,
+      showOnHome: effectiveShowOnHome,
+      parentId: resolvedParentId,
+      level,
+      storeType,
+    })
     .where(eq(categories.id, validId));
   auditLog({ userId: userId!, action: "category.update", target: String(validId), details: { slug, label } });
   return {};

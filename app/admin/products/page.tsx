@@ -5,8 +5,9 @@ import { categories, products, productVariants, productColors } from "@/db/schem
 import { inArray, desc, eq, and, sql } from "drizzle-orm";
 import { alias } from "drizzle-orm/pg-core";
 import { ProductsTable } from "./ProductsTable";
-import { getCategories } from "@/actions/categories";
+import { getAllCategories } from "@/actions/categories";
 import { getAdminStoreType } from "@/actions/admin-store";
+import { requireAdmin } from "@/lib/security";
 import { buildProductSearchWhere } from "@/lib/product-search";
 import { conditionProductsMatchCategorySlug } from "@/lib/shop-category-filter";
 
@@ -19,10 +20,11 @@ export default async function AdminProductsPage({
   const q = params.q?.trim();
   const category = params.category;
 
-  const categoryList = await getCategories();
-  const categoryLabels = Object.fromEntries(categoryList.map((c) => [c.slug, c.label]));
-
+  await requireAdmin();
   const adminStore = await getAdminStoreType();
+  const allCategories = await getAllCategories();
+  const categoryList = allCategories.filter((c) => c.storeType === adminStore || c.storeType === "both");
+  const categoryLabels = Object.fromEntries(categoryList.map((c) => [c.slug, c.label]));
 
   const whereConditions = [eq(products.storeType, adminStore)];
   if (category && category !== "all") {

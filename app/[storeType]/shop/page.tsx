@@ -9,7 +9,9 @@ import {
   getProductVariantsByProductIds,
   getProductColorsByProductIds,
   getPrimaryCategorySlugByProductIds,
+  getProductCategoryFilterTagsByProductIds,
 } from "@/actions/storefront-products";
+import { getAllSubcategories } from "@/actions/categories";
 import { Suspense } from "react";
 import { notFound } from "next/navigation";
 
@@ -53,10 +55,11 @@ export default async function ShopPage({ params, searchParams }: ShopPageProps) 
   const cat = search.cat;
   const q = search.q?.trim();
 
-  const [validSlugs, storeSlugs, storeCategories] = await Promise.all([
+  const [validSlugs, storeSlugs, storeCategories, allSubs] = await Promise.all([
     getValidCategorySlugs(),
     getStoreCategorySlugs(storeType),
     getStoreCategories(storeType),
+    getAllSubcategories(storeType),
   ]);
 
   if (storeSlugs.length === 0 && (storeType === "streetwear" || storeType === "formal")) {
@@ -75,7 +78,13 @@ export default async function ShopPage({ params, searchParams }: ShopPageProps) 
   });
 
   const productIds = productList.map((p) => p.id);
-  const primarySlugByProductId = await getPrimaryCategorySlugByProductIds(productIds);
+  const [primarySlugByProductId, categoryFilterTags] =
+    productIds.length > 0
+      ? await Promise.all([
+          getPrimaryCategorySlugByProductIds(productIds),
+          getProductCategoryFilterTagsByProductIds(productIds),
+        ])
+      : [{}, {}];
   const [variantsList, colorsList] =
     productIds.length > 0
       ? await Promise.all([
@@ -114,7 +123,29 @@ export default async function ShopPage({ params, searchParams }: ShopPageProps) 
     {}
   );
 
-  const categoryLabel = catFilter && cat ? storeCategories.find((c) => c.slug === cat)?.label ?? null : null;
+  const mainById = Object.fromEntries(storeCategories.map((m) => [m.id, m]));
+  const subcategoriesForFilters = allSubs.map((s) => ({
+    slug: s.slug,
+    label: s.label,
+    parentSlug: s.parentId != null ? mainById[s.parentId]?.slug ?? null : null,
+  }));
+
+  let shopFilterContext: "all" | "main" | "sub" = "all";
+  let activeMainSlugForFilters: string | null = null;
+  if (catFilter && cat) {
+    if (storeCategories.some((c) => c.slug === cat)) {
+      shopFilterContext = "main";
+      activeMainSlugForFilters = cat;
+    } else {
+      const subRow = allSubs.find((s) => s.slug === cat);
+      if (subRow?.parentId != null) {
+        shopFilterContext = "sub";
+        activeMainSlugForFilters = mainById[subRow.parentId]?.slug ?? null;
+      }
+    }
+  }
+
+  const categoryLabel = catFilter && cat ? storeCategories.find((c) => c.slug === cat)?.label ?? allSubs.find((s) => s.slug === cat)?.label ?? null : null;
 
   let wishlistProductIds: number[] = [];
   const { userId } = await auth();
@@ -141,7 +172,11 @@ export default async function ShopPage({ params, searchParams }: ShopPageProps) 
           colorsByProductId={colorsByProductId}
           wishlistProductIds={wishlistProductIds}
           categoryLabel={categoryLabel}
-          storeCategories={storeCategories}
+          storeMainCategories={storeCategories}
+          subcategoriesForFilters={subcategoriesForFilters}
+          shopFilterContext={shopFilterContext}
+          activeMainSlugForFilters={activeMainSlugForFilters}
+          categoryFilterTags={categoryFilterTags}
           storeType={storeType}
           initialQuery={q ?? undefined}
         />

@@ -1,13 +1,22 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useMemo } from "react";
 
 export interface FilterState {
   priceMin: number;
   priceMax: number;
   size: string[];
   color: string[];
+  mainCategory: string[];
   subcategory: string[];
+}
+
+export type ShopFilterPanelContext = "all" | "main" | "sub";
+
+export interface SubcategoryFilterOption {
+  value: string;
+  label: string;
+  parentSlug: string | null;
 }
 
 const SIZE_OPTIONS = ["XS", "S", "M", "L", "XL"];
@@ -29,7 +38,12 @@ interface FilterPanelProps {
   filters: FilterState;
   onFiltersChange: (filters: FilterState) => void;
   priceBounds: { min: number; max: number };
-  subcategories?: { value: string; label: string }[];
+  shopFilterContext: ShopFilterPanelContext;
+  /** When context is main or sub PLP, limit subcategory chips to this main slug. */
+  activeMainSlugForFilters?: string | null;
+  mainCategories?: { value: string; label: string }[];
+  /** Full list for the store; visibility is derived from context and selected mains. */
+  subcategories?: SubcategoryFilterOption[];
 }
 
 function FilterSection({
@@ -45,9 +59,7 @@ function FilterSection({
 }) {
   return (
     <div className="mb-8">
-      <h3 className="text-xs font-medium uppercase tracking-[0.2em] text-foreground mb-4">
-        {title}
-      </h3>
+      <h3 className="text-xs font-medium uppercase tracking-[0.2em] text-foreground mb-4">{title}</h3>
       <div className="flex flex-wrap gap-2">
         {options.map((opt) => {
           const value = typeof opt === "string" ? opt : opt.value;
@@ -57,10 +69,11 @@ function FilterSection({
               key={value}
               type="button"
               onClick={() => onToggle(value)}
-              className={`rounded-none px-4 py-2 text-xs font-normal uppercase tracking-[0.15em] transition-colors ${selected.includes(value)
+              className={`rounded-none px-4 py-2 text-xs font-normal uppercase tracking-[0.15em] transition-colors ${
+                selected.includes(value)
                   ? "bg-foreground text-background dark:bg-background dark:text-foreground"
                   : "bg-muted text-foreground hover:bg-muted/80"
-                }`}
+              }`}
             >
               {label}
             </button>
@@ -89,14 +102,10 @@ function PriceRangeSection({
 
   return (
     <div className="mb-8">
-      <h3 className="text-xs font-medium uppercase tracking-[0.2em] text-foreground mb-4">
-        Price Range
-      </h3>
+      <h3 className="text-xs font-medium uppercase tracking-[0.2em] text-foreground mb-4">Price Range</h3>
       <div className="space-y-6">
         <div>
-          <label className="text-xs text-muted-foreground block mb-2">
-            Min: ${clampedMin.toFixed(0)}
-          </label>
+          <label className="text-xs text-muted-foreground block mb-2">Min: ${clampedMin.toFixed(0)}</label>
           <input
             type="range"
             min={bounds.min}
@@ -111,9 +120,7 @@ function PriceRangeSection({
           />
         </div>
         <div>
-          <label className="text-xs text-muted-foreground block mb-2">
-            Max: ${clampedMax.toFixed(0)}
-          </label>
+          <label className="text-xs text-muted-foreground block mb-2">Max: ${clampedMax.toFixed(0)}</label>
           <input
             type="range"
             min={bounds.min}
@@ -132,14 +139,45 @@ function PriceRangeSection({
   );
 }
 
+function pruneSubcategoriesForMains(
+  subcategories: SubcategoryFilterOption[],
+  mainCategorySlugs: string[],
+  currentSub: string[],
+): string[] {
+  if (mainCategorySlugs.length === 0) return currentSub;
+  const allowed = new Set(
+    subcategories
+      .filter((s) => s.parentSlug != null && mainCategorySlugs.includes(s.parentSlug))
+      .map((s) => s.value),
+  );
+  return currentSub.filter((s) => allowed.has(s));
+}
+
 export function FilterPanel({
   isOpen,
   onClose,
   filters,
   onFiltersChange,
   priceBounds,
-  subcategories,
+  shopFilterContext,
+  activeMainSlugForFilters = null,
+  mainCategories = [],
+  subcategories = [],
 }: FilterPanelProps) {
+  const allSubcategories = useMemo(() => subcategories ?? [], [subcategories]);
+
+  const visibleSubOptions = useMemo(() => {
+    if (shopFilterContext === "main" || shopFilterContext === "sub") {
+      const m = activeMainSlugForFilters;
+      if (!m) return [];
+      return allSubcategories.filter((s) => s.parentSlug === m);
+    }
+    if (filters.mainCategory.length === 0) return allSubcategories;
+    return allSubcategories.filter(
+      (s) => s.parentSlug != null && filters.mainCategory.includes(s.parentSlug),
+    );
+  }, [shopFilterContext, activeMainSlugForFilters, allSubcategories, filters.mainCategory]);
+
   useEffect(() => {
     const handleEscape = (e: KeyboardEvent) => {
       if (e.key === "Escape") onClose();
@@ -154,29 +192,48 @@ export function FilterPanel({
     };
   }, [isOpen, onClose]);
 
-  const toggleFilter = (key: "size" | "color" | "subcategory") => (value: string) => {
+  const toggleScalar = (key: "size" | "color") => (value: string) => {
     const current = filters[key];
-    const next = current.includes(value)
-      ? current.filter((v: string) => v !== value)
-      : [...current, value];
+    const next = current.includes(value) ? current.filter((v: string) => v !== value) : [...current, value];
     onFiltersChange({ ...filters, [key]: next });
+  };
+
+  const toggleSubcategory = (value: string) => {
+    const current = filters.subcategory;
+    const next = current.includes(value) ? current.filter((v) => v !== value) : [...current, value];
+    onFiltersChange({ ...filters, subcategory: next });
+  };
+
+  const toggleMainCategory = (value: string) => {
+    const current = filters.mainCategory;
+    const nextMain = current.includes(value) ? current.filter((v) => v !== value) : [...current, value];
+    const nextSub = pruneSubcategoriesForMains(allSubcategories, nextMain, filters.subcategory);
+    onFiltersChange({ ...filters, mainCategory: nextMain, subcategory: nextSub });
   };
 
   const setPriceRange = (priceMin: number, priceMax: number) => {
     onFiltersChange({ ...filters, priceMin, priceMax });
   };
 
+  const showMainSection = shopFilterContext === "all" && mainCategories.length > 0;
+  const showSubSection = visibleSubOptions.length > 0;
+
+  const mainOptionsForUi = mainCategories.map((m) => ({ value: m.value, label: m.label }));
+  const subOptionsForUi = visibleSubOptions.map((s) => ({ value: s.value, label: s.label }));
+
   return (
     <>
       <div
-        className={`fixed inset-0 z-40 bg-black/30 transition-opacity duration-200 ${isOpen ? "opacity-100" : "opacity-0 pointer-events-none"
-          }`}
+        className={`fixed inset-0 z-40 bg-black/30 transition-opacity duration-200 ${
+          isOpen ? "opacity-100" : "opacity-0 pointer-events-none"
+        }`}
         onClick={onClose}
         aria-hidden
       />
       <aside
-        className={`fixed left-0 top-0 bottom-0 w-[320px] max-w-[85vw] z-50 bg-background shadow-xl overflow-y-auto transition-transform duration-200 ease-out ${isOpen ? "translate-x-0" : "-translate-x-full"
-          }`}
+        className={`fixed left-0 top-0 bottom-0 w-[320px] max-w-[85vw] z-50 bg-background shadow-xl overflow-y-auto transition-transform duration-200 ease-out ${
+          isOpen ? "translate-x-0" : "-translate-x-full"
+        }`}
         role="dialog"
         aria-label="Filters"
       >
@@ -187,49 +244,35 @@ export function FilterPanel({
             className="absolute top-6 right-6 text-foreground hover:opacity-60"
             aria-label="Close filters"
           >
-            <svg
-              className="w-5 h-5"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M6 18L18 6M6 6l12 12"
-              />
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
             </svg>
           </button>
-          <h2 className="text-sm font-medium uppercase tracking-[0.2em] text-foreground mb-8">
-            Filters
-          </h2>
+          <h2 className="text-sm font-medium uppercase tracking-[0.2em] text-foreground mb-8">Filters</h2>
           <PriceRangeSection
             bounds={priceBounds}
             valueMin={filters.priceMin}
             valueMax={filters.priceMax}
             onChange={setPriceRange}
           />
-          {subcategories && subcategories.length > 0 && (
+          {showMainSection && (
             <FilterSection
-              title="Category"
-              options={subcategories}
-              selected={filters.subcategory}
-              onToggle={toggleFilter("subcategory")}
+              title="Categories"
+              options={mainOptionsForUi}
+              selected={filters.mainCategory}
+              onToggle={toggleMainCategory}
             />
           )}
-          <FilterSection
-            title="Size"
-            options={SIZE_OPTIONS}
-            selected={filters.size}
-            onToggle={toggleFilter("size")}
-          />
-          <FilterSection
-            title="Color"
-            options={COLOR_OPTIONS}
-            selected={filters.color}
-            onToggle={toggleFilter("color")}
-          />
+          {showSubSection && (
+            <FilterSection
+              title="Subcategories"
+              options={subOptionsForUi}
+              selected={filters.subcategory}
+              onToggle={toggleSubcategory}
+            />
+          )}
+          <FilterSection title="Size" options={SIZE_OPTIONS} selected={filters.size} onToggle={toggleScalar("size")} />
+          <FilterSection title="Color" options={COLOR_OPTIONS} selected={filters.color} onToggle={toggleScalar("color")} />
         </div>
       </aside>
     </>
