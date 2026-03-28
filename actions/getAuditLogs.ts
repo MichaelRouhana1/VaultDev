@@ -4,12 +4,15 @@ import { count, desc, eq } from "drizzle-orm";
 import { db } from "@/db";
 import { auditLogs } from "@/db/schema";
 import type { AuditLogRow } from "@/db/schema";
+import { resolveClerkUserLabelsForIds } from "@/lib/clerk-user-lookup";
 import { requireAdminAction } from "@/lib/security";
 
 const PAGE_SIZE = 50;
 
+export type AuditLogTableRow = AuditLogRow & { userDisplayLabel: string };
+
 export type GetAuditLogsResult =
-  | { ok: true; logs: AuditLogRow[]; total: number; page: number; pageSize: number }
+  | { ok: true; logs: AuditLogTableRow[]; total: number; page: number; pageSize: number }
   | { ok: false; error: string };
 
 export async function getAuditLogs(options?: {
@@ -51,9 +54,19 @@ export async function getAuditLogs(options?: {
 
   const total = countRows[0]?.value ?? 0;
 
+  const labelByUserId = await resolveClerkUserLabelsForIds(rows.map((r) => r.userId));
+  const logs: AuditLogTableRow[] = rows.map((row) => {
+    const id = row.userId;
+    let userDisplayLabel = "—";
+    if (id) {
+      userDisplayLabel = labelByUserId.get(id) ?? id;
+    }
+    return { ...row, userDisplayLabel };
+  });
+
   return {
     ok: true,
-    logs: rows,
+    logs,
     total,
     page,
     pageSize: PAGE_SIZE,

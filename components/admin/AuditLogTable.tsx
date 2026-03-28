@@ -2,7 +2,7 @@
 
 import { useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useMemo, useState } from "react";
-import type { AuditLogRow } from "@/db/schema";
+import type { AuditLogTableRow } from "@/actions/getAuditLogs";
 import {
   getAuditActionBadgeClass,
   getAuditActionLabel,
@@ -48,7 +48,7 @@ function prettifyDetails(details: unknown): string {
 }
 
 interface AuditLogTableProps {
-  logs: AuditLogRow[];
+  logs: AuditLogTableRow[];
   total: number;
   page: number;
   pageSize: number;
@@ -156,8 +156,11 @@ export function AuditLogTable({
                         {label}
                       </span>
                     </TableCell>
-                    <TableCell className="font-mono text-xs max-w-[200px] truncate" title={row.userId ?? ""}>
-                      {row.userId ?? "—"}
+                    <TableCell
+                      className="text-sm max-w-[240px] truncate"
+                      title={row.userId ? `Clerk ID: ${row.userId}` : undefined}
+                    >
+                      <span className="font-medium text-foreground">{row.userDisplayLabel}</span>
                     </TableCell>
                     <TableCell className="hidden md:table-cell font-mono text-xs text-muted-foreground">
                       {row.ipAddress || "—"}
