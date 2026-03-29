@@ -120,6 +120,13 @@
       "when": 1774700000000,
       "tag": "0016_product_is_archived",
       "breakpoints": true
+    },
+    {
+      "idx": 17,
+      "version": "7",
+      "when": 1774815822041,
+      "tag": "0017_furry_wildside",
+      "breakpoints": true
     }
   ]
 }

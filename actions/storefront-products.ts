@@ -103,18 +103,8 @@ export const getProductAttributeValueSlugsByProductIds = cache(
   },
 );
 
-/** Home “discover” strip: visible products for store + first color image via lateral join. */
+/** Home “discover” strip: visible products for store + first color image via correlated subqueries. */
 export const getHomeDiscoverProductsWithFirstImage = cache(async (storeType: StoreTypeFilter) => {
-  const firstColorSubq = db
-    .select({
-      firstImageUrl: sql<string>`(image_urls)[1]::text`.as("first_image_url"),
-    })
-    .from(productColors)
-    .where(eq(productColors.productId, products.id))
-    .orderBy(productColors.id)
-    .limit(1)
-    .as("first_color");
-
   const baseFields = {
     id: products.id,
     name: products.name,
@@ -127,18 +117,25 @@ export const getHomeDiscoverProductsWithFirstImage = cache(async (storeType: Sto
     color: products.color,
     isVisible: products.isVisible,
     storeType: products.storeType,
-    firstImageUrl: firstColorSubq.firstImageUrl,
   };
 
   return db
     .select({
       ...baseFields,
-      categorySlug: sql<string | null>`(SELECT slug FROM categories WHERE id = ${products.mainCategoryId})`.as(
-        "category_slug",
-      ),
+      firstImageUrl: sql<string | null>`(
+        SELECT ${productColors.imageUrls}[1]
+        FROM ${productColors}
+        WHERE ${productColors.productId} = ${products.id}
+        ORDER BY ${productColors.id} ASC
+        LIMIT 1
+      )`.as("first_image_url"),
+      categorySlug: sql<string | null>`(
+        SELECT ${categories.slug}
+        FROM ${categories}
+        WHERE ${categories.id} = ${products.mainCategoryId}
+      )`.as("category_slug"),
     })
     .from(products)
-    .leftJoinLateral(firstColorSubq, sql`true`)
     .where(
       and(eq(products.isVisible, true), eq(products.isArchived, false), eq(products.storeType, storeType)),
     )
