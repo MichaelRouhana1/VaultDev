@@ -1,5 +1,5 @@
 import { auth } from "@clerk/nextjs/server";
-import { eq, desc, inArray } from "drizzle-orm";
+import { eq, desc, inArray, and } from "drizzle-orm";
 import { db } from "@/db";
 import { wishlists, products, productVariants, productColors } from "@/db/schema";
 import { CartClient } from "@/components/CartClient";
@@ -19,7 +19,9 @@ export default async function CartPage() {
       })
       .from(wishlists)
       .innerJoin(products, eq(wishlists.productId, products.id))
-      .where(eq(wishlists.userId, userId))
+      .where(
+        and(eq(wishlists.userId, userId), eq(products.isArchived, false)),
+      )
       .orderBy(desc(wishlists.createdAt));
 
     wishlistProducts = userWishlist.map((w) => w.product);

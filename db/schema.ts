@@ -130,13 +130,15 @@ export const products = pgTable("products", {
   isSaleActive: boolean("is_sale_active").notNull().default(true),
   color: text("color"),
   isVisible: boolean("is_visible").notNull().default(true),
+  /** Soft-delete: hidden from storefront; kept for order history / FK integrity. */
+  isArchived: boolean("is_archived").notNull().default(false),
   storeType: productListingStoreTypeEnum("store_type").notNull().default("streetwear"),
   /** Main shop category (`level = main`, not store root). */
   mainCategoryId: integer("main_category_id")
     .notNull()
     .references(() => categories.id),
 }, (t) => [
-  index("products_store_type_visible_idx").on(t.storeType, t.isVisible),
+  index("products_store_type_visible_archived_idx").on(t.storeType, t.isVisible, t.isArchived),
   index("products_main_category_id_idx").on(t.mainCategoryId),
   index("products_search_vector_idx").using("gin", t.searchVector),
 ]);

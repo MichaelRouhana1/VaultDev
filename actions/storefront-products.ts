@@ -31,7 +31,7 @@ export const getPrimaryCategorySlugForProduct = cache(async (productId: number):
     .select({ mainSlug: mainCat.slug })
     .from(products)
     .innerJoin(mainCat, eq(products.mainCategoryId, mainCat.id))
-    .where(eq(products.id, productId))
+    .where(and(eq(products.id, productId), eq(products.isArchived, false)))
     .limit(1);
   return row?.mainSlug ?? null;
 });
@@ -46,7 +46,7 @@ export const getPrimaryCategorySlugByProductIds = cache(async (productIds: numbe
     })
     .from(products)
     .innerJoin(mainCat, eq(products.mainCategoryId, mainCat.id))
-    .where(inArray(products.id, ids));
+    .where(and(inArray(products.id, ids), eq(products.isArchived, false)));
   const map: Record<number, string> = {};
   for (const r of rows) {
     map[r.productId] = r.mainSlug ?? "";
@@ -71,7 +71,7 @@ export const getProductCategoryFilterTagsByProductIds = cache(
       })
       .from(products)
       .innerJoin(mainCat, eq(products.mainCategoryId, mainCat.id))
-      .where(inArray(products.id, ids));
+      .where(and(inArray(products.id, ids), eq(products.isArchived, false)));
     const map: Record<number, ProductCategoryFilterTags> = {};
     for (const r of rows) {
       const main = r.mainSlug ?? "";
@@ -139,7 +139,9 @@ export const getHomeDiscoverProductsWithFirstImage = cache(async (storeType: Sto
     })
     .from(products)
     .leftJoinLateral(firstColorSubq, sql`true`)
-    .where(and(eq(products.isVisible, true), eq(products.storeType, storeType)))
+    .where(
+      and(eq(products.isVisible, true), eq(products.isArchived, false), eq(products.storeType, storeType)),
+    )
     .orderBy(desc(products.id))
     .limit(8);
 });
@@ -149,7 +151,11 @@ export const getShopProductsForStore = cache(
     storeType: StoreTypeFilter,
     filters: { categorySlug?: string; searchQuery?: string; attributeSlugs?: string[] },
   ) => {
-    const baseFilters = [eq(products.isVisible, true), eq(products.storeType, storeType)];
+    const baseFilters = [
+      eq(products.isVisible, true),
+      eq(products.isArchived, false),
+      eq(products.storeType, storeType),
+    ];
     if (filters.categorySlug) {
       baseFilters.push(await conditionProductsMatchCategorySlug(filters.categorySlug));
     }
@@ -194,7 +200,7 @@ export const getPublicProductTitleForMetadata = cache(async (productId: number) 
   return db
     .select({ name: products.name })
     .from(products)
-    .where(eq(products.id, productId))
+    .where(and(eq(products.id, productId), eq(products.isArchived, false)))
     .limit(1);
 });
 
@@ -203,7 +209,13 @@ export const getPublicProductDetailForStore = cache(
     return db
       .select()
       .from(products)
-      .where(and(eq(products.id, productId), eq(products.storeType, storeType)))
+      .where(
+        and(
+          eq(products.id, productId),
+          eq(products.storeType, storeType),
+          eq(products.isArchived, false),
+        ),
+      )
       .limit(1);
   },
 );
@@ -214,7 +226,13 @@ export const getSimilarVisibleProductsExcept = cache(
     const [p] = await db
       .select()
       .from(products)
-      .where(and(eq(products.id, forProductId), eq(products.storeType, storeType)))
+      .where(
+        and(
+          eq(products.id, forProductId),
+          eq(products.storeType, storeType),
+          eq(products.isArchived, false),
+        ),
+      )
       .limit(1);
     if (!p) return [];
 
@@ -242,6 +260,7 @@ export const getSimilarVisibleProductsExcept = cache(
           .where(
             and(
               eq(products.isVisible, true),
+              eq(products.isArchived, false),
               eq(products.storeType, storeType),
               inArray(products.id, idList),
               ne(products.id, forProductId),
@@ -257,6 +276,7 @@ export const getSimilarVisibleProductsExcept = cache(
       .where(
         and(
           eq(products.isVisible, true),
+          eq(products.isArchived, false),
           eq(products.storeType, storeType),
           eq(products.mainCategoryId, p.mainCategoryId),
           ne(products.id, forProductId),

@@ -3,7 +3,7 @@
 import { auth } from "@clerk/nextjs/server";
 import { eq, and } from "drizzle-orm";
 import { db } from "@/db";
-import { wishlists } from "@/db/schema";
+import { wishlists, products } from "@/db/schema";
 import { checkToggleWishlistLimit } from "@/lib/rate-limit";
 import { z } from "zod";
 import { logger } from "@/lib/logger";
@@ -54,6 +54,21 @@ export async function toggleWishlist(productId: number): Promise<{
     .limit(1);
   if (dupCheck.length > 0) {
     return { inWishlist: true };
+  }
+
+  const [sellable] = await db
+    .select({ id: products.id })
+    .from(products)
+    .where(
+      and(
+        eq(products.id, validProductId),
+        eq(products.isVisible, true),
+        eq(products.isArchived, false),
+      ),
+    )
+    .limit(1);
+  if (!sellable) {
+    return { success: false, error: "This product is not available" };
   }
 
   try {

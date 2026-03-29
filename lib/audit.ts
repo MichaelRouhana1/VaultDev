@@ -10,6 +10,7 @@ export type AuditAction =
   | "product.create"
   | "product.update"
   | "product.delete"
+  | "product.archive"
   | "category.create"
   | "category.update"
   | "category.delete"

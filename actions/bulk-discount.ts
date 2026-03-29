@@ -53,7 +53,7 @@ export async function applyBulkDiscount(
     const rows = await tx
       .select({ id: products.id, price: products.price })
       .from(products)
-      .where(inArray(products.id, productIds));
+      .where(and(inArray(products.id, productIds), eq(products.isArchived, false)));
 
     for (const row of rows) {
       const price = parsePrice(row.price);

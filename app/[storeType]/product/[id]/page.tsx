@@ -39,7 +39,7 @@ export default async function ProductPage({
   const st = storeType as "streetwear" | "formal";
   const [product] = await getPublicProductDetailForStore(productId, st);
 
-  if (!product || !product.isVisible) notFound();
+  if (!product || !product.isVisible || product.isArchived) notFound();
 
   const [variants, colors] = await Promise.all([
     getProductVariantsByProductIds([product.id]),

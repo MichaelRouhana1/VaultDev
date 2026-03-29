@@ -39,6 +39,7 @@ import { deleteProduct } from "@/actions/deleteProduct";
 import { applyBulkDiscount, removeBulkDiscount, clearExpiredSales } from "@/actions/bulk-discount";
 import { getProductDisplayPrice, isProductOnSale, getProductDiscountPercent } from "@/lib/utils";
 import { toast } from "sonner";
+import { Badge } from "@/components/ui/badge";
 
 interface ProductWithMeta {
   id: number;
@@ -51,6 +52,7 @@ interface ProductWithMeta {
   isSaleActive?: boolean;
   images: string[];
   isVisible: boolean;
+  isArchived?: boolean;
   totalStock: number;
   stockBySize?: Record<string, number>;
   stockByColor?: StockByColorRow[];
@@ -109,13 +111,15 @@ export function ProductsTable({
     router.push(`/admin/products?${params.toString()}`);
   };
 
-  const handleDelete = async (id: number, name: string) => {
-    if (!confirm(`Delete "${name}"?`)) return;
-    const deleted = await deleteProduct(id);
-    if (deleted.success === false) {
-      toast.error(deleted.error);
+  const handleArchive = async (id: number, name: string) => {
+    if (!confirm(`Archive "${name}"? It will disappear from the storefront but stay in the admin list and order history.`))
+      return;
+    const archived = await deleteProduct(id);
+    if (archived.success === false) {
+      toast.error(archived.error);
       return;
     }
+    toast.success("Product archived");
     router.refresh();
   };
 
@@ -232,7 +236,7 @@ export function ProductsTable({
       cell: ({ row }) => {
         const p = row.original;
         return (
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-3 flex-wrap">
             <div className="relative w-12 h-12 shrink-0 bg-muted overflow-hidden rounded">
               {p.images[0] ? (
                 <Image
@@ -250,6 +254,11 @@ export function ProductsTable({
               )}
             </div>
             <span className="font-medium">{p.name}</span>
+            {p.isArchived ? (
+              <Badge variant="secondary" className="shrink-0 text-muted-foreground">
+                Archived
+              </Badge>
+            ) : null}
           </div>
         );
       },
@@ -333,13 +342,17 @@ export function ProductsTable({
             >
               Edit
             </Link>
-            <button
-              type="button"
-              onClick={() => handleDelete(p.id, p.name)}
-              className="text-destructive hover:underline"
-            >
-              Delete
-            </button>
+            {p.isArchived ? (
+              <span className="text-xs text-muted-foreground">Archived</span>
+            ) : (
+              <button
+                type="button"
+                onClick={() => handleArchive(p.id, p.name)}
+                className="text-destructive hover:underline"
+              >
+                Archive
+              </button>
+            )}
           </div>
         );
       },

@@ -105,6 +105,16 @@ export async function placeOrder(
       .where(inArray(products.id, productIds));
     const productById = Object.fromEntries(productRows.map((p) => [p.id, p]));
 
+    for (const pid of productIds) {
+      const p = productById[pid];
+      if (!p) {
+        throw new Error(`Product #${pid} was not found`);
+      }
+      if (p.isArchived) {
+        throw new Error(`"${p.name}" is no longer available for purchase`);
+      }
+    }
+
     const variantQuantities = new Map<
       string,
       { productId: number; size: string; quantity: number; priceAtPurchase: string }

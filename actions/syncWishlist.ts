@@ -58,7 +58,9 @@ export async function syncWishlist(
   const validProducts = await db
     .select({ id: products.id })
     .from(products)
-    .where(and(inArray(products.id, toAdd), eq(products.isVisible, true)));
+    .where(
+      and(inArray(products.id, toAdd), eq(products.isVisible, true), eq(products.isArchived, false)),
+    );
 
   const validSet = new Set(validProducts.map((p) => p.id));
   let inserted = 0;

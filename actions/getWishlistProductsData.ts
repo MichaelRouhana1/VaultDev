@@ -27,7 +27,9 @@ export async function getWishlistProductsData(
   const prods = await db
     .select()
     .from(products)
-    .where(and(inArray(products.id, ids), eq(products.isVisible, true)));
+    .where(
+      and(inArray(products.id, ids), eq(products.isVisible, true), eq(products.isArchived, false)),
+    );
 
   const order = new Map(ids.map((id, i) => [id, i]));
   prods.sort((a, b) => (order.get(a.id) ?? 0) - (order.get(b.id) ?? 0));
