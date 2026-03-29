@@ -15,6 +15,7 @@ import {
 } from "@/components/ui/card";
 import { PriceInput } from "@/components/admin/PriceInput";
 import { ProductTaxonomyFields } from "@/components/admin/ProductTaxonomyFields";
+import { ProductAttributeFields } from "@/components/admin/ProductAttributeFields";
 import {
   ProductCollectionsFields,
   type CollectionOption,
@@ -22,16 +23,19 @@ import {
 import { ImageUploader, type ColorEntry } from "@/components/admin/ImageUploader";
 import { InventoryManager } from "@/components/admin/InventoryManager";
 import type { ProductFormCategoryTree } from "@/actions/categories";
+import type { AttributeWithValues } from "@/actions/attributes";
 
 const SIZES = ["XS", "S", "M", "L", "XL"] as const;
 
 export function CreateProductForm({
   categoryTrees,
   collectionsByStore,
+  attributesWithValues,
   initialStoreType = "streetwear",
 }: {
   categoryTrees: Record<"streetwear" | "formal", ProductFormCategoryTree>;
   collectionsByStore: Record<"streetwear" | "formal", CollectionOption[]>;
+  attributesWithValues: AttributeWithValues[];
   initialStoreType?: "streetwear" | "formal";
 }) {
   const router = useRouter();
@@ -174,6 +178,7 @@ export function CreateProductForm({
               onChange={setCollectionIds}
             />
           </div>
+          <ProductAttributeFields attributesWithValues={attributesWithValues} />
           <div className="flex items-center gap-2">
             <input
               type="checkbox"

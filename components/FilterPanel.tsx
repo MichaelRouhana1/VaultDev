@@ -8,14 +8,13 @@ export interface FilterState {
   size: string[];
   color: string[];
   mainCategory: string[];
-  subcategory: string[];
 }
 
-export type ShopFilterPanelContext = "all" | "main" | "sub";
+export type ShopFilterPanelContext = "all" | "main";
 
-export interface SubcategoryFilterOption {
-  value: string;
-  label: string;
+export interface AttributeFilterSection {
+  name: string;
+  values: { slug: string; label: string }[];
 }
 
 const SIZE_OPTIONS = ["XS", "S", "M", "L", "XL"];
@@ -38,7 +37,9 @@ export interface FilterPanelContentProps {
   /** False when the shop is already scoped to one main category (e.g. `?cat=jeans`). */
   showMainCategorySection: boolean;
   mainCategories?: { value: string; label: string }[];
-  subcategories?: SubcategoryFilterOption[];
+  attributeSections?: AttributeFilterSection[];
+  selectedAttributeSlugs?: string[];
+  onToggleAttribute?: (slug: string) => void;
   /** Mobile drawer close control */
   showCloseButton?: boolean;
   onClose?: () => void;
@@ -144,23 +145,20 @@ export function FilterPanelContent({
   priceBounds,
   showMainCategorySection,
   mainCategories = [],
-  subcategories = [],
+  attributeSections = [],
+  selectedAttributeSlugs = [],
+  onToggleAttribute,
   showCloseButton = false,
   onClose,
   className = "",
 }: FilterPanelContentProps) {
-  const allSubs = useMemo(() => subcategories ?? [], [subcategories]);
+  const sections = useMemo(() => attributeSections ?? [], [attributeSections]);
+  const selectedAttrs = useMemo(() => selectedAttributeSlugs ?? [], [selectedAttributeSlugs]);
 
   const toggleScalar = (key: "size" | "color") => (value: string) => {
     const current = filters[key];
     const next = current.includes(value) ? current.filter((v: string) => v !== value) : [...current, value];
     onFiltersChange({ ...filters, [key]: next });
-  };
-
-  const toggleSubcategory = (value: string) => {
-    const current = filters.subcategory;
-    const next = current.includes(value) ? current.filter((v) => v !== value) : [...current, value];
-    onFiltersChange({ ...filters, subcategory: next });
   };
 
   const toggleMainCategory = (value: string) => {
@@ -174,10 +172,7 @@ export function FilterPanelContent({
   };
 
   const showMainSection = showMainCategorySection && mainCategories.length > 0;
-  const showSubSection = allSubs.length > 0;
-
   const mainOptionsForUi = mainCategories.map((m) => ({ value: m.value, label: m.label }));
-  const subOptionsForUi = allSubs.map((s) => ({ value: s.value, label: s.label }));
 
   return (
     <div className={`relative ${className}`}>
@@ -208,13 +203,16 @@ export function FilterPanelContent({
           onToggle={toggleMainCategory}
         />
       )}
-      {showSubSection && (
-        <FilterSection
-          title="Subcategories"
-          options={subOptionsForUi}
-          selected={filters.subcategory}
-          onToggle={toggleSubcategory}
-        />
+      {sections.map((section) =>
+        section.values.length > 0 && onToggleAttribute ? (
+          <FilterSection
+            key={section.name}
+            title={section.name}
+            options={section.values.map((v) => ({ value: v.slug, label: v.label }))}
+            selected={selectedAttrs}
+            onToggle={onToggleAttribute}
+          />
+        ) : null,
       )}
       <FilterSection title="Size" options={SIZE_OPTIONS} selected={filters.size} onToggle={toggleScalar("size")} />
       <FilterSection title="Color" options={COLOR_OPTIONS} selected={filters.color} onToggle={toggleScalar("color")} />
@@ -230,7 +228,9 @@ interface FilterPanelProps {
   priceBounds: { min: number; max: number };
   showMainCategorySection: boolean;
   mainCategories?: { value: string; label: string }[];
-  subcategories?: SubcategoryFilterOption[];
+  attributeSections?: AttributeFilterSection[];
+  selectedAttributeSlugs?: string[];
+  onToggleAttribute?: (slug: string) => void;
 }
 
 /** Full-screen slide-in filter drawer for viewports below `md`. Hidden from `md` up (desktop uses inline sidebar in ShopClient). */
@@ -242,7 +242,9 @@ export function FilterPanel({
   priceBounds,
   showMainCategorySection,
   mainCategories = [],
-  subcategories = [],
+  attributeSections = [],
+  selectedAttributeSlugs = [],
+  onToggleAttribute,
 }: FilterPanelProps) {
   useEffect(() => {
     const mq = window.matchMedia("(min-width: 768px)");
@@ -295,7 +297,9 @@ export function FilterPanel({
             priceBounds={priceBounds}
             showMainCategorySection={showMainCategorySection}
             mainCategories={mainCategories}
-            subcategories={subcategories}
+            attributeSections={attributeSections}
+            selectedAttributeSlugs={selectedAttributeSlugs}
+            onToggleAttribute={onToggleAttribute}
             showCloseButton
             onClose={onClose}
           />

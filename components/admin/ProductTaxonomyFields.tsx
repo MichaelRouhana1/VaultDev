@@ -1,11 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { useRouter } from "next/navigation";
-import { Plus } from "lucide-react";
 import { Label } from "@/components/ui/label";
-import { Button } from "@/components/ui/button";
-import { AddSubcategoryDialog } from "@/components/admin/AddSubcategoryDialog";
 import type { ProductFormCategoryTree } from "@/actions/categories";
 
 type Store = "streetwear" | "formal";
@@ -14,14 +10,12 @@ export function ProductTaxonomyFields({
   categoryTrees,
   initialStoreType,
   initialMainCategoryId,
-  initialSubcategoryId,
   listingStore,
   onListingStoreChange,
 }: {
   categoryTrees: Record<Store, ProductFormCategoryTree>;
   initialStoreType: Store;
   initialMainCategoryId?: number;
-  initialSubcategoryId?: number | null;
   /** When set with `onListingStoreChange`, store radios are controlled (e.g. to sync collection pickers). */
   listingStore?: Store;
   onListingStoreChange?: (next: Store) => void;
@@ -33,16 +27,6 @@ export function ProductTaxonomyFields({
   const [mainId, setMainId] = useState(
     initialMainCategoryId != null ? String(initialMainCategoryId) : "",
   );
-  const [subId, setSubId] = useState(
-    initialSubcategoryId != null ? String(initialSubcategoryId) : "",
-  );
-  const [addSubcategoryOpen, setAddSubcategoryOpen] = useState(false);
-  const router = useRouter();
-
-  async function handleSubcategoryCreated(id: number) {
-    await router.refresh();
-    setSubId(String(id));
-  }
 
   function switchStore(next: Store) {
     if (isControlled) {
@@ -51,7 +35,6 @@ export function ProductTaxonomyFields({
       setInternalStore(next);
     }
     setMainId("");
-    setSubId("");
   }
 
   return (
@@ -101,47 +84,6 @@ export function ProductTaxonomyFields({
             </option>
           ))}
         </select>
-      </div>
-
-      <div className="space-y-2">
-        <div className="flex items-center gap-1">
-          <Label htmlFor="subcategoryId" className="flex-1">
-            Subcategory
-          </Label>
-          <Button
-            type="button"
-            variant="ghost"
-            size="icon"
-            className="h-8 w-8 shrink-0"
-            onClick={() => setAddSubcategoryOpen(true)}
-            aria-label="Add new subcategory"
-          >
-            <Plus className="h-4 w-4" />
-          </Button>
-        </div>
-        <select
-          id="subcategoryId"
-          name="subcategoryId"
-          value={subId}
-          onChange={(e) => setSubId(e.target.value)}
-          className="border-input h-9 w-full rounded-md border bg-transparent px-3 py-1 text-sm shadow-xs focus:outline-none focus:ring-2 focus:ring-ring"
-        >
-          <option value="">{tree.subs.length === 0 ? "No subcategories yet" : "Optional — none"}</option>
-          {tree.subs.map((s) => (
-            <option key={s.id} value={s.id}>
-              {s.label}
-            </option>
-          ))}
-        </select>
-        <p className="text-xs text-muted-foreground">
-          Subcategories are independent of category (e.g. the same fit can apply to multiple product types).
-        </p>
-        <AddSubcategoryDialog
-          open={addSubcategoryOpen}
-          onOpenChange={setAddSubcategoryOpen}
-          listingStore={storeType}
-          onCreated={handleSubcategoryCreated}
-        />
       </div>
     </div>
   );

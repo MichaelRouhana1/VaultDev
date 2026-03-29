@@ -6,6 +6,7 @@ import { eq } from "drizzle-orm";
 import { EditProductForm } from "@/components/EditProductForm";
 import { getProductFormCategoryTree } from "@/actions/categories";
 import { getCollectionsForProductForm } from "@/actions/collections";
+import { getAttributesWithValues, getProductAttributeValueIds } from "@/actions/attributes";
 
 export default async function EditProductPage({
   params,
@@ -30,16 +31,19 @@ export default async function EditProductPage({
   ]);
 
   const firstColorImages = colors[0]?.imageUrls ?? [];
-  const [streetwear, formal, colSw, colFo, existingCollRows] = await Promise.all([
-    getProductFormCategoryTree("streetwear"),
-    getProductFormCategoryTree("formal"),
-    getCollectionsForProductForm("streetwear"),
-    getCollectionsForProductForm("formal"),
-    db
-      .select({ collectionId: productCollections.collectionId })
-      .from(productCollections)
-      .where(eq(productCollections.productId, productId)),
-  ]);
+  const [streetwear, formal, colSw, colFo, existingCollRows, attributesWithValues, initialAttributeValueIds] =
+    await Promise.all([
+      getProductFormCategoryTree("streetwear"),
+      getProductFormCategoryTree("formal"),
+      getCollectionsForProductForm("streetwear"),
+      getCollectionsForProductForm("formal"),
+      db
+        .select({ collectionId: productCollections.collectionId })
+        .from(productCollections)
+        .where(eq(productCollections.productId, productId)),
+      getAttributesWithValues(),
+      getProductAttributeValueIds(productId),
+    ]);
   const categoryTrees = { streetwear, formal } as const;
   const collectionsByStore = {
     streetwear: colSw.map((c) => ({ id: c.id, name: c.name, slug: c.slug })),
@@ -67,6 +71,8 @@ export default async function EditProductPage({
         categoryTrees={categoryTrees}
         collectionsByStore={collectionsByStore}
         initialCollectionIds={initialCollectionIds}
+        attributesWithValues={attributesWithValues}
+        initialAttributeValueIds={initialAttributeValueIds}
       />
     </div>
   );

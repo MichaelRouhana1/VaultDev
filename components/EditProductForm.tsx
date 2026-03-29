@@ -21,7 +21,9 @@ import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import type { Product, ProductVariant, ProductColor } from "@/db/schema";
 import type { ProductFormCategoryTree } from "@/actions/categories";
+import type { AttributeWithValues } from "@/actions/attributes";
 import { ProductTaxonomyFields } from "@/components/admin/ProductTaxonomyFields";
+import { ProductAttributeFields } from "@/components/admin/ProductAttributeFields";
 import {
   ProductCollectionsFields,
   type CollectionOption,
@@ -63,6 +65,8 @@ export function EditProductForm({
   categoryTrees,
   collectionsByStore,
   initialCollectionIds,
+  attributesWithValues,
+  initialAttributeValueIds,
 }: {
   product: Product & { images?: string[] };
   variants?: ProductVariant[];
@@ -70,6 +74,8 @@ export function EditProductForm({
   categoryTrees: Record<ListingStore, ProductFormCategoryTree>;
   collectionsByStore: Record<ListingStore, CollectionOption[]>;
   initialCollectionIds: number[];
+  attributesWithValues: AttributeWithValues[];
+  initialAttributeValueIds: number[];
 }) {
   const router = useRouter();
   const formRef = useRef<HTMLFormElement>(null);
@@ -249,7 +255,6 @@ export function EditProductForm({
               categoryTrees={categoryTrees}
               initialStoreType={initialListing}
               initialMainCategoryId={product.mainCategoryId}
-              initialSubcategoryId={product.subcategoryId}
               listingStore={listingStore}
               onListingStoreChange={setListingStore}
             />
@@ -260,6 +265,10 @@ export function EditProductForm({
               onChange={setCollectionIds}
             />
           </div>
+          <ProductAttributeFields
+            attributesWithValues={attributesWithValues}
+            initialSelectedIds={initialAttributeValueIds}
+          />
           <div className="flex items-center gap-2">
             <input
               type="checkbox"

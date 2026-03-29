@@ -14,13 +14,16 @@ export {
 } from "./categories";
 
 export {
-  getSubcategoriesForStore,
-  getAllSubcategories,
-  getAllSubcategoriesAdmin,
-  createSubcategory,
-  updateSubcategory,
-  deleteSubcategory,
-} from "./subcategories";
+  getAttributesWithValues,
+  getAttributesWithValuesAdmin,
+  getProductAttributeValueIds,
+  resolveAttributeSlugsToIds,
+  validateAttributeValueIds,
+  createAttribute,
+  deleteAttribute,
+  createAttributeValue,
+  deleteAttributeValue,
+} from "./attributes";
 
 export {
   getHomeDiscoverProductsWithFirstImage,
@@ -33,4 +36,5 @@ export {
   getPrimaryCategorySlugForProduct,
   getPrimaryCategorySlugByProductIds,
   getProductCategoryFilterTagsByProductIds,
+  getProductAttributeValueSlugsByProductIds,
 } from "./storefront-products";

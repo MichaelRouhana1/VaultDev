@@ -1,17 +1,15 @@
 import { Suspense } from "react";
 import Link from "next/link";
 import { db } from "@/db";
-import { categories, products, productVariants, productColors, subcategories } from "@/db/schema";
-import { inArray, desc, eq, and, sql } from "drizzle-orm";
+import { categories, products, productVariants, productColors } from "@/db/schema";
+import { inArray, desc, eq, and } from "drizzle-orm";
 import { alias } from "drizzle-orm/pg-core";
 import { ProductsTable } from "./ProductsTable";
 import { getAllCategories } from "@/actions/categories";
-import { getAllSubcategoriesAdmin } from "@/actions/subcategories";
 import { getAdminStoreType } from "@/actions/admin-store";
 import { requireAdmin } from "@/lib/security";
 import { buildProductSearchWhere } from "@/lib/product-search";
 import { conditionProductsMatchCategorySlug } from "@/lib/shop-category-filter";
-import { isSubcategoriesTableMissingError } from "@/lib/subcategories-table";
 
 export default async function AdminProductsPage({
   searchParams,
@@ -24,15 +22,10 @@ export default async function AdminProductsPage({
 
   await requireAdmin();
   const adminStore = await getAdminStoreType();
-  const [allCategories, allSubs] = await Promise.all([getAllCategories(), getAllSubcategoriesAdmin()]);
-  const categoryList = [
-    ...allCategories
-      .filter((c) => (c.storeType === adminStore || c.storeType === "both") && c.level !== "root")
-      .map((c) => ({ id: c.id, slug: c.slug, label: c.label })),
-    ...allSubs
-      .filter((s) => s.storeType === adminStore || s.storeType === "both")
-      .map((s) => ({ id: s.id, slug: s.slug, label: s.label })),
-  ];
+  const allCategories = await getAllCategories();
+  const categoryList = allCategories
+    .filter((c) => (c.storeType === adminStore || c.storeType === "both") && c.level !== "root")
+    .map((c) => ({ id: c.id, slug: c.slug, label: c.label }));
   const categoryLabels = Object.fromEntries(categoryList.map((c) => [c.slug, c.label]));
 
   const whereConditions = [eq(products.storeType, adminStore)];
@@ -52,30 +45,16 @@ export default async function AdminProductsPage({
 
   const productIds = productList.map((p) => p.id);
   const pmain = alias(categories, "admin_product_main");
-  const psub = alias(subcategories, "admin_product_sub");
   let slugRows: { productId: number; slug: string }[] = [];
   if (productIds.length > 0) {
-    try {
-      slugRows = await db
-        .select({
-          productId: products.id,
-          slug: sql<string>`COALESCE(${psub.slug}, ${pmain.slug})`,
-        })
-        .from(products)
-        .innerJoin(pmain, eq(products.mainCategoryId, pmain.id))
-        .leftJoin(psub, eq(products.subcategoryId, psub.id))
-        .where(inArray(products.id, productIds));
-    } catch (e) {
-      if (!isSubcategoriesTableMissingError(e)) throw e;
-      slugRows = await db
-        .select({
-          productId: products.id,
-          slug: pmain.slug,
-        })
-        .from(products)
-        .innerJoin(pmain, eq(products.mainCategoryId, pmain.id))
-        .where(inArray(products.id, productIds));
-    }
+    slugRows = await db
+      .select({
+        productId: products.id,
+        slug: pmain.slug,
+      })
+      .from(products)
+      .innerJoin(pmain, eq(products.mainCategoryId, pmain.id))
+      .where(inArray(products.id, productIds));
   }
   const primarySlugByProductId: Record<number, string> = {};
   for (const row of slugRows) {
@@ -87,15 +66,15 @@ export default async function AdminProductsPage({
   const [variants, colorsList] =
     productIds.length > 0
       ? await Promise.all([
-        db
-          .select()
-          .from(productVariants)
-          .where(inArray(productVariants.productId, productIds)),
-        db
-          .select()
-          .from(productColors)
-          .where(inArray(productColors.productId, productIds)),
-      ])
+          db
+            .select()
+            .from(productVariants)
+            .where(inArray(productVariants.productId, productIds)),
+          db
+            .select()
+            .from(productColors)
+            .where(inArray(productColors.productId, productIds)),
+        ])
       : [[], []];
 
   const colorById = Object.fromEntries(colorsList.map((c) => [c.id, c]));

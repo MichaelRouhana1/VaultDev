@@ -11,16 +11,21 @@ import {
   getPrimaryCategorySlugByProductIds,
   getProductCategoryFilterTagsByProductIds,
 } from "@/actions/storefront-products";
-import { getAllSubcategories } from "@/actions/subcategories";
+import { getAttributesWithValues } from "@/actions/attributes";
 import { Suspense } from "react";
 import { notFound } from "next/navigation";
 
 interface ShopPageProps {
   params: Promise<{ storeType: string }>;
-  searchParams: Promise<{ category?: string; cat?: string; sort?: string; q?: string }>;
+  searchParams: Promise<{ category?: string; cat?: string; sort?: string; q?: string; attributes?: string }>;
 }
 
 import type { Metadata } from "next";
+
+function parseAttributeSlugsParam(raw: string | undefined): string[] {
+  if (!raw?.trim()) return [];
+  return [...new Set(raw.split(",").map((s) => s.trim().toLowerCase()).filter(Boolean))];
+}
 
 export async function generateMetadata({ params }: ShopPageProps): Promise<Metadata> {
   const { storeType } = await params;
@@ -45,7 +50,7 @@ export async function generateMetadata({ params }: ShopPageProps): Promise<Metad
       card: "summary_large_image",
       title: `VAULT | ${title}`,
       description,
-    }
+    },
   };
 }
 
@@ -54,17 +59,17 @@ export default async function ShopPage({ params, searchParams }: ShopPageProps) 
   const search = await searchParams;
   const cat = search.cat;
   const q = search.q?.trim();
+  const attributeSlugs = parseAttributeSlugsParam(search.attributes);
 
-  const [validSlugs, storeSlugs, storeCategories, allSubs] = await Promise.all([
+  const [validSlugs, storeSlugs, storeCategories, attrDefs] = await Promise.all([
     getValidCategorySlugs(),
     getStoreCategorySlugs(storeType),
     getStoreCategories(storeType),
-    getAllSubcategories(storeType),
+    getAttributesWithValues(),
   ]);
 
   if (storeSlugs.length === 0 && (storeType === "streetwear" || storeType === "formal")) {
-    // Wait, if no categories seeded yet, let's at least allow the page to load, but we filter if seeded.
-    // Also valid route check
+    // Allow page load when categories are not seeded yet.
   } else if (storeType !== "streetwear" && storeType !== "formal") {
     notFound();
   }
@@ -75,6 +80,7 @@ export default async function ShopPage({ params, searchParams }: ShopPageProps) 
   const productList = await getShopProductsForStore(st, {
     categorySlug: catFilter && cat ? cat : undefined,
     searchQuery: q ?? "",
+    attributeSlugs: attributeSlugs.length > 0 ? attributeSlugs : undefined,
   });
 
   const productIds = productList.map((p) => p.id);
@@ -88,9 +94,9 @@ export default async function ShopPage({ params, searchParams }: ShopPageProps) 
   const [variantsList, colorsList] =
     productIds.length > 0
       ? await Promise.all([
-        getProductVariantsByProductIds(productIds),
-        getProductColorsByProductIds(productIds),
-      ])
+          getProductVariantsByProductIds(productIds),
+          getProductColorsByProductIds(productIds),
+        ])
       : [[], []];
 
   const colorsByProductId = colorsList.reduce<Record<number, typeof productColors.$inferSelect[]>>(
@@ -99,7 +105,7 @@ export default async function ShopPage({ params, searchParams }: ShopPageProps) 
       acc[c.productId].push(c);
       return acc;
     },
-    {}
+    {},
   );
 
   const firstImageByProductId: Record<number, string> = {};
@@ -120,24 +126,21 @@ export default async function ShopPage({ params, searchParams }: ShopPageProps) 
       acc[v.productId].push(v);
       return acc;
     },
-    {}
+    {},
   );
 
-  const subcategoriesForFilters = allSubs.map((s) => ({
-    slug: s.slug,
-    label: s.label,
+  const attributeSectionsForFilters = attrDefs.map((a) => ({
+    name: a.name.toUpperCase(),
+    values: a.values.map((v) => ({ slug: v.slug, label: v.name })),
   }));
 
-  let shopFilterContext: "all" | "main" | "sub" = "all";
-  if (catFilter && cat) {
-    if (storeCategories.some((c) => c.slug === cat)) {
-      shopFilterContext = "main";
-    } else if (allSubs.some((s) => s.slug === cat)) {
-      shopFilterContext = "sub";
-    }
+  let shopFilterContext: "all" | "main" = "all";
+  if (catFilter && cat && storeCategories.some((c) => c.slug === cat)) {
+    shopFilterContext = "main";
   }
 
-  const categoryLabel = catFilter && cat ? storeCategories.find((c) => c.slug === cat)?.label ?? allSubs.find((s) => s.slug === cat)?.label ?? null : null;
+  const categoryLabel =
+    catFilter && cat ? (storeCategories.find((c) => c.slug === cat)?.label ?? null) : null;
 
   let wishlistProductIds: number[] = [];
   const { userId } = await auth();
@@ -165,7 +168,7 @@ export default async function ShopPage({ params, searchParams }: ShopPageProps) 
           wishlistProductIds={wishlistProductIds}
           categoryLabel={categoryLabel}
           storeMainCategories={storeCategories}
-          subcategoriesForFilters={subcategoriesForFilters}
+          attributeSectionsForFilters={attributeSectionsForFilters}
           shopFilterContext={shopFilterContext}
           categoryFilterTags={categoryFilterTags}
           storeType={storeType}

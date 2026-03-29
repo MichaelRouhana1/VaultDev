@@ -24,22 +24,12 @@ export const categorySchema = z.object({
   storeType: storeTypeSchema.default("both"),
 });
 
-export const subcategorySchema = z.object({
-  slug: z.string().min(1).trim().toLowerCase().regex(/^[a-z0-9-]+$/),
-  label: z.string().min(1).trim(),
-  storeType: storeTypeSchema.default("both"),
-});
-
 export const productSchema = z.object({
     name: z.string().min(1, "Name is required").trim(),
     description: z.string().trim().nullable().optional(),
     price: z.string().min(1).regex(/^\d+(\.\d{1,2})?$/, "Valid price is required"),
     storeType: productListingStoreTypeSchema,
     mainCategoryId: z.coerce.number().int().positive(),
-    subcategoryId: z
-      .union([z.literal(""), z.coerce.number().int().positive()])
-      .optional()
-      .transform((v) => (v === "" || v === undefined ? null : v)),
     isVisible: z.boolean(),
     color_count: z.number().int().min(1, "Add at least one color"),
 });
@@ -50,10 +40,6 @@ export const updateProductSchema = z.object({
     price: z.string().min(1).regex(/^\d+(\.\d{1,2})?$/, "Valid price is required"),
     storeType: productListingStoreTypeSchema,
     mainCategoryId: z.coerce.number().int().positive(),
-    subcategoryId: z
-      .union([z.literal(""), z.coerce.number().int().positive()])
-      .optional()
-      .transform((v) => (v === "" || v === undefined ? null : v)),
     isVisible: z.boolean(),
     color_count: z.number().int().min(1, "Add at least one color"),
 });

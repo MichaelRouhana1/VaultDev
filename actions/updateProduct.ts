@@ -2,7 +2,7 @@
 
 import { eq } from "drizzle-orm";
 import { db } from "@/db";
-import { products, productVariants, productColors, productCollections } from "@/db/schema";
+import { products, productVariants, productColors, productCollections, productAttributeValues } from "@/db/schema";
 import { uploadProductImages } from "@/lib/uploadImages";
 import { auditLog } from "@/lib/audit";
 import { z } from "zod";
@@ -10,12 +10,23 @@ import { updateProductSchema } from "@/lib/schemas";
 import { logger } from "@/lib/logger";
 import { requireAdminAction } from "@/lib/security";
 import { validateProductCategoryAssignment } from "@/lib/product-category-assign";
+import { validateAttributeValueIds } from "@/actions/attributes";
 import {
   parseCollectionIdsFromFormData,
   validateProductCollectionAssignments,
 } from "@/lib/product-collections";
 
 const SIZES = ["XS", "S", "M", "L", "XL"] as const;
+
+function parseAttributeValueIdsFromForm(formData: FormData): number[] {
+  const raw = formData.getAll("attributeValueIds");
+  const ids: number[] = [];
+  for (const r of raw) {
+    const n = parseInt(String(r), 10);
+    if (Number.isFinite(n) && n > 0) ids.push(n);
+  }
+  return [...new Set(ids)];
+}
 
 export async function updateProduct(
   productId: number,
@@ -34,7 +45,6 @@ export async function updateProduct(
     price: formData.get("price"),
     storeType: formData.get("storeType"),
     mainCategoryId: formData.get("mainCategoryId"),
-    subcategoryId: formData.get("subcategoryId") ?? "",
     isVisible: formData.get("isVisible") === "true",
     color_count: parseInt(String(formData.get("color_count") ?? "0"), 10),
   });
@@ -55,12 +65,17 @@ export async function updateProduct(
     price,
     storeType,
     mainCategoryId,
-    subcategoryId,
     isVisible,
     color_count: colorCount,
   } = parsed.data;
 
-  const assignErr = await validateProductCategoryAssignment(storeType, mainCategoryId, subcategoryId);
+  const attributeValueIds = parseAttributeValueIdsFromForm(formData);
+  const attrErr = await validateAttributeValueIds(attributeValueIds);
+  if (attrErr) {
+    return { success: false, error: attrErr };
+  }
+
+  const assignErr = await validateProductCategoryAssignment(storeType, mainCategoryId);
   if (assignErr) {
     logger.error("Invalid product category assignment in updateProduct", undefined, { assignErr, productId });
     return { success: false, error: assignErr };
@@ -169,7 +184,6 @@ export async function updateProduct(
         price: parseFloat(price).toFixed(2),
         storeType,
         mainCategoryId,
-        subcategoryId,
         color: colorEntries[0]?.name ?? null,
         isVisible,
       })
@@ -243,6 +257,16 @@ export async function updateProduct(
         collectionIds.map((collectionId) => ({
           productId: validProductId,
           collectionId,
+        })),
+      );
+    }
+
+    await tx.delete(productAttributeValues).where(eq(productAttributeValues.productId, validProductId));
+    if (attributeValueIds.length > 0) {
+      await tx.insert(productAttributeValues).values(
+        attributeValueIds.map((attributeValueId) => ({
+          productId: validProductId,
+          attributeValueId,
         })),
       );
     }

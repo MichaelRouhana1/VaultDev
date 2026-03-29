@@ -3,7 +3,7 @@
 import { cache } from "react";
 import { asc, eq, inArray, and, count } from "drizzle-orm";
 import { db } from "@/db";
-import { categories, products, subcategories } from "@/db/schema";
+import { categories, products } from "@/db/schema";
 import { uploadProductImage } from "@/lib/uploadImages";
 import { auditLog } from "@/lib/audit";
 import { headers } from "next/headers";
@@ -15,33 +15,10 @@ import { z } from "zod";
 import { categorySchema } from "@/lib/schemas";
 import { logger } from "@/lib/logger";
 import { requireAdmin } from "@/lib/security";
-import { isSubcategoriesTableMissingError } from "@/lib/subcategories-table";
-import { getSubcategoriesForStore, type ProductSubcategory } from "@/actions/subcategories";
-
-async function selectSubcategorySlugs(whereStore?: ("streetwear" | "formal" | "both")[]): Promise<string[]> {
-  try {
-    const q = db.select({ slug: subcategories.slug }).from(subcategories);
-    const rows =
-      whereStore != null && whereStore.length > 0
-        ? await q.where(inArray(subcategories.storeType, whereStore))
-        : await q;
-    return rows.map((s) => s.slug);
-  } catch (e) {
-    if (isSubcategoriesTableMissingError(e)) {
-      logger.warn(
-        "subcategories table missing — run: npm run db:migrate:subcategories (use direct Postgres URL port 5432 in DATABASE_URL if it fails).",
-      );
-      return [];
-    }
-    throw e;
-  }
-}
-
-/** Valid `?cat=` slugs: main categories + independent subcategories. */
+/** Valid `?cat=` slugs: main categories only. */
 export const getValidCategorySlugs = cache(async (): Promise<string[]> => {
   const catRows = await db.select({ slug: categories.slug }).from(categories);
-  const subSlugs = await selectSubcategorySlugs();
-  return [...catRows.map((c) => c.slug), ...subSlugs];
+  return catRows.map((c) => c.slug);
 });
 
 export const getStoreCategorySlugs = cache(async (storeType: string): Promise<string[]> => {
@@ -50,8 +27,7 @@ export const getStoreCategorySlugs = cache(async (storeType: string): Promise<st
     .select({ slug: categories.slug })
     .from(categories)
     .where(inArray(categories.storeType, st));
-  const subSlugs = await selectSubcategorySlugs(st);
-  return [...catRows.map((c) => c.slug), ...subSlugs];
+  return catRows.map((c) => c.slug);
 });
 
 /** Main categories for nav / shop (not store roots). */
@@ -98,15 +74,13 @@ export const getMainCategoriesForProductForm = cache(
 
 export type ProductFormCategoryTree = {
   mains: ProductCategory[];
-  subs: ProductSubcategory[];
 };
 
-/** Main categories + all subcategories for the listing store (independent pickers). */
+/** Main categories for the product listing store. */
 export const getProductFormCategoryTree = cache(
   async (storeType: "streetwear" | "formal"): Promise<ProductFormCategoryTree> => {
     const mains = await getMainCategoriesForProductForm(storeType);
-    const subs = await getSubcategoriesForStore(storeType);
-    return { mains, subs };
+    return { mains };
   },
 );
 

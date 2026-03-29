@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo, useEffect, useRef } from "react";
+import { useState, useMemo, useEffect, useRef, useCallback } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import { ProductCard } from "@/components/ProductCard";
 import { CategoryHeader } from "@/components/CategoryHeader";
@@ -11,7 +11,7 @@ import {
   FilterPanelContent,
   type FilterState,
   type ShopFilterPanelContext,
-  type SubcategoryFilterOption,
+  type AttributeFilterSection,
 } from "@/components/FilterPanel";
 import { cn } from "@/lib/utils";
 import type { Product, ProductVariant, ProductColor } from "@/db/schema";
@@ -28,11 +28,16 @@ interface ShopClientProps {
   wishlistProductIds: number[];
   categoryLabel?: string | null;
   storeMainCategories: ProductCategory[];
-  subcategoriesForFilters: { slug: string; label: string }[];
+  attributeSectionsForFilters: AttributeFilterSection[];
   shopFilterContext: ShopFilterPanelContext;
   categoryFilterTags: Record<number, ProductCategoryFilterTags>;
   storeType: string;
   initialQuery?: string;
+}
+
+function parseAttributesParam(raw: string | null): string[] {
+  if (!raw?.trim()) return [];
+  return [...new Set(raw.split(",").map((s) => s.trim().toLowerCase()).filter(Boolean))];
 }
 
 export function ShopClient({
@@ -42,7 +47,7 @@ export function ShopClient({
   wishlistProductIds,
   categoryLabel,
   storeMainCategories,
-  subcategoriesForFilters,
+  attributeSectionsForFilters,
   shopFilterContext,
   categoryFilterTags,
   storeType,
@@ -53,6 +58,12 @@ export function ShopClient({
   const category = searchParams.get("category");
   const categorySlug = searchParams.get("cat");
   const sortParam = searchParams.get("sort") ?? "newest";
+
+  const attributesQuery = searchParams.get("attributes");
+  const selectedAttributeSlugs = useMemo(
+    () => parseAttributesParam(attributesQuery),
+    [attributesQuery],
+  );
 
   const [mobileFilterOpen, setMobileFilterOpen] = useState(false);
   const [desktopFilterOpen, setDesktopFilterOpen] = useState(false);
@@ -67,7 +78,6 @@ export function ShopClient({
     size: [],
     color: [],
     mainCategory: [],
-    subcategory: [],
   });
   const [visibleCount, setVisibleCount] = useState(PRODUCTS_PER_PAGE);
   const priceInitialized = useRef(false);
@@ -109,6 +119,24 @@ export function ShopClient({
     router.push(query ? `${base}?${query}` : base);
   };
 
+  const toggleAttributeSlug = useCallback(
+    (slug: string) => {
+      const normalized = slug.trim().toLowerCase();
+      const next = selectedAttributeSlugs.includes(normalized)
+        ? selectedAttributeSlugs.filter((s) => s !== normalized)
+        : [...selectedAttributeSlugs, normalized];
+      const params = new URLSearchParams(searchParams.toString());
+      if (next.length === 0) {
+        params.delete("attributes");
+      } else {
+        params.set("attributes", next.join(","));
+      }
+      const query = params.toString();
+      router.push(`/${storeType}/shop${query ? `?${query}` : ""}`);
+    },
+    [router, searchParams, storeType, selectedAttributeSlugs],
+  );
+
   const filteredAndSorted = useMemo(() => {
     let list = [...products];
 
@@ -123,13 +151,6 @@ export function ShopClient({
       list = list.filter((p) => {
         const t = categoryFilterTags[p.id];
         return t != null && filters.mainCategory.includes(t.mainSlug);
-      });
-    }
-
-    if (filters.subcategory.length > 0) {
-      list = list.filter((p) => {
-        const t = categoryFilterTags[p.id];
-        return t?.subSlug != null && filters.subcategory.includes(t.subSlug);
       });
     }
 
@@ -182,11 +203,6 @@ export function ShopClient({
     [storeMainCategories],
   );
 
-  const subcategoryOptionsAll: SubcategoryFilterOption[] = useMemo(
-    () => subcategoriesForFilters.map((s) => ({ value: s.slug, label: s.label })),
-    [subcategoriesForFilters],
-  );
-
   const showMainCategorySection = useMemo(() => {
     const browsingMainCategory =
       Boolean(categorySlug && storeMainCategories.some((c) => c.slug === categorySlug));
@@ -216,7 +232,9 @@ export function ShopClient({
         priceBounds={priceBounds}
         showMainCategorySection={showMainCategorySection}
         mainCategories={mainCategoryOptions}
-        subcategories={subcategoryOptionsAll}
+        attributeSections={attributeSectionsForFilters}
+        selectedAttributeSlugs={selectedAttributeSlugs}
+        onToggleAttribute={toggleAttributeSlug}
       />
       <div className="flex relative w-full items-start gap-x-6 px-6 py-8">
         <aside
@@ -239,7 +257,9 @@ export function ShopClient({
               priceBounds={priceBounds}
               showMainCategorySection={showMainCategorySection}
               mainCategories={mainCategoryOptions}
-              subcategories={subcategoryOptionsAll}
+              attributeSections={attributeSectionsForFilters}
+              selectedAttributeSlugs={selectedAttributeSlugs}
+              onToggleAttribute={toggleAttributeSlug}
             />
           </div>
         </aside>

@@ -58,7 +58,6 @@ const tsvector = customType<{ data: unknown; driverData: unknown }>({
 /**
  * Main shop categories (e.g. Jeans, Shirts). URLs use `slug`.
  * Physical table name: `categories` (renamed from legacy `product_categories`).
- * Independent from `subcategories` — no parent/child tree.
  */
 export const categories = pgTable("categories", {
   id: serial("id").primaryKey(),
@@ -75,19 +74,45 @@ export const categories = pgTable("categories", {
   index("categories_home_idx").on(t.showOnHome, t.storeType),
 ]);
 
-/** Independent taxonomy (e.g. Baggy, Slim) — can apply across any main category. */
-export const subcategories = pgTable("subcategories", {
+/** Facet dimension (e.g. Fit, Style, Material). */
+export const attributes = pgTable("attributes", {
   id: serial("id").primaryKey(),
-  slug: text("slug").notNull().unique(),
-  label: text("label").notNull(),
-  /** Legacy column; app does not store or display subcategory images. */
-  image: text("image"),
+  name: text("name").notNull(),
   sortOrder: integer("sort_order").notNull().default(0),
-  storeType: storeTypeEnum("store_type").notNull().default("streetwear"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
-}, (t) => [index("subcategories_store_type_idx").on(t.storeType)]);
+});
 
-// Products — `storeType` is streetwear | formal only; main category + optional independent sub.
+/** Selectable tag under an attribute; `slug` is globally unique (shop filters, URLs). */
+export const attributeValues = pgTable(
+  "attribute_values",
+  {
+    id: serial("id").primaryKey(),
+    attributeId: integer("attribute_id")
+      .notNull()
+      .references(() => attributes.id, { onDelete: "cascade" }),
+    name: text("name").notNull(),
+    slug: text("slug").notNull().unique(),
+  },
+  (t) => [index("attribute_values_attribute_id_idx").on(t.attributeId)],
+);
+
+export const productAttributeValues = pgTable(
+  "product_attribute_values",
+  {
+    productId: integer("product_id")
+      .notNull()
+      .references(() => products.id, { onDelete: "cascade" }),
+    attributeValueId: integer("attribute_value_id")
+      .notNull()
+      .references(() => attributeValues.id, { onDelete: "cascade" }),
+  },
+  (t) => [
+    primaryKey({ columns: [t.productId, t.attributeValueId] }),
+    index("product_attribute_values_value_id_idx").on(t.attributeValueId),
+  ],
+);
+
+// Products — `storeType` is streetwear | formal only; main category + many attribute value tags.
 export const products = pgTable("products", {
   id: serial("id").primaryKey(),
   name: text("name").notNull(),
@@ -110,12 +135,9 @@ export const products = pgTable("products", {
   mainCategoryId: integer("main_category_id")
     .notNull()
     .references(() => categories.id),
-  /** Optional fit/style tag; independent of main category. */
-  subcategoryId: integer("subcategory_id").references(() => subcategories.id),
 }, (t) => [
   index("products_store_type_visible_idx").on(t.storeType, t.isVisible),
   index("products_main_category_id_idx").on(t.mainCategoryId),
-  index("products_subcategory_id_idx").on(t.subcategoryId),
   index("products_search_vector_idx").using("gin", t.searchVector),
 ]);
 
@@ -233,7 +255,28 @@ export const orderItems = pgTable("order_items", {
 // Relations
 export const categoriesRelations = relations(categories, () => ({}));
 
-export const subcategoriesRelations = relations(subcategories, () => ({}));
+export const attributesRelations = relations(attributes, ({ many }) => ({
+  values: many(attributeValues),
+}));
+
+export const attributeValuesRelations = relations(attributeValues, ({ one, many }) => ({
+  attribute: one(attributes, {
+    fields: [attributeValues.attributeId],
+    references: [attributes.id],
+  }),
+  productLinks: many(productAttributeValues),
+}));
+
+export const productAttributeValuesRelations = relations(productAttributeValues, ({ one }) => ({
+  product: one(products, {
+    fields: [productAttributeValues.productId],
+    references: [products.id],
+  }),
+  attributeValue: one(attributeValues, {
+    fields: [productAttributeValues.attributeValueId],
+    references: [attributeValues.id],
+  }),
+}));
 
 export const productsRelations = relations(products, ({ one, many }) => ({
   mainCategory: one(categories, {
@@ -241,14 +284,10 @@ export const productsRelations = relations(products, ({ one, many }) => ({
     references: [categories.id],
     relationName: "product_main_category",
   }),
-  subcategory: one(subcategories, {
-    fields: [products.subcategoryId],
-    references: [subcategories.id],
-    relationName: "product_subcategory",
-  }),
   variants: many(productVariants),
   colors: many(productColors),
   productCollectionLinks: many(productCollections),
+  attributeValueLinks: many(productAttributeValues),
   orderItems: many(orderItems),
   wishlistItems: many(wishlists),
 }));
@@ -383,8 +422,10 @@ export const wishlistsRelations = relations(wishlists, ({ one }) => ({
 export type Category = typeof categories.$inferSelect;
 export type NewCategory = typeof categories.$inferInsert;
 
-export type SubcategoryRow = typeof subcategories.$inferSelect;
-export type NewSubcategoryRow = typeof subcategories.$inferInsert;
+export type AttributeRow = typeof attributes.$inferSelect;
+export type NewAttributeRow = typeof attributes.$inferInsert;
+export type AttributeValueRow = typeof attributeValues.$inferSelect;
+export type NewAttributeValueRow = typeof attributeValues.$inferInsert;
 
 /** @deprecated Use `Category` — name kept for incremental refactors */
 export type ProductCategory = Category;
