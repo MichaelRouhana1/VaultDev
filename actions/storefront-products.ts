@@ -9,49 +9,75 @@ import { cache } from "react";
 import { and, desc, eq, inArray, ne, sql } from "drizzle-orm";
 import { alias } from "drizzle-orm/pg-core";
 import { db } from "@/db";
-import { categories, productColors, products, productVariants } from "@/db/schema";
+import { categories, productColors, products, productVariants, subcategories } from "@/db/schema";
 import { buildProductSearchWhere } from "@/lib/product-search";
+import { isSubcategoriesTableMissingError } from "@/lib/subcategories-table";
 import { conditionProductsMatchCategorySlug } from "@/lib/shop-category-filter";
 
 export type StoreTypeFilter = "streetwear" | "formal";
 
 const mainCat = alias(categories, "slug_main_cat");
-const subCat = alias(categories, "slug_sub_cat");
+const subRow = alias(subcategories, "slug_sub_row");
 
 /** Breadcrumb / listing: prefer subcategory slug, else main. */
 export const getPrimaryCategorySlugForProduct = cache(async (productId: number): Promise<string | null> => {
-  const [row] = await db
-    .select({
-      subSlug: subCat.slug,
-      mainSlug: mainCat.slug,
-    })
-    .from(products)
-    .innerJoin(mainCat, eq(products.mainCategoryId, mainCat.id))
-    .leftJoin(subCat, eq(products.subcategoryId, subCat.id))
-    .where(eq(products.id, productId))
-    .limit(1);
-  if (!row) return null;
-  return row.subSlug ?? row.mainSlug ?? null;
+  try {
+    const [row] = await db
+      .select({
+        subSlug: subRow.slug,
+        mainSlug: mainCat.slug,
+      })
+      .from(products)
+      .innerJoin(mainCat, eq(products.mainCategoryId, mainCat.id))
+      .leftJoin(subRow, eq(products.subcategoryId, subRow.id))
+      .where(eq(products.id, productId))
+      .limit(1);
+    if (!row) return null;
+    return row.subSlug ?? row.mainSlug ?? null;
+  } catch (e) {
+    if (!isSubcategoriesTableMissingError(e)) throw e;
+    const [row] = await db
+      .select({ mainSlug: mainCat.slug })
+      .from(products)
+      .innerJoin(mainCat, eq(products.mainCategoryId, mainCat.id))
+      .where(eq(products.id, productId))
+      .limit(1);
+    return row?.mainSlug ?? null;
+  }
 });
 
 export const getPrimaryCategorySlugByProductIds = cache(async (productIds: number[]) => {
   const ids = [...new Set(productIds)].filter((id) => Number.isFinite(id));
   if (ids.length === 0) return {} as Record<number, string>;
-  const rows = await db
-    .select({
-      productId: products.id,
-      subSlug: subCat.slug,
-      mainSlug: mainCat.slug,
-    })
-    .from(products)
-    .innerJoin(mainCat, eq(products.mainCategoryId, mainCat.id))
-    .leftJoin(subCat, eq(products.subcategoryId, subCat.id))
-    .where(inArray(products.id, ids));
-  const map: Record<number, string> = {};
-  for (const r of rows) {
-    map[r.productId] = r.subSlug ?? r.mainSlug ?? "";
+  try {
+    const rows = await db
+      .select({
+        productId: products.id,
+        subSlug: subRow.slug,
+        mainSlug: mainCat.slug,
+      })
+      .from(products)
+      .innerJoin(mainCat, eq(products.mainCategoryId, mainCat.id))
+      .leftJoin(subRow, eq(products.subcategoryId, subRow.id))
+      .where(inArray(products.id, ids));
+    const map: Record<number, string> = {};
+    for (const r of rows) {
+      map[r.productId] = r.subSlug ?? r.mainSlug ?? "";
+    }
+    return map;
+  } catch (e) {
+    if (!isSubcategoriesTableMissingError(e)) throw e;
+    const rows = await db
+      .select({ productId: products.id, mainSlug: mainCat.slug })
+      .from(products)
+      .innerJoin(mainCat, eq(products.mainCategoryId, mainCat.id))
+      .where(inArray(products.id, ids));
+    const map: Record<number, string> = {};
+    for (const r of rows) {
+      map[r.productId] = r.mainSlug ?? "";
+    }
+    return map;
   }
-  return map;
 });
 
 export type ProductCategoryFilterTags = {
@@ -65,27 +91,42 @@ export const getProductCategoryFilterTagsByProductIds = cache(
   async (productIds: number[]): Promise<Record<number, ProductCategoryFilterTags>> => {
     const ids = [...new Set(productIds)].filter((id) => Number.isFinite(id));
     if (ids.length === 0) return {};
-    const rows = await db
-      .select({
-        productId: products.id,
-        subSlug: subCat.slug,
-        mainSlug: mainCat.slug,
-      })
-      .from(products)
-      .innerJoin(mainCat, eq(products.mainCategoryId, mainCat.id))
-      .leftJoin(subCat, eq(products.subcategoryId, subCat.id))
-      .where(inArray(products.id, ids));
-    const map: Record<number, ProductCategoryFilterTags> = {};
-    for (const r of rows) {
-      const main = r.mainSlug ?? "";
-      const sub = r.subSlug ?? null;
-      map[r.productId] = {
-        displaySlug: sub ?? main,
-        mainSlug: main,
-        subSlug: sub,
-      };
+    try {
+      const rows = await db
+        .select({
+          productId: products.id,
+          subSlug: subRow.slug,
+          mainSlug: mainCat.slug,
+        })
+        .from(products)
+        .innerJoin(mainCat, eq(products.mainCategoryId, mainCat.id))
+        .leftJoin(subRow, eq(products.subcategoryId, subRow.id))
+        .where(inArray(products.id, ids));
+      const map: Record<number, ProductCategoryFilterTags> = {};
+      for (const r of rows) {
+        const main = r.mainSlug ?? "";
+        const sub = r.subSlug ?? null;
+        map[r.productId] = {
+          displaySlug: sub ?? main,
+          mainSlug: main,
+          subSlug: sub,
+        };
+      }
+      return map;
+    } catch (e) {
+      if (!isSubcategoriesTableMissingError(e)) throw e;
+      const rows = await db
+        .select({ productId: products.id, mainSlug: mainCat.slug })
+        .from(products)
+        .innerJoin(mainCat, eq(products.mainCategoryId, mainCat.id))
+        .where(inArray(products.id, ids));
+      const map: Record<number, ProductCategoryFilterTags> = {};
+      for (const r of rows) {
+        const main = r.mainSlug ?? "";
+        map[r.productId] = { displaySlug: main, mainSlug: main, subSlug: null };
+      }
+      return map;
     }
-    return map;
   },
 );
 
@@ -102,30 +143,56 @@ export const getHomeDiscoverProductsWithFirstImage = cache(
       .limit(1)
       .as("first_color");
 
-    return db
-      .select({
-        id: products.id,
-        name: products.name,
-        description: products.description,
-        price: products.price,
-        salePrice: products.salePrice,
-        saleStartsAt: products.saleStartsAt,
-        saleEndsAt: products.saleEndsAt,
-        isSaleActive: products.isSaleActive,
-        categorySlug: sql<string | null>`COALESCE(
-          (SELECT slug FROM categories WHERE id = ${products.subcategoryId}),
-          (SELECT slug FROM categories WHERE id = ${products.mainCategoryId})
-        )`.as("category_slug"),
-        color: products.color,
-        isVisible: products.isVisible,
-        storeType: products.storeType,
-        firstImageUrl: firstColorSubq.firstImageUrl,
-      })
-      .from(products)
-      .leftJoinLateral(firstColorSubq, sql`true`)
-      .where(and(eq(products.isVisible, true), eq(products.storeType, storeType)))
-      .orderBy(desc(products.id))
-      .limit(8);
+    const baseFields = {
+      id: products.id,
+      name: products.name,
+      description: products.description,
+      price: products.price,
+      salePrice: products.salePrice,
+      saleStartsAt: products.saleStartsAt,
+      saleEndsAt: products.saleEndsAt,
+      isSaleActive: products.isSaleActive,
+      color: products.color,
+      isVisible: products.isVisible,
+      storeType: products.storeType,
+      firstImageUrl: firstColorSubq.firstImageUrl,
+    };
+
+    const withSubTable = () =>
+      db
+        .select({
+          ...baseFields,
+          categorySlug: sql<string | null>`COALESCE(
+            (SELECT slug FROM subcategories WHERE id = ${products.subcategoryId}),
+            (SELECT slug FROM categories WHERE id = ${products.mainCategoryId})
+          )`.as("category_slug"),
+        })
+        .from(products)
+        .leftJoinLateral(firstColorSubq, sql`true`)
+        .where(and(eq(products.isVisible, true), eq(products.storeType, storeType)))
+        .orderBy(desc(products.id))
+        .limit(8);
+
+    const mainCategorySlugOnly = () =>
+      db
+        .select({
+          ...baseFields,
+          categorySlug: sql<string | null>`(SELECT slug FROM categories WHERE id = ${products.mainCategoryId})`.as(
+            "category_slug",
+          ),
+        })
+        .from(products)
+        .leftJoinLateral(firstColorSubq, sql`true`)
+        .where(and(eq(products.isVisible, true), eq(products.storeType, storeType)))
+        .orderBy(desc(products.id))
+        .limit(8);
+
+    try {
+      return await withSubTable();
+    } catch (e) {
+      if (!isSubcategoriesTableMissingError(e)) throw e;
+      return mainCategorySlugOnly();
+    }
   },
 );
 

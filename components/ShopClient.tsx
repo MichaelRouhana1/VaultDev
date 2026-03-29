@@ -21,9 +21,8 @@ interface ShopClientProps {
   wishlistProductIds: number[];
   categoryLabel?: string | null;
   storeMainCategories: ProductCategory[];
-  subcategoriesForFilters: { slug: string; label: string; parentSlug: string | null }[];
+  subcategoriesForFilters: { slug: string; label: string }[];
   shopFilterContext: ShopFilterPanelContext;
-  activeMainSlugForFilters: string | null;
   categoryFilterTags: Record<number, ProductCategoryFilterTags>;
   storeType: string;
   initialQuery?: string;
@@ -38,7 +37,6 @@ export function ShopClient({
   storeMainCategories,
   subcategoriesForFilters,
   shopFilterContext,
-  activeMainSlugForFilters,
   categoryFilterTags,
   storeType,
   initialQuery,
@@ -177,12 +175,7 @@ export function ShopClient({
   );
 
   const subcategoryOptionsAll: SubcategoryFilterOption[] = useMemo(
-    () =>
-      subcategoriesForFilters.map((s) => ({
-        value: s.slug,
-        label: s.label,
-        parentSlug: s.parentSlug,
-      })),
+    () => subcategoriesForFilters.map((s) => ({ value: s.slug, label: s.label })),
     [subcategoriesForFilters],
   );
 
@@ -203,7 +196,6 @@ export function ShopClient({
         onFiltersChange={setFilters}
         priceBounds={priceBounds}
         shopFilterContext={shopFilterContext}
-        activeMainSlugForFilters={activeMainSlugForFilters}
         mainCategories={mainCategoryOptions}
         subcategories={subcategoryOptionsAll}
       />

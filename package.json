@@ -15,7 +15,8 @@
     "db:migrate:landing": "npx tsx scripts/migrate-landing-images.ts",
     "db:migrate:audit": "npx tsx scripts/migrate-audit-logs.ts",
     "db:migrate:notifications": "npx tsx scripts/migrate-notifications.ts",
-    "db:migrate:order-activation": "npx tsx scripts/migrate-order-activation.ts"
+    "db:migrate:order-activation": "npx tsx scripts/migrate-order-activation.ts",
+    "db:migrate:subcategories": "npx tsx scripts/migrate-independent-subcategories.ts"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1010.0",

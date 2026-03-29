@@ -16,7 +16,7 @@ import {
   mosaikClerkUserButtonVariablesLight,
 } from "@/lib/clerk-auth-appearance";
 import type { ProductCategory } from "@/actions/categories";
-import { hrefForStore, type StoreTypeSlug } from "@/lib/preferred-store";
+import type { StoreTypeSlug } from "@/lib/preferred-store";
 import { cn } from "@/lib/utils";
 
 function activeStoreFromRoute(
@@ -86,9 +86,8 @@ export function Navbar() {
   if (pathname?.startsWith("/sign-in") || pathname?.startsWith("/sign-up")) return null;
   if (pathname === "/") return null;
 
-  const pathForSwitch = pathname ?? "/";
-  const streetwearHref = hrefForStore(pathForSwitch, "streetwear");
-  const formalHref = hrefForStore(pathForSwitch, "formal");
+  const streetwearHref = "/streetwear";
+  const formalHref = "/formal";
 
   const storeLinkClass = (slug: StoreTypeSlug) =>
     cn(

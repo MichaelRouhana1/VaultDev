@@ -11,7 +11,7 @@ import {
   getPrimaryCategorySlugByProductIds,
   getProductCategoryFilterTagsByProductIds,
 } from "@/actions/storefront-products";
-import { getAllSubcategories } from "@/actions/categories";
+import { getAllSubcategories } from "@/actions/subcategories";
 import { Suspense } from "react";
 import { notFound } from "next/navigation";
 
@@ -123,25 +123,17 @@ export default async function ShopPage({ params, searchParams }: ShopPageProps) 
     {}
   );
 
-  const mainById = Object.fromEntries(storeCategories.map((m) => [m.id, m]));
   const subcategoriesForFilters = allSubs.map((s) => ({
     slug: s.slug,
     label: s.label,
-    parentSlug: s.parentId != null ? mainById[s.parentId]?.slug ?? null : null,
   }));
 
   let shopFilterContext: "all" | "main" | "sub" = "all";
-  let activeMainSlugForFilters: string | null = null;
   if (catFilter && cat) {
     if (storeCategories.some((c) => c.slug === cat)) {
       shopFilterContext = "main";
-      activeMainSlugForFilters = cat;
-    } else {
-      const subRow = allSubs.find((s) => s.slug === cat);
-      if (subRow?.parentId != null) {
-        shopFilterContext = "sub";
-        activeMainSlugForFilters = mainById[subRow.parentId]?.slug ?? null;
-      }
+    } else if (allSubs.some((s) => s.slug === cat)) {
+      shopFilterContext = "sub";
     }
   }
 
@@ -175,7 +167,6 @@ export default async function ShopPage({ params, searchParams }: ShopPageProps) 
           storeMainCategories={storeCategories}
           subcategoriesForFilters={subcategoriesForFilters}
           shopFilterContext={shopFilterContext}
-          activeMainSlugForFilters={activeMainSlugForFilters}
           categoryFilterTags={categoryFilterTags}
           storeType={storeType}
           initialQuery={q ?? undefined}

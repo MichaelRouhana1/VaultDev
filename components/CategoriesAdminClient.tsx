@@ -27,10 +27,7 @@ export function CategoriesAdminClient({ categories: initialCategories, initialSt
     setCategories(initialCategories);
   }, [initialCategories]);
 
-  const mainRows = useMemo(
-    () => categories.filter((c) => c.parentId == null && c.level === "main"),
-    [categories],
-  );
+  const mainRows = useMemo(() => categories.filter((c) => c.level === "main"), [categories]);
 
   const [editingId, setEditingId] = useState<number | null>(null);
   const [adding, setAdding] = useState(false);
@@ -77,7 +74,6 @@ export function CategoriesAdminClient({ categories: initialCategories, initialSt
     formData.set("label", formLabel);
     formData.set("showOnHome", String(formShowOnHome));
     formData.set("storeType", formStoreType);
-    formData.set("parentId", "");
     formData.set("level", "main");
     if (formImage) formData.set("image", formImage);
 

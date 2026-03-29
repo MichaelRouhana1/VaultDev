@@ -99,6 +99,13 @@
       "when": 1774400000000,
       "tag": "0013_collections",
       "breakpoints": true
+    },
+    {
+      "idx": 14,
+      "version": "7",
+      "when": 1774500000000,
+      "tag": "0014_independent_subcategories",
+      "breakpoints": true
     }
   ]
 }

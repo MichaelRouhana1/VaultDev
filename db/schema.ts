@@ -11,7 +11,6 @@ import {
   pgEnum,
   index,
   jsonb,
-  AnyPgColumn,
   customType,
   primaryKey,
 } from "drizzle-orm/pg-core";
@@ -57,8 +56,9 @@ const tsvector = customType<{ data: unknown; driverData: unknown }>({
 });
 
 /**
- * Hierarchical shop categories (Bershka-style tree). URLs use `slug`.
+ * Main shop categories (e.g. Jeans, Shirts). URLs use `slug`.
  * Physical table name: `categories` (renamed from legacy `product_categories`).
+ * Independent from `subcategories` — no parent/child tree.
  */
 export const categories = pgTable("categories", {
   id: serial("id").primaryKey(),
@@ -67,7 +67,6 @@ export const categories = pgTable("categories", {
   image: text("image"),
   showOnHome: boolean("show_on_home").notNull().default(false),
   sortOrder: integer("sort_order").notNull().default(0),
-  parentId: integer("parent_id").references((): AnyPgColumn => categories.id),
   level: categoryLevelEnum("level").notNull().default("main"),
   storeType: storeTypeEnum("store_type").notNull().default("streetwear"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
@@ -76,7 +75,18 @@ export const categories = pgTable("categories", {
   index("categories_home_idx").on(t.showOnHome, t.storeType),
 ]);
 
-// Products — `storeType` is streetwear | formal only; categories via main + optional sub FKs.
+/** Independent taxonomy (e.g. Baggy, Slim) — can apply across any main category. */
+export const subcategories = pgTable("subcategories", {
+  id: serial("id").primaryKey(),
+  slug: text("slug").notNull().unique(),
+  label: text("label").notNull(),
+  image: text("image"),
+  sortOrder: integer("sort_order").notNull().default(0),
+  storeType: storeTypeEnum("store_type").notNull().default("streetwear"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+}, (t) => [index("subcategories_store_type_idx").on(t.storeType)]);
+
+// Products — `storeType` is streetwear | formal only; main category + optional independent sub.
 export const products = pgTable("products", {
   id: serial("id").primaryKey(),
   name: text("name").notNull(),
@@ -95,12 +105,12 @@ export const products = pgTable("products", {
   color: text("color"),
   isVisible: boolean("is_visible").notNull().default(true),
   storeType: productListingStoreTypeEnum("store_type").notNull().default("streetwear"),
-  /** Top-level shop category (`parent_id` IS NULL, not `level = root`). */
+  /** Main shop category (`level = main`, not store root). */
   mainCategoryId: integer("main_category_id")
     .notNull()
     .references(() => categories.id),
-  /** Optional leaf category; when set, must reference a row whose `parent_id` = `mainCategoryId`. */
-  subcategoryId: integer("subcategory_id").references(() => categories.id),
+  /** Optional fit/style tag; independent of main category. */
+  subcategoryId: integer("subcategory_id").references(() => subcategories.id),
 }, (t) => [
   index("products_store_type_visible_idx").on(t.storeType, t.isVisible),
   index("products_main_category_id_idx").on(t.mainCategoryId),
@@ -220,14 +230,9 @@ export const orderItems = pgTable("order_items", {
 });
 
 // Relations
-export const categoriesRelations = relations(categories, ({ one, many }) => ({
-  parent: one(categories, {
-    fields: [categories.parentId],
-    references: [categories.id],
-    relationName: "parent_to_child",
-  }),
-  children: many(categories, { relationName: "parent_to_child" }),
-}));
+export const categoriesRelations = relations(categories, () => ({}));
+
+export const subcategoriesRelations = relations(subcategories, () => ({}));
 
 export const productsRelations = relations(products, ({ one, many }) => ({
   mainCategory: one(categories, {
@@ -235,9 +240,9 @@ export const productsRelations = relations(products, ({ one, many }) => ({
     references: [categories.id],
     relationName: "product_main_category",
   }),
-  subcategory: one(categories, {
+  subcategory: one(subcategories, {
     fields: [products.subcategoryId],
-    references: [categories.id],
+    references: [subcategories.id],
     relationName: "product_subcategory",
   }),
   variants: many(productVariants),
@@ -376,6 +381,9 @@ export const wishlistsRelations = relations(wishlists, ({ one }) => ({
 // Exported types
 export type Category = typeof categories.$inferSelect;
 export type NewCategory = typeof categories.$inferInsert;
+
+export type SubcategoryRow = typeof subcategories.$inferSelect;
+export type NewSubcategoryRow = typeof subcategories.$inferInsert;
 
 /** @deprecated Use `Category` — name kept for incremental refactors */
 export type ProductCategory = Category;

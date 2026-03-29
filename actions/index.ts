@@ -10,10 +10,17 @@ export {
   getStoreCategorySlugs,
   getStoreCategories,
   getCategories,
-  getAllSubcategories,
-  getSubcategories,
   getCategoriesForHome,
 } from "./categories";
+
+export {
+  getSubcategoriesForStore,
+  getAllSubcategories,
+  getAllSubcategoriesAdmin,
+  createSubcategory,
+  updateSubcategory,
+  deleteSubcategory,
+} from "./subcategories";
 
 export {
   getHomeDiscoverProductsWithFirstImage,

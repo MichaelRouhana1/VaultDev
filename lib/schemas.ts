@@ -17,12 +17,17 @@ export const collectionFormSchema = z.object({
 });
 
 export const categorySchema = z.object({
-    slug: z.string().min(1).trim().toLowerCase().regex(/^[a-z0-9-]+$/),
-    label: z.string().min(1).trim(),
-    showOnHome: z.boolean(),
-    parentId: z.number().int().positive().nullable(),
-    level: z.enum(["root", "main", "sub"]).default("main"),
-    storeType: storeTypeSchema.default("both"),
+  slug: z.string().min(1).trim().toLowerCase().regex(/^[a-z0-9-]+$/),
+  label: z.string().min(1).trim(),
+  showOnHome: z.boolean(),
+  level: z.enum(["root", "main"]).default("main"),
+  storeType: storeTypeSchema.default("both"),
+});
+
+export const subcategorySchema = z.object({
+  slug: z.string().min(1).trim().toLowerCase().regex(/^[a-z0-9-]+$/),
+  label: z.string().min(1).trim(),
+  storeType: storeTypeSchema.default("both"),
 });
 
 export const productSchema = z.object({

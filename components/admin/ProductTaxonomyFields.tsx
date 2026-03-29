@@ -33,8 +33,6 @@ export function ProductTaxonomyFields({
     initialSubcategoryId != null ? String(initialSubcategoryId) : "",
   );
 
-  const subs = mainId ? tree.subsByParentId[Number(mainId)] ?? [] : [];
-
   function switchStore(next: Store) {
     if (isControlled) {
       onListingStoreChange!(next);
@@ -76,19 +74,16 @@ export function ProductTaxonomyFields({
       </div>
 
       <div className="space-y-2">
-        <Label htmlFor="mainCategoryId">Main category</Label>
+        <Label htmlFor="mainCategoryId">Category</Label>
         <select
           id="mainCategoryId"
           name="mainCategoryId"
           value={mainId}
-          onChange={(e) => {
-            setMainId(e.target.value);
-            setSubId("");
-          }}
+          onChange={(e) => setMainId(e.target.value)}
           required
           className="border-input h-9 w-full rounded-md border bg-transparent px-3 py-1 text-sm shadow-xs focus:outline-none focus:ring-2 focus:ring-ring"
         >
-          <option value="">Select main category</option>
+          <option value="">Select category</option>
           {tree.mains.map((m) => (
             <option key={m.id} value={m.id}>
               {m.label}
@@ -104,18 +99,18 @@ export function ProductTaxonomyFields({
           name="subcategoryId"
           value={subId}
           onChange={(e) => setSubId(e.target.value)}
-          disabled={!mainId || subs.length === 0}
-          className="border-input h-9 w-full rounded-md border bg-transparent px-3 py-1 text-sm shadow-xs focus:outline-none focus:ring-2 focus:ring-ring disabled:opacity-50"
+          className="border-input h-9 w-full rounded-md border bg-transparent px-3 py-1 text-sm shadow-xs focus:outline-none focus:ring-2 focus:ring-ring"
         >
-          <option value="">
-            {!mainId ? "Select a main category first" : subs.length === 0 ? "No subcategories" : "Optional — none"}
-          </option>
-          {subs.map((s) => (
+          <option value="">{tree.subs.length === 0 ? "No subcategories yet" : "Optional — none"}</option>
+          {tree.subs.map((s) => (
             <option key={s.id} value={s.id}>
               {s.label}
             </option>
           ))}
         </select>
+        <p className="text-xs text-muted-foreground">
+          Subcategories are independent of category (e.g. the same fit can apply to multiple product types).
+        </p>
       </div>
     </div>
   );

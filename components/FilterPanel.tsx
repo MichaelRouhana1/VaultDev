@@ -16,7 +16,6 @@ export type ShopFilterPanelContext = "all" | "main" | "sub";
 export interface SubcategoryFilterOption {
   value: string;
   label: string;
-  parentSlug: string | null;
 }
 
 const SIZE_OPTIONS = ["XS", "S", "M", "L", "XL"];
@@ -39,10 +38,8 @@ interface FilterPanelProps {
   onFiltersChange: (filters: FilterState) => void;
   priceBounds: { min: number; max: number };
   shopFilterContext: ShopFilterPanelContext;
-  /** When context is main or sub PLP, limit subcategory chips to this main slug. */
-  activeMainSlugForFilters?: string | null;
   mainCategories?: { value: string; label: string }[];
-  /** Full list for the store; visibility is derived from context and selected mains. */
+  /** All store subcategories (independent of main category). */
   subcategories?: SubcategoryFilterOption[];
 }
 
@@ -139,20 +136,6 @@ function PriceRangeSection({
   );
 }
 
-function pruneSubcategoriesForMains(
-  subcategories: SubcategoryFilterOption[],
-  mainCategorySlugs: string[],
-  currentSub: string[],
-): string[] {
-  if (mainCategorySlugs.length === 0) return currentSub;
-  const allowed = new Set(
-    subcategories
-      .filter((s) => s.parentSlug != null && mainCategorySlugs.includes(s.parentSlug))
-      .map((s) => s.value),
-  );
-  return currentSub.filter((s) => allowed.has(s));
-}
-
 export function FilterPanel({
   isOpen,
   onClose,
@@ -160,23 +143,10 @@ export function FilterPanel({
   onFiltersChange,
   priceBounds,
   shopFilterContext,
-  activeMainSlugForFilters = null,
   mainCategories = [],
   subcategories = [],
 }: FilterPanelProps) {
-  const allSubcategories = useMemo(() => subcategories ?? [], [subcategories]);
-
-  const visibleSubOptions = useMemo(() => {
-    if (shopFilterContext === "main" || shopFilterContext === "sub") {
-      const m = activeMainSlugForFilters;
-      if (!m) return [];
-      return allSubcategories.filter((s) => s.parentSlug === m);
-    }
-    if (filters.mainCategory.length === 0) return allSubcategories;
-    return allSubcategories.filter(
-      (s) => s.parentSlug != null && filters.mainCategory.includes(s.parentSlug),
-    );
-  }, [shopFilterContext, activeMainSlugForFilters, allSubcategories, filters.mainCategory]);
+  const allSubs = useMemo(() => subcategories ?? [], [subcategories]);
 
   useEffect(() => {
     const handleEscape = (e: KeyboardEvent) => {
@@ -207,8 +177,7 @@ export function FilterPanel({
   const toggleMainCategory = (value: string) => {
     const current = filters.mainCategory;
     const nextMain = current.includes(value) ? current.filter((v) => v !== value) : [...current, value];
-    const nextSub = pruneSubcategoriesForMains(allSubcategories, nextMain, filters.subcategory);
-    onFiltersChange({ ...filters, mainCategory: nextMain, subcategory: nextSub });
+    onFiltersChange({ ...filters, mainCategory: nextMain });
   };
 
   const setPriceRange = (priceMin: number, priceMax: number) => {
@@ -216,10 +185,10 @@ export function FilterPanel({
   };
 
   const showMainSection = shopFilterContext === "all" && mainCategories.length > 0;
-  const showSubSection = visibleSubOptions.length > 0;
+  const showSubSection = allSubs.length > 0;
 
   const mainOptionsForUi = mainCategories.map((m) => ({ value: m.value, label: m.label }));
-  const subOptionsForUi = visibleSubOptions.map((s) => ({ value: s.value, label: s.label }));
+  const subOptionsForUi = allSubs.map((s) => ({ value: s.value, label: s.label }));
 
   return (
     <>
