@@ -122,17 +122,18 @@ export const getHomeDiscoverProductsWithFirstImage = cache(async (storeType: Sto
   return db
     .select({
       ...baseFields,
+      // Using explicit SQL aliases to prevent Drizzle from dropping table prefixes
       firstImageUrl: sql<string | null>`(
-        SELECT ${productColors.imageUrls}[1]
-        FROM ${productColors}
-        WHERE ${productColors.productId} = ${products.id}
-        ORDER BY ${productColors.id} ASC
+        SELECT pc.image_urls[1]
+        FROM product_colors pc
+        WHERE pc.product_id = products.id
+        ORDER BY pc.id ASC
         LIMIT 1
       )`.as("first_image_url"),
       categorySlug: sql<string | null>`(
-        SELECT ${categories.slug}
-        FROM ${categories}
-        WHERE ${categories.id} = ${products.mainCategoryId}
+        SELECT c.slug
+        FROM categories c
+        WHERE c.id = products.main_category_id
       )`.as("category_slug"),
     })
     .from(products)
