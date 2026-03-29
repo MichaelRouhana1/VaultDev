@@ -80,6 +80,7 @@ export const subcategories = pgTable("subcategories", {
   id: serial("id").primaryKey(),
   slug: text("slug").notNull().unique(),
   label: text("label").notNull(),
+  /** Legacy column; app does not store or display subcategory images. */
   image: text("image"),
   sortOrder: integer("sort_order").notNull().default(0),
   storeType: storeTypeEnum("store_type").notNull().default("streetwear"),

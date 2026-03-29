@@ -1,7 +1,11 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
+import { Plus } from "lucide-react";
 import { Label } from "@/components/ui/label";
+import { Button } from "@/components/ui/button";
+import { AddSubcategoryDialog } from "@/components/admin/AddSubcategoryDialog";
 import type { ProductFormCategoryTree } from "@/actions/categories";
 
 type Store = "streetwear" | "formal";
@@ -32,6 +36,13 @@ export function ProductTaxonomyFields({
   const [subId, setSubId] = useState(
     initialSubcategoryId != null ? String(initialSubcategoryId) : "",
   );
+  const [addSubcategoryOpen, setAddSubcategoryOpen] = useState(false);
+  const router = useRouter();
+
+  async function handleSubcategoryCreated(id: number) {
+    await router.refresh();
+    setSubId(String(id));
+  }
 
   function switchStore(next: Store) {
     if (isControlled) {
@@ -93,7 +104,21 @@ export function ProductTaxonomyFields({
       </div>
 
       <div className="space-y-2">
-        <Label htmlFor="subcategoryId">Subcategory</Label>
+        <div className="flex items-center gap-1">
+          <Label htmlFor="subcategoryId" className="flex-1">
+            Subcategory
+          </Label>
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon"
+            className="h-8 w-8 shrink-0"
+            onClick={() => setAddSubcategoryOpen(true)}
+            aria-label="Add new subcategory"
+          >
+            <Plus className="h-4 w-4" />
+          </Button>
+        </div>
         <select
           id="subcategoryId"
           name="subcategoryId"
@@ -111,6 +136,12 @@ export function ProductTaxonomyFields({
         <p className="text-xs text-muted-foreground">
           Subcategories are independent of category (e.g. the same fit can apply to multiple product types).
         </p>
+        <AddSubcategoryDialog
+          open={addSubcategoryOpen}
+          onOpenChange={setAddSubcategoryOpen}
+          listingStore={storeType}
+          onCreated={handleSubcategoryCreated}
+        />
       </div>
     </div>
   );

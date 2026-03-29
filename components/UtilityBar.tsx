@@ -26,13 +26,17 @@ const SORT_LABELS: Record<SortOption, string> = {
 };
 
 interface UtilityBarProps {
-  onFiltersClick: () => void;
+  /** Opens the mobile filter overlay (`md` and below). */
+  onMobileFiltersOpen: () => void;
+  /** Toggles the inline filter sidebar (`md` and above). */
+  onDesktopFiltersToggle: () => void;
   sort: SortOption;
   onSortChange: (value: SortOption) => void;
 }
 
 export function UtilityBar({
-  onFiltersClick,
+  onMobileFiltersOpen,
+  onDesktopFiltersToggle,
   sort,
   onSortChange,
 }: UtilityBarProps) {
@@ -40,8 +44,15 @@ export function UtilityBar({
     <div className="flex items-center justify-between px-6 py-4">
       <button
         type="button"
-        onClick={onFiltersClick}
-        className="text-xs font-medium uppercase tracking-[0.2em] text-foreground hover:opacity-70 transition-opacity"
+        onClick={onMobileFiltersOpen}
+        className="md:hidden text-xs font-medium uppercase tracking-[0.2em] text-foreground hover:opacity-70 transition-opacity"
+      >
+        Filters
+      </button>
+      <button
+        type="button"
+        onClick={onDesktopFiltersToggle}
+        className="hidden md:inline text-xs font-medium uppercase tracking-[0.2em] text-foreground hover:opacity-70 transition-opacity"
       >
         Filters
       </button>

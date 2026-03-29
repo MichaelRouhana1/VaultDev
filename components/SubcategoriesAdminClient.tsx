@@ -1,9 +1,7 @@
 "use client";
 
 import { useState, useCallback, useEffect } from "react";
-import Image from "next/image";
 import { useRouter } from "next/navigation";
-import { useDropzone } from "react-dropzone";
 import {
   createSubcategory,
   updateSubcategory,
@@ -36,13 +34,11 @@ export function SubcategoriesAdminClient({
 
   const [formSlug, setFormSlug] = useState("");
   const [formLabel, setFormLabel] = useState("");
-  const [formImage, setFormImage] = useState<File | null>(null);
   const [formStoreType, setFormStoreType] = useState<"streetwear" | "formal" | "both">(initialStoreType);
 
   const resetForm = useCallback(() => {
     setFormSlug("");
     setFormLabel("");
-    setFormImage(null);
     setFormStoreType(initialStoreType);
     setEditingId(null);
     setAdding(false);
@@ -70,7 +66,6 @@ export function SubcategoriesAdminClient({
     formData.set("slug", formSlug);
     formData.set("label", formLabel);
     formData.set("storeType", formStoreType);
-    if (formImage) formData.set("image", formImage);
 
     if (editingId) {
       const result = await updateSubcategory(editingId, formData);
@@ -100,14 +95,6 @@ export function SubcategoriesAdminClient({
     setSubcategories((prev) => prev.filter((c) => c.id !== id));
     router.refresh();
   };
-
-  const { getRootProps, getInputProps } = useDropzone({
-    onDrop: (files) => files[0] && setFormImage(files[0]),
-    accept: { "image/*": [".png", ".jpg", ".jpeg", ".webp", ".gif"] },
-    maxSize: 5 * 1024 * 1024,
-    maxFiles: 1,
-    disabled: !adding && editingId === null,
-  });
 
   return (
     <div className="space-y-8">
@@ -170,19 +157,6 @@ export function SubcategoriesAdminClient({
               required
             />
           </div>
-          <div className="space-y-2">
-            <Label>Image</Label>
-            <div {...getRootProps()} className="border-2 border-dashed border-border rounded p-4 cursor-pointer hover:bg-muted/50">
-              <input {...getInputProps()} />
-              {formImage ? (
-                <p className="text-sm">{formImage.name}</p>
-              ) : editingId ? (
-                <p className="text-sm text-muted-foreground">Drop new image or click to replace (optional)</p>
-              ) : (
-                <p className="text-sm text-muted-foreground">Drop image or click to select</p>
-              )}
-            </div>
-          </div>
           <div className="flex gap-2">
             <Button type="submit">{editingId ? "Save" : "Add"}</Button>
             <Button type="button" variant="outline" onClick={resetForm}>
@@ -193,10 +167,9 @@ export function SubcategoriesAdminClient({
       )}
 
       <div className="border border-border rounded-lg overflow-x-auto">
-        <table className="w-full text-sm min-w-[480px]">
+        <table className="w-full text-sm min-w-[400px]">
           <thead className="bg-muted">
             <tr>
-              <th className="text-left p-4 font-medium">Image</th>
               <th className="text-left p-4 font-medium">Store</th>
               <th className="text-left p-4 font-medium">Slug</th>
               <th className="text-left p-4 font-medium">Label</th>
@@ -206,15 +179,6 @@ export function SubcategoriesAdminClient({
           <tbody>
             {subcategories.map((row) => (
               <tr key={row.id} className="border-t border-border">
-                <td className="p-4">
-                  <div className="w-12 h-16 relative bg-muted overflow-hidden">
-                    {row.image ? (
-                      <Image src={row.image} alt={row.label} fill className="object-cover" sizes="48px" />
-                    ) : (
-                      <span className="text-xs text-muted-foreground flex items-center justify-center h-full">—</span>
-                    )}
-                  </div>
-                </td>
                 <td className="p-4 capitalize">{row.storeType ?? "streetwear"}</td>
                 <td className="p-4 font-mono text-muted-foreground">{row.slug}</td>
                 <td className="p-4">{row.label}</td>

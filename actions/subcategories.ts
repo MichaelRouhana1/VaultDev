@@ -4,7 +4,6 @@ import { cache } from "react";
 import { asc, eq, inArray, count } from "drizzle-orm";
 import { db } from "@/db";
 import { products, subcategories } from "@/db/schema";
-import { uploadProductImage } from "@/lib/uploadImages";
 import { auditLog } from "@/lib/audit";
 import { headers } from "next/headers";
 import { checkSensitiveOperationLimit } from "@/lib/rate-limit";
@@ -58,7 +57,9 @@ export async function getAllSubcategoriesAdmin(): Promise<ProductSubcategory[]> 
   }
 }
 
-export async function createSubcategory(formData: FormData): Promise<{ success?: boolean; error?: string }> {
+export async function createSubcategory(
+  formData: FormData,
+): Promise<{ id?: number; error?: string }> {
   const slugRaw = (formData.get("slug") as string)?.trim().toLowerCase().replace(/\s+/g, "-").replace(/[^a-z0-9-]/g, "");
   const labelRaw = (formData.get("label") as string)?.trim();
   const storeTypeRaw = (formData.get("storeType") as string) || "both";
@@ -72,43 +73,38 @@ export async function createSubcategory(formData: FormData): Promise<{ success?:
   if (!parsed.success) {
     const errorDetails = parsed.error.issues[0]?.message || "Validation failed";
     logger.error("Create subcategory validation failed", undefined, { errorDetails });
-    return { success: false, error: errorDetails };
+    return { error: errorDetails };
   }
 
   const headersList = await headers();
   const ip = headersList.get("x-forwarded-for")?.split(",")[0]?.trim() ?? headersList.get("x-real-ip") ?? "unknown";
   const limit = await checkSensitiveOperationLimit(`admin-subcategory-create:${ip}`, { auditIp: ip });
   if (!limit.allowed) {
-    return { success: false, error: "Too many requests. Please wait before trying again." };
+    return { error: "Too many requests. Please wait before trying again." };
   }
 
   const { userId } = await requireAdmin();
   const { slug, label, storeType } = parsed.data;
-  const imageFile = formData.get("image") as File | null;
 
   try {
     const existing = await db.select().from(subcategories).where(eq(subcategories.slug, slug)).limit(1);
     if (existing.length > 0) return { error: "A subcategory with this slug already exists" };
 
-    let imageUrl: string | null = null;
-    if (imageFile?.size) {
-      const result = await uploadProductImage(imageFile, `subcategory-${slug}-${Date.now()}`);
-      if (result.error) return { error: result.error };
-      imageUrl = result.url ?? null;
-    }
-
     const rows = await db.select({ sortOrder: subcategories.sortOrder }).from(subcategories);
     const nextSortOrder = rows.length === 0 ? 0 : Math.max(0, ...rows.map((r) => r.sortOrder ?? 0)) + 1;
 
-    await db.insert(subcategories).values({
-      slug,
-      label,
-      image: imageUrl,
-      sortOrder: nextSortOrder,
-      storeType,
-    });
+    const [inserted] = await db
+      .insert(subcategories)
+      .values({
+        slug,
+        label,
+        image: null,
+        sortOrder: nextSortOrder,
+        storeType,
+      })
+      .returning({ id: subcategories.id });
     auditLog({ userId: userId!, action: "subcategory.create", target: slug, details: { label } });
-    return {};
+    return { id: inserted.id };
   } catch (e) {
     if (isSubcategoriesTableMissingError(e)) {
       return { error: SUBCATEGORIES_MIGRATION_REQUIRED_MESSAGE };
@@ -148,7 +144,6 @@ export async function updateSubcategory(
 
   const { userId } = await requireAdmin();
   const { slug, label, storeType } = parsed.data;
-  const imageFile = formData.get("image") as File | null;
 
   try {
     const [existing] = await db.select().from(subcategories).where(eq(subcategories.id, validId)).limit(1);
@@ -157,16 +152,9 @@ export async function updateSubcategory(
     const slugRow = await db.select().from(subcategories).where(eq(subcategories.slug, slug)).limit(1);
     if (slugRow.length > 0 && slugRow[0].id !== validId) return { error: "A subcategory with this slug already exists" };
 
-    let imageUrl: string | null = existing.image;
-    if (imageFile?.size) {
-      const result = await uploadProductImage(imageFile, `subcategory-${slug}-${Date.now()}`);
-      if (result.error) return { error: result.error };
-      imageUrl = result.url ?? existing.image;
-    }
-
     await db
       .update(subcategories)
-      .set({ slug, label, image: imageUrl, storeType })
+      .set({ slug, label, image: null, storeType })
       .where(eq(subcategories.id, validId));
     auditLog({ userId: userId!, action: "subcategory.update", target: String(validId), details: { slug, label } });
     return {};

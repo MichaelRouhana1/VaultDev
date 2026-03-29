@@ -9,7 +9,10 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-/** Legacy shop route filter values (sidebar not used on `[storeType]/shop`). */
+/**
+ * Legacy `/shop` route UI (category + sort). Storefront shop at `/[storeType]/shop` uses
+ * `FilterPanel` / `FilterPanelContent` in `ShopClient` instead — not this component.
+ */
 const CATEGORIES = ["CLOTHING", "SHOES", "ACCESSORIES", "BAGS", "OTHER"] as const;
 const SORT_OPTIONS = [
   { value: "newest", label: "Newest" },

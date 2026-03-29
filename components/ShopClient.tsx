@@ -6,7 +6,14 @@ import { ProductCard } from "@/components/ProductCard";
 import { CategoryHeader } from "@/components/CategoryHeader";
 import { UtilityBar, type SortOption } from "@/components/UtilityBar";
 import { ShopSearchBar } from "@/components/ShopSearchBar";
-import { FilterPanel, type FilterState, type ShopFilterPanelContext, type SubcategoryFilterOption } from "@/components/FilterPanel";
+import {
+  FilterPanel,
+  FilterPanelContent,
+  type FilterState,
+  type ShopFilterPanelContext,
+  type SubcategoryFilterOption,
+} from "@/components/FilterPanel";
+import { cn } from "@/lib/utils";
 import type { Product, ProductVariant, ProductColor } from "@/db/schema";
 import type { ProductCategory } from "@/actions/categories";
 import type { ProductCategoryFilterTags } from "@/actions/storefront-products";
@@ -47,7 +54,8 @@ export function ShopClient({
   const categorySlug = searchParams.get("cat");
   const sortParam = searchParams.get("sort") ?? "newest";
 
-  const [filterPanelOpen, setFilterPanelOpen] = useState(false);
+  const [mobileFilterOpen, setMobileFilterOpen] = useState(false);
+  const [desktopFilterOpen, setDesktopFilterOpen] = useState(false);
   const [sort, setSort] = useState<SortOption>(
     ["recommended", "newest", "price-low", "price-high", "name-asc", "name-desc"].includes(sortParam)
       ? (sortParam as SortOption)
@@ -179,6 +187,12 @@ export function ShopClient({
     [subcategoriesForFilters],
   );
 
+  const showMainCategorySection = useMemo(() => {
+    const browsingMainCategory =
+      Boolean(categorySlug && storeMainCategories.some((c) => c.slug === categorySlug));
+    return shopFilterContext === "all" && storeMainCategories.length > 0 && !browsingMainCategory;
+  }, [shopFilterContext, storeMainCategories, categorySlug]);
+
   return (
     <div className="w-full min-h-screen bg-background">
       <CategoryHeader category={validCategory} categorySlug={categorySlug} categoryLabel={categoryLabel} />
@@ -187,48 +201,86 @@ export function ShopClient({
         <ShopSearchBar storeType={storeType} initialQuery={initialQuery} />
       </div>
       <div className="sticky top-14 z-30 bg-background border-b border-border">
-        <UtilityBar onFiltersClick={() => setFilterPanelOpen(true)} sort={sort} onSortChange={handleSortChange} />
+        <UtilityBar
+          onMobileFiltersOpen={() => setMobileFilterOpen(true)}
+          onDesktopFiltersToggle={() => setDesktopFilterOpen((o) => !o)}
+          sort={sort}
+          onSortChange={handleSortChange}
+        />
       </div>
       <FilterPanel
-        isOpen={filterPanelOpen}
-        onClose={() => setFilterPanelOpen(false)}
+        isOpen={mobileFilterOpen}
+        onClose={() => setMobileFilterOpen(false)}
         filters={filters}
         onFiltersChange={setFilters}
         priceBounds={priceBounds}
-        shopFilterContext={shopFilterContext}
+        showMainCategorySection={showMainCategorySection}
         mainCategories={mainCategoryOptions}
         subcategories={subcategoryOptionsAll}
       />
-      <main className="w-full px-6 py-8">
-        {filteredAndSorted.length === 0 ? (
-          <p className="text-center text-sm font-light text-muted-foreground py-16">No products match your filters.</p>
-        ) : (
-          <>
-            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
-              {visibleProducts.map((product) => (
-                <ProductCard
-                  key={product.id}
-                  product={product}
-                  variants={variantsByProductId[product.id] ?? []}
-                  colors={colorsByProductId[product.id]}
-                  inWishlist={wishlistProductIds.includes(product.id)}
-                />
-              ))}
-            </div>
-            {hasMore && (
-              <div className="flex justify-center mt-12">
-                <button
-                  type="button"
-                  onClick={loadMore}
-                  className="rounded-none px-8 py-3 text-xs font-medium uppercase tracking-[0.2em] text-foreground border border-foreground hover:bg-foreground hover:text-background transition-colors duration-200"
-                >
-                  Load More
-                </button>
-              </div>
+      <div className="flex relative w-full items-start gap-x-6 px-6 py-8">
+        <aside
+          className={cn(
+            "hidden md:block shrink-0 transition-all duration-300 ease-in-out overflow-hidden",
+            desktopFilterOpen
+              ? "w-[250px] lg:w-[280px] opacity-100"
+              : "w-0 opacity-0 m-0 p-0 pointer-events-none",
+          )}
+          aria-hidden={!desktopFilterOpen}
+        >
+          <div
+            className={cn(
+              "w-[250px] lg:w-[280px] pr-4 lg:pr-6 sticky top-20 max-h-[calc(100vh-6rem)] overflow-y-auto overscroll-y-contain",
             )}
-          </>
-        )}
-      </main>
+          >
+            <FilterPanelContent
+              filters={filters}
+              onFiltersChange={setFilters}
+              priceBounds={priceBounds}
+              showMainCategorySection={showMainCategorySection}
+              mainCategories={mainCategoryOptions}
+              subcategories={subcategoryOptionsAll}
+            />
+          </div>
+        </aside>
+        <main className="flex-1 min-w-0 transition-all duration-300 ease-in-out">
+          {filteredAndSorted.length === 0 ? (
+            <p className="text-center text-sm font-light text-muted-foreground py-16">No products match your filters.</p>
+          ) : (
+            <>
+              <div
+                className={cn(
+                  "grid gap-6",
+                  desktopFilterOpen
+                    ? "grid-cols-2 md:grid-cols-2 lg:grid-cols-3"
+                    : "grid-cols-2 md:grid-cols-3 lg:grid-cols-4",
+                )}
+              >
+                {visibleProducts.map((product) => (
+                  <ProductCard
+                    key={product.id}
+                    product={product}
+                    variants={variantsByProductId[product.id] ?? []}
+                    colors={colorsByProductId[product.id]}
+                    inWishlist={wishlistProductIds.includes(product.id)}
+                  />
+                ))}
+              </div>
+              {hasMore && (
+                <div className="flex justify-center mt-12">
+                  <button
+                    type="button"
+                    onClick={loadMore}
+                    className="rounded-none px-8 py-3 text-xs font-medium uppercase tracking-[0.2em] text-foreground border border-foreground hover:bg-foreground hover:text-background transition-colors duration-200"
+                  >
+                    Load More
+                  </button>
+                </div>
+              )}
+            </>
+          )}
+        </main>
+      </div>
     </div>
   );
 }

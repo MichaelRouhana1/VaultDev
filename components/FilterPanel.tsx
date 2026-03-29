@@ -31,16 +31,18 @@ const COLOR_OPTIONS = [
   "Light Blue",
 ];
 
-interface FilterPanelProps {
-  isOpen: boolean;
-  onClose: () => void;
+export interface FilterPanelContentProps {
   filters: FilterState;
   onFiltersChange: (filters: FilterState) => void;
   priceBounds: { min: number; max: number };
-  shopFilterContext: ShopFilterPanelContext;
+  /** False when the shop is already scoped to one main category (e.g. `?cat=jeans`). */
+  showMainCategorySection: boolean;
   mainCategories?: { value: string; label: string }[];
-  /** All store subcategories (independent of main category). */
   subcategories?: SubcategoryFilterOption[];
+  /** Mobile drawer close control */
+  showCloseButton?: boolean;
+  onClose?: () => void;
+  className?: string;
 }
 
 function FilterSection({
@@ -136,31 +138,18 @@ function PriceRangeSection({
   );
 }
 
-export function FilterPanel({
-  isOpen,
-  onClose,
+export function FilterPanelContent({
   filters,
   onFiltersChange,
   priceBounds,
-  shopFilterContext,
+  showMainCategorySection,
   mainCategories = [],
   subcategories = [],
-}: FilterPanelProps) {
+  showCloseButton = false,
+  onClose,
+  className = "",
+}: FilterPanelContentProps) {
   const allSubs = useMemo(() => subcategories ?? [], [subcategories]);
-
-  useEffect(() => {
-    const handleEscape = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onClose();
-    };
-    if (isOpen) {
-      document.addEventListener("keydown", handleEscape);
-      document.body.style.overflow = "hidden";
-    }
-    return () => {
-      document.removeEventListener("keydown", handleEscape);
-      document.body.style.overflow = "";
-    };
-  }, [isOpen, onClose]);
 
   const toggleScalar = (key: "size" | "color") => (value: string) => {
     const current = filters[key];
@@ -184,66 +173,134 @@ export function FilterPanel({
     onFiltersChange({ ...filters, priceMin, priceMax });
   };
 
-  const showMainSection = shopFilterContext === "all" && mainCategories.length > 0;
+  const showMainSection = showMainCategorySection && mainCategories.length > 0;
   const showSubSection = allSubs.length > 0;
 
   const mainOptionsForUi = mainCategories.map((m) => ({ value: m.value, label: m.label }));
   const subOptionsForUi = allSubs.map((s) => ({ value: s.value, label: s.label }));
 
   return (
-    <>
+    <div className={`relative ${className}`}>
+      {showCloseButton && onClose && (
+        <button
+          type="button"
+          onClick={onClose}
+          className="absolute top-0 right-0 text-foreground hover:opacity-60"
+          aria-label="Close filters"
+        >
+          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+          </svg>
+        </button>
+      )}
+      <h2 className="text-sm font-medium uppercase tracking-[0.2em] text-foreground mb-8 pr-8 md:pr-0">Filters</h2>
+      <PriceRangeSection
+        bounds={priceBounds}
+        valueMin={filters.priceMin}
+        valueMax={filters.priceMax}
+        onChange={setPriceRange}
+      />
+      {showMainSection && (
+        <FilterSection
+          title="Categories"
+          options={mainOptionsForUi}
+          selected={filters.mainCategory}
+          onToggle={toggleMainCategory}
+        />
+      )}
+      {showSubSection && (
+        <FilterSection
+          title="Subcategories"
+          options={subOptionsForUi}
+          selected={filters.subcategory}
+          onToggle={toggleSubcategory}
+        />
+      )}
+      <FilterSection title="Size" options={SIZE_OPTIONS} selected={filters.size} onToggle={toggleScalar("size")} />
+      <FilterSection title="Color" options={COLOR_OPTIONS} selected={filters.color} onToggle={toggleScalar("color")} />
+    </div>
+  );
+}
+
+interface FilterPanelProps {
+  isOpen: boolean;
+  onClose: () => void;
+  filters: FilterState;
+  onFiltersChange: (filters: FilterState) => void;
+  priceBounds: { min: number; max: number };
+  showMainCategorySection: boolean;
+  mainCategories?: { value: string; label: string }[];
+  subcategories?: SubcategoryFilterOption[];
+}
+
+/** Full-screen slide-in filter drawer for viewports below `md`. Hidden from `md` up (desktop uses inline sidebar in ShopClient). */
+export function FilterPanel({
+  isOpen,
+  onClose,
+  filters,
+  onFiltersChange,
+  priceBounds,
+  showMainCategorySection,
+  mainCategories = [],
+  subcategories = [],
+}: FilterPanelProps) {
+  useEffect(() => {
+    const mq = window.matchMedia("(min-width: 768px)");
+
+    const syncScrollLock = () => {
+      if (mq.matches) {
+        document.body.style.overflow = "";
+      } else {
+        document.body.style.overflow = isOpen ? "hidden" : "";
+      }
+    };
+
+    const onEsc = (e: KeyboardEvent) => {
+      if (e.key !== "Escape" || !isOpen || mq.matches) return;
+      onClose();
+    };
+
+    syncScrollLock();
+    if (isOpen) document.addEventListener("keydown", onEsc);
+    mq.addEventListener("change", syncScrollLock);
+
+    return () => {
+      document.removeEventListener("keydown", onEsc);
+      mq.removeEventListener("change", syncScrollLock);
+      document.body.style.overflow = "";
+    };
+  }, [isOpen, onClose]);
+
+  return (
+    <div className="md:hidden">
       <div
-        className={`fixed inset-0 z-40 bg-black/30 transition-opacity duration-200 ${
+        className={`fixed inset-0 z-[60] bg-black/30 transition-opacity duration-200 ${
           isOpen ? "opacity-100" : "opacity-0 pointer-events-none"
         }`}
         onClick={onClose}
         aria-hidden
       />
       <aside
-        className={`fixed left-0 top-0 bottom-0 w-[320px] max-w-[85vw] z-50 bg-background shadow-xl overflow-y-auto transition-transform duration-200 ease-out ${
+        className={`fixed left-0 top-0 bottom-0 w-[320px] max-w-[85vw] z-[61] bg-background shadow-xl overflow-y-auto transition-transform duration-300 ease-out ${
           isOpen ? "translate-x-0" : "-translate-x-full"
         }`}
         role="dialog"
+        aria-modal={isOpen}
         aria-label="Filters"
       >
-        <div className="p-6 pt-16 relative">
-          <button
-            type="button"
-            onClick={onClose}
-            className="absolute top-6 right-6 text-foreground hover:opacity-60"
-            aria-label="Close filters"
-          >
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-            </svg>
-          </button>
-          <h2 className="text-sm font-medium uppercase tracking-[0.2em] text-foreground mb-8">Filters</h2>
-          <PriceRangeSection
-            bounds={priceBounds}
-            valueMin={filters.priceMin}
-            valueMax={filters.priceMax}
-            onChange={setPriceRange}
+        <div className="p-6 pt-16">
+          <FilterPanelContent
+            filters={filters}
+            onFiltersChange={onFiltersChange}
+            priceBounds={priceBounds}
+            showMainCategorySection={showMainCategorySection}
+            mainCategories={mainCategories}
+            subcategories={subcategories}
+            showCloseButton
+            onClose={onClose}
           />
-          {showMainSection && (
-            <FilterSection
-              title="Categories"
-              options={mainOptionsForUi}
-              selected={filters.mainCategory}
-              onToggle={toggleMainCategory}
-            />
-          )}
-          {showSubSection && (
-            <FilterSection
-              title="Subcategories"
-              options={subOptionsForUi}
-              selected={filters.subcategory}
-              onToggle={toggleSubcategory}
-            />
-          )}
-          <FilterSection title="Size" options={SIZE_OPTIONS} selected={filters.size} onToggle={toggleScalar("size")} />
-          <FilterSection title="Color" options={COLOR_OPTIONS} selected={filters.color} onToggle={toggleScalar("color")} />
         </div>
       </aside>
-    </>
+    </div>
   );
 }
