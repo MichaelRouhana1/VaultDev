@@ -19,6 +19,7 @@ import {
   productCreateOptionSchema,
   productCreateVariantMatrixRowSchema,
 } from "@/lib/schemas";
+import { buildOptionCombos, comboKey } from "@/lib/product-variant-matrix";
 import { slugifyOptionValue } from "@/lib/utils";
 import { logger } from "@/lib/logger";
 import { requireAdminAction } from "@/lib/security";
@@ -51,25 +52,6 @@ type ProductCreateVariantMatrixInput = {
   price_override?: number | null;
   optionValues: Record<string, string>;
 };
-
-function buildOptionCombos(options: ProductCreateOptionInput[]): Record<string, string>[] {
-  if (options.length === 0) return [];
-  let rows: Record<string, string>[] = [{}];
-  for (const o of options) {
-    const next: Record<string, string>[] = [];
-    for (const row of rows) {
-      for (const v of o.values) {
-        next.push({ ...row, [o.name]: v });
-      }
-    }
-    rows = next;
-  }
-  return rows;
-}
-
-function comboKey(optionNames: string[], values: Record<string, string>): string {
-  return optionNames.map((n) => `${n}=${values[n] ?? ""}`).join("&");
-}
 
 function allocateUniqueSlug(base: string, used: Set<string>): string {
   let candidate = slugifyOptionValue(base);

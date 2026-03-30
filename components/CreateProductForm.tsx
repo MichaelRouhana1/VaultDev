@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useMemo, useRef } from "react";
+import { useState, useEffect, useMemo, useRef, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { createProduct } from "@/actions/createProduct";
 import { Button } from "@/components/ui/button";
@@ -21,6 +21,11 @@ import {
   type CollectionOption,
 } from "@/components/admin/ProductCollectionsFields";
 import { ImageUploader, type ColorEntry } from "@/components/admin/ImageUploader";
+import {
+  VariantMatrixEditor,
+  type VariantMatrixCell,
+} from "@/components/admin/VariantMatrixEditor";
+import { buildOptionCombos, comboKey } from "@/lib/product-variant-matrix";
 import type { ProductFormCategoryTree } from "@/actions/categories";
 import type { AttributeWithValues } from "@/actions/attributes";
 
@@ -30,8 +35,6 @@ const emptyStockBySize = (): Record<string, number> =>
   Object.fromEntries(SIZES.map((s) => [s, 0])) as Record<string, number>;
 
 type OptionDraft = { id: string; name: string; valuesText: string };
-
-type MatrixCell = { sku: string; stockQuantity: string; priceOverride: string };
 
 function parseValuesFromText(text: string): string[] {
   const raw = text
@@ -46,25 +49,6 @@ function parseValuesFromText(text: string): string[] {
     out.push(v);
   }
   return out;
-}
-
-function buildOptionCombos(options: { name: string; values: string[] }[]): Record<string, string>[] {
-  if (options.length === 0) return [];
-  let rows: Record<string, string>[] = [{}];
-  for (const o of options) {
-    const next: Record<string, string>[] = [];
-    for (const row of rows) {
-      for (const v of o.values) {
-        next.push({ ...row, [o.name]: v });
-      }
-    }
-    rows = next;
-  }
-  return rows;
-}
-
-function comboKey(optionNames: string[], values: Record<string, string>): string {
-  return optionNames.map((n) => `${n}=${values[n] ?? ""}`).join("&");
 }
 
 export function CreateProductForm({
@@ -92,10 +76,11 @@ export function CreateProductForm({
 
   const [hasVariants, setHasVariants] = useState(false);
   const [options, setOptions] = useState<OptionDraft[]>([]);
-  const [matrix, setMatrix] = useState<Record<string, MatrixCell>>({});
+  const [matrix, setMatrix] = useState<Record<string, VariantMatrixCell>>({});
 
   const [defaultSku, setDefaultSku] = useState("");
   const [defaultStock, setDefaultStock] = useState("0");
+  const [productNameDraft, setProductNameDraft] = useState("");
 
   const [colors, setColors] = useState<ColorEntry[]>([]);
   const [state, setState] = useState<{ error?: string; productId?: number } | null>(null);
@@ -125,7 +110,7 @@ export function CreateProductForm({
       return;
     }
     setMatrix((prev) => {
-      const next: Record<string, MatrixCell> = {};
+      const next: Record<string, VariantMatrixCell> = {};
       for (const c of combos) {
         const k = comboKey(optionNamesForKeys, c);
         const existing = prev[k];
@@ -134,6 +119,16 @@ export function CreateProductForm({
       return next;
     });
   }, [hasVariants, combos, optionNamesForKeys]);
+
+  const updateMatrixCell = useCallback((key: string, patch: Partial<VariantMatrixCell>) => {
+    setMatrix((prev) => ({
+      ...prev,
+      [key]: {
+        ...(prev[key] ?? { sku: "", stockQuantity: "0", priceOverride: "" }),
+        ...patch,
+      },
+    }));
+  }, []);
 
   const addColor = () => {
     setColors((prev) => [
@@ -185,13 +180,6 @@ export function CreateProductForm({
 
   const updateOption = (id: string, patch: Partial<Omit<OptionDraft, "id">>) => {
     setOptions((prev) => prev.map((o) => (o.id === id ? { ...o, ...patch } : o)));
-  };
-
-  const updateMatrixCell = (key: string, patch: Partial<MatrixCell>) => {
-    setMatrix((prev) => ({
-      ...prev,
-      [key]: { ...(prev[key] ?? { sku: "", stockQuantity: "0", priceOverride: "" }), ...patch },
-    }));
   };
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
@@ -345,7 +333,7 @@ export function CreateProductForm({
     <form onSubmit={handleSubmit}>
       <input type="hidden" name="hasVariants" value={hasVariants ? "true" : "false"} />
 
-      <Card className="max-w-3xl">
+      <Card className="w-full max-w-7xl">
         <CardHeader>
           <CardTitle>Product details</CardTitle>
           <CardDescription>Add a new product to your store</CardDescription>
@@ -353,7 +341,14 @@ export function CreateProductForm({
         <CardContent className="space-y-6">
           <div className="space-y-2">
             <Label htmlFor="name">Name</Label>
-            <Input id="name" name="name" required placeholder="Product name" />
+            <Input
+              id="name"
+              name="name"
+              required
+              placeholder="Product name"
+              value={productNameDraft}
+              onChange={(e) => setProductNameDraft(e.target.value)}
+            />
           </div>
           <div className="space-y-2">
             <Label htmlFor="description">Description</Label>
@@ -537,74 +532,14 @@ export function CreateProductForm({
               )}
 
               {showVariantMatrix ? (
-                <div className="space-y-2">
-                  <h3 className="text-sm font-medium">Variant matrix</h3>
-                  <p className="text-xs text-muted-foreground">
-                    One row per combination. SKU must be unique across your store.
-                  </p>
-                  <div className="border border-border rounded-lg overflow-x-auto">
-                    <table className="w-full text-sm min-w-[640px]">
-                      <thead className="bg-muted">
-                        <tr>
-                          {optionNamesForKeys.map((name) => (
-                            <th key={name} className="text-left p-2 font-medium whitespace-nowrap">
-                              {name}
-                            </th>
-                          ))}
-                          <th className="text-left p-2 font-medium">SKU</th>
-                          <th className="text-left p-2 font-medium w-24">Stock</th>
-                          <th className="text-left p-2 font-medium w-28">Price override</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {combos.map((combo, rowIndex) => {
-                          const k = comboKey(optionNamesForKeys, combo);
-                          const cell = matrix[k] ?? { sku: "", stockQuantity: "0", priceOverride: "" };
-                          return (
-                            <tr key={`variant-row-${rowIndex}-${k}`} className="border-t border-border">
-                              {optionNamesForKeys.map((name) => (
-                                <td key={name} className="p-2 align-middle">
-                                  {combo[name]}
-                                </td>
-                              ))}
-                              <td className="p-2 align-middle">
-                                <Input
-                                  className="h-8 min-w-[8rem]"
-                                  value={cell.sku}
-                                  onChange={(e) => updateMatrixCell(k, { sku: e.target.value })}
-                                  placeholder="SKU"
-                                  required={false}
-                                />
-                              </td>
-                              <td className="p-2 align-middle">
-                                <Input
-                                  className="h-8 w-20"
-                                  type="number"
-                                  min={0}
-                                  inputMode="numeric"
-                                  value={cell.stockQuantity}
-                                  onChange={(e) => updateMatrixCell(k, { stockQuantity: e.target.value })}
-                                />
-                              </td>
-                              <td className="p-2 align-middle">
-                                <Input
-                                  className="h-8 w-24"
-                                  type="number"
-                                  min={0}
-                                  step="0.01"
-                                  inputMode="decimal"
-                                  placeholder="—"
-                                  value={cell.priceOverride}
-                                  onChange={(e) => updateMatrixCell(k, { priceOverride: e.target.value })}
-                                />
-                              </td>
-                            </tr>
-                          );
-                        })}
-                      </tbody>
-                    </table>
-                  </div>
-                </div>
+                <VariantMatrixEditor
+                  productName={productNameDraft}
+                  optionNamesForKeys={optionNamesForKeys}
+                  combos={combos}
+                  matrix={matrix}
+                  setMatrix={setMatrix}
+                  updateMatrixCell={updateMatrixCell}
+                />
               ) : null}
             </div>
           ) : null}

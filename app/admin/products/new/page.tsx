@@ -19,7 +19,7 @@ export default async function CreateProductPage() {
     formal: colFo.map((c) => ({ id: c.id, name: c.name, slug: c.slug })),
   } as const;
   return (
-    <div>
+    <div className="w-full max-w-7xl">
       <h1 className="mb-6 text-2xl font-bold">Create Product</h1>
       <CreateProductForm
         categoryTrees={categoryTrees}

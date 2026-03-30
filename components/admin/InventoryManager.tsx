@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useCallback } from "react";
+import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 
@@ -19,9 +20,16 @@ interface InventoryManagerProps {
   colors: InventoryStockColor[];
   sizes: readonly string[];
   updateColor: (id: string | number, updates: { stockBySize?: Record<string, number> }) => void;
+  /** When true, omit outer title (use inside a parent card header). */
+  embedded?: boolean;
 }
 
-export function InventoryManager({ colors, sizes, updateColor }: InventoryManagerProps) {
+export function InventoryManager({
+  colors,
+  sizes,
+  updateColor,
+  embedded = false,
+}: InventoryManagerProps) {
   const [bulkStock, setBulkStock] = useState("");
 
   const applyBulkToAll = useCallback(() => {
@@ -38,14 +46,23 @@ export function InventoryManager({ colors, sizes, updateColor }: InventoryManage
 
   return (
     <div className="space-y-4">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between sm:gap-4">
-        <div>
-          <h3 className="text-sm font-medium">Stock by color &amp; size</h3>
-          <p className="text-xs text-muted-foreground">Set inventory for each color and size combination</p>
-        </div>
-        <div className="flex items-center gap-2 shrink-0">
+      <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between lg:gap-4">
+        {!embedded ? (
+          <div>
+            <h3 className="text-sm font-semibold tracking-tight">Stock by color &amp; size</h3>
+            <p className="text-xs text-muted-foreground mt-1">
+              Set inventory for each color and size combination
+            </p>
+          </div>
+        ) : (
+          <div className="text-xs text-muted-foreground lg:max-w-xs">
+            Set quantity per cell, or use <span className="font-medium text-foreground">Apply to all</span> for
+            every size on every color.
+          </div>
+        )}
+        <div className="flex flex-wrap items-center gap-2 shrink-0">
           <Label htmlFor="inventory-bulk-stock" className="text-xs text-muted-foreground whitespace-nowrap">
-            All sizes
+            Bulk qty
           </Label>
           <Input
             id="inventory-bulk-stock"
@@ -64,28 +81,36 @@ export function InventoryManager({ colors, sizes, updateColor }: InventoryManage
               }
             }}
             className="h-8 w-[4.5rem] text-center text-sm"
-            title="Enter a quantity and press Enter or click away to set every size for every color"
+            title="Enter a quantity, then Apply to all or press Enter"
           />
+          <Button type="button" variant="outline" size="sm" className="h-8 text-xs" onClick={applyBulkToAll}>
+            Apply to all
+          </Button>
         </div>
       </div>
-      <div className="border border-border rounded-lg overflow-hidden">
+      <div className="rounded-lg border border-border overflow-hidden">
         <table className="w-full text-sm">
-          <thead className="bg-muted">
-            <tr>
-              <th className="text-left p-3 font-medium">Color</th>
+          <thead>
+            <tr className="border-b border-border bg-muted/60">
+              <th className="text-left px-3 py-2.5 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                Color
+              </th>
               {sizes.map((s) => (
-                <th key={s} className="p-3 font-medium text-center">
+                <th
+                  key={s}
+                  className="px-3 py-2.5 text-xs font-semibold uppercase tracking-wider text-muted-foreground text-center"
+                >
                   {s}
                 </th>
               ))}
             </tr>
           </thead>
-          <tbody>
+          <tbody className="divide-y divide-border">
             {colors.map((color) => (
-              <tr key={String(color.id)} className="border-t border-border">
-                <td className="p-3 font-medium">{color.name || "—"}</td>
+              <tr key={String(color.id)} className="bg-background hover:bg-muted/15 transition-colors">
+                <td className="px-3 py-2.5 font-medium text-foreground">{color.name || "—"}</td>
                 {sizes.map((size) => (
-                  <td key={size} className="p-2">
+                  <td key={size} className="p-2 text-center">
                     <Input
                       type="number"
                       aria-label={`Stock for ${color.name} size ${size}`}
@@ -99,7 +124,7 @@ export function InventoryManager({ colors, sizes, updateColor }: InventoryManage
                           },
                         })
                       }
-                      className="h-8 w-16 text-center"
+                      className="h-8 w-16 text-center mx-auto"
                     />
                   </td>
                 ))}

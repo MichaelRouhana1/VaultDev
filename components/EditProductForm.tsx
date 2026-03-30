@@ -324,9 +324,24 @@ export function EditProductForm({
             )}
           </div>
 
-          {/* Variant Matrix */}
+          {/* Legacy fixed-size inventory grid (edit flow; dynamic options matrix is on create for now) */}
           {colorsState.length > 0 && (
-            <InventoryManager colors={colorsState} sizes={SIZES} updateColor={updateColor} />
+            <section className="rounded-xl border border-border bg-card text-card-foreground shadow-sm overflow-hidden">
+              <header className="border-b border-border bg-muted/40 px-4 py-3 sm:px-5">
+                <h3 className="text-sm font-semibold tracking-tight text-foreground">Inventory matrix</h3>
+                <p className="text-xs text-muted-foreground mt-1">
+                  Stock per color and fixed sizes (XS–XL). Bulk quantity applies to every cell.
+                </p>
+              </header>
+              <div className="p-4 sm:p-5">
+                <InventoryManager
+                  embedded
+                  colors={colorsState}
+                  sizes={SIZES}
+                  updateColor={updateColor}
+                />
+              </div>
+            </section>
           )}
 
           {state?.error && (
