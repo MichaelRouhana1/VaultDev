@@ -1,10 +1,19 @@
 import { Suspense } from "react";
 import Link from "next/link";
 import { db } from "@/db";
-import { categories, products, productVariants, productColors } from "@/db/schema";
+import {
+  categories,
+  products,
+  productVariants,
+  productColors,
+  productOptions,
+  productOptionValues,
+  variantOptionValues,
+} from "@/db/schema";
 import { inArray, desc, eq, and } from "drizzle-orm";
 import { alias } from "drizzle-orm/pg-core";
 import { ProductsTable } from "./ProductsTable";
+import type { AdminVariantStockRow } from "./StockHoverCell";
 import { getAllCategories } from "@/actions/categories";
 import { getAdminStoreType } from "@/actions/admin-store";
 import { requireAdmin } from "@/lib/security";
@@ -12,6 +21,66 @@ import { getProductPageAccordionCopy } from "@/actions/product-page-copy";
 import { ProductPageCopyButton } from "@/components/admin/ProductPageCopyButton";
 import { buildProductSearchWhere } from "@/lib/product-search";
 import { conditionProductsMatchCategorySlug } from "@/lib/shop-category-filter";
+
+type VariantAgg = {
+  productId: number;
+  sku: string | null;
+  qty: number;
+  legacySize: string;
+  parts: { sort: number; value: string }[];
+};
+
+function displayLabelFor(a: VariantAgg): string {
+  if (a.parts.length > 0) {
+    const sorted = [...a.parts].sort((x, y) => x.sort - y.sort || x.value.localeCompare(y.value));
+    const seen = new Set<string>();
+    const values: string[] = [];
+    for (const p of sorted) {
+      const key = `${p.sort}:${p.value}`;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      values.push(p.value);
+    }
+    return values.join(" / ");
+  }
+  if (a.sku?.trim()) return a.sku.trim();
+  if (a.legacySize && a.legacySize !== "DEFAULT") return a.legacySize;
+  return "Default";
+}
+
+function buildVariantRowsFromJoin(
+  rows: {
+    variantId: number;
+    productId: number;
+    sku: string | null;
+    stockQuantity: number;
+    stock: number;
+    legacySize: string;
+    optionSortOrder: number | null;
+    optionValue: string | null;
+  }[],
+): Map<number, VariantAgg> {
+  const byVariant = new Map<number, VariantAgg>();
+
+  for (const r of rows) {
+    let a = byVariant.get(r.variantId);
+    if (!a) {
+      a = {
+        productId: r.productId,
+        sku: r.sku,
+        qty: r.stockQuantity ?? r.stock ?? 0,
+        legacySize: r.legacySize,
+        parts: [],
+      };
+      byVariant.set(r.variantId, a);
+    }
+    if (r.optionValue != null && r.optionSortOrder != null) {
+      a.parts.push({ sort: r.optionSortOrder, value: r.optionValue });
+    }
+  }
+
+  return byVariant;
+}
 
 export default async function AdminProductsPage({
   searchParams,
@@ -66,12 +135,30 @@ export default async function AdminProductsPage({
     }
   }
 
-  const [variants, colorsList] =
+  const [variantJoinRows, colorsList] =
     productIds.length > 0
       ? await Promise.all([
           db
-            .select()
+            .select({
+              variantId: productVariants.id,
+              productId: productVariants.productId,
+              sku: productVariants.sku,
+              stockQuantity: productVariants.stockQuantity,
+              stock: productVariants.stock,
+              legacySize: productVariants.size,
+              optionSortOrder: productOptions.sortOrder,
+              optionValue: productOptionValues.value,
+            })
             .from(productVariants)
+            .leftJoin(
+              variantOptionValues,
+              eq(variantOptionValues.productVariantId, productVariants.id),
+            )
+            .leftJoin(
+              productOptionValues,
+              eq(productOptionValues.id, variantOptionValues.productOptionValueId),
+            )
+            .leftJoin(productOptions, eq(productOptions.id, productOptionValues.productOptionId))
             .where(inArray(productVariants.productId, productIds)),
           db
             .select()
@@ -80,33 +167,31 @@ export default async function AdminProductsPage({
         ])
       : [[], []];
 
-  const colorById = Object.fromEntries(colorsList.map((c) => [c.id, c]));
+  const variantAggs = buildVariantRowsFromJoin(variantJoinRows);
 
-  const stockByProduct = variants.reduce<Record<number, number>>((acc, v) => {
-    acc[v.productId] = (acc[v.productId] ?? 0) + v.stock;
-    return acc;
-  }, {});
+  const variantsByProductId: Record<number, AdminVariantStockRow[]> = {};
+  let totalStockByProduct: Record<number, number> = {};
 
-  const stockBySizeByProduct = variants.reduce<
-    Record<number, Record<string, number>>
-  >((acc, v) => {
-    if (!acc[v.productId]) acc[v.productId] = {};
-    acc[v.productId][v.size] = (acc[v.productId][v.size] ?? 0) + v.stock;
-    return acc;
-  }, {});
+  for (const [variantId, agg] of variantAggs) {
+    const pid = agg.productId;
+    const row: AdminVariantStockRow = {
+      variantId,
+      displayLabel: displayLabelFor(agg),
+      quantity: agg.qty,
+      sku: agg.sku,
+    };
+    if (!variantsByProductId[pid]) variantsByProductId[pid] = [];
+    variantsByProductId[pid].push(row);
+    totalStockByProduct[pid] = (totalStockByProduct[pid] ?? 0) + agg.qty;
+  }
 
-  type StockByColorRow = { colorName: string; stockBySize: Record<string, number> };
-  const stockByColorByProduct: Record<number, StockByColorRow[]> = {};
-  for (const v of variants) {
-    const color = colorById[v.colorId];
-    const colorName = color?.name ?? "—";
-    if (!stockByColorByProduct[v.productId]) stockByColorByProduct[v.productId] = [];
-    let row = stockByColorByProduct[v.productId].find((r) => r.colorName === colorName);
-    if (!row) {
-      row = { colorName, stockBySize: {} };
-      stockByColorByProduct[v.productId].push(row);
-    }
-    row.stockBySize[v.size] = (row.stockBySize[v.size] ?? 0) + v.stock;
+  for (const pid of productIds) {
+    variantsByProductId[pid]?.sort((a, b) => {
+      const la = a.displayLabel.toLowerCase();
+      const lb = b.displayLabel.toLowerCase();
+      if (la !== lb) return la.localeCompare(lb);
+      return a.variantId - b.variantId;
+    });
   }
 
   const firstImageByProductId: Record<number, string> = {};
@@ -119,9 +204,8 @@ export default async function AdminProductsPage({
   const productsWithStock = productList.map((p) => ({
     ...p,
     images: firstImageByProductId[p.id] ? [firstImageByProductId[p.id]] : [],
-    totalStock: stockByProduct[p.id] ?? 0,
-    stockBySize: stockBySizeByProduct[p.id] ?? {},
-    stockByColor: stockByColorByProduct[p.id] ?? [],
+    totalStock: totalStockByProduct[p.id] ?? 0,
+    variantStockRows: variantsByProductId[p.id] ?? [],
     categoryLabel:
       categoryLabels[primarySlugByProductId[p.id] ?? ""] ?? primarySlugByProductId[p.id] ?? "—",
     colorLabel: (p as { color?: string | null }).color ?? deriveColor(p.name, p.description),

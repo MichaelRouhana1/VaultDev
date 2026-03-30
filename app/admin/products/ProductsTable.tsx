@@ -13,7 +13,7 @@ import {
   StockHoverCell,
   LOW_STOCK_THRESHOLD,
   productHasLowStock,
-  type StockByColorRow,
+  type AdminVariantStockRow,
 } from "./StockHoverCell";
 import { useRouter, useSearchParams } from "next/navigation";
 import Image from "next/image";
@@ -54,8 +54,7 @@ interface ProductWithMeta {
   isVisible: boolean;
   isArchived?: boolean;
   totalStock: number;
-  stockBySize?: Record<string, number>;
-  stockByColor?: StockByColorRow[];
+  variantStockRows: AdminVariantStockRow[];
   categoryLabel: string;
   colorLabel: string;
 }
@@ -269,16 +268,15 @@ export function ProductsTable({
       header: "Stock",
       cell: ({ row }) => {
         const p = row.original;
-        const low = productHasLowStock(p.stockByColor, p.stockBySize ?? {}, LOW_STOCK_THRESHOLD);
+        const low = productHasLowStock(p.variantStockRows, LOW_STOCK_THRESHOLD);
         return (
           <div
             className={low ? "rounded-md bg-amber-500/5 px-1 py-0.5 -mx-1 -my-0.5" : undefined}
-            title={low ? "At least one variant is below 5 units" : undefined}
+            title={low ? "At least one variant has stock above 0 but below 5 units" : undefined}
           >
             <StockHoverCell
               totalStock={p.totalStock}
-              stockBySize={p.stockBySize ?? {}}
-              stockByColor={p.stockByColor}
+              variants={p.variantStockRows}
               lowStockThreshold={LOW_STOCK_THRESHOLD}
             />
           </div>

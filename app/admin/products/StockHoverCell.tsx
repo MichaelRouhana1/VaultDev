@@ -1,45 +1,42 @@
 "use client";
 
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useMemo } from "react";
 import { createPortal } from "react-dom";
 import { AlertTriangle } from "lucide-react";
 import { cn } from "@/lib/utils";
 
-const SIZES = ["XS", "S", "M", "L", "XL"] as const;
-
 export const LOW_STOCK_THRESHOLD = 5;
 
-export interface StockByColorRow {
-  colorName: string;
-  stockBySize: Record<string, number>;
-}
+/** One purchasable variant row for admin stock tooltip (from dynamic options + legacy fallback). */
+export type AdminVariantStockRow = {
+  variantId: number;
+  displayLabel: string;
+  quantity: number;
+  sku: string | null;
+};
 
+/**
+ * Global low-stock warning: any variant has stock strictly between 0 and threshold.
+ * (Out-of-stock-only products do not trigger this; see tooltip row styling for zeros.)
+ */
 export function productHasLowStock(
-  stockByColor: StockByColorRow[] | undefined,
-  stockBySize: Record<string, number>,
+  variants: AdminVariantStockRow[] | undefined,
   threshold: number = LOW_STOCK_THRESHOLD,
 ): boolean {
-  const checkMap = (m: Record<string, number>) =>
-    SIZES.some((s) => (m[s] ?? 0) < threshold);
-
-  if (stockByColor && stockByColor.length > 0) {
-    return stockByColor.some((row) => checkMap(row.stockBySize));
-  }
-  return checkMap(stockBySize);
+  if (!variants?.length) return false;
+  return variants.some((v) => v.quantity > 0 && v.quantity < threshold);
 }
 
 interface StockHoverCellProps {
+  /** Sum of variant quantities; should match sum of `variants[].quantity` when provided. */
   totalStock: number;
-  stockBySize: Record<string, number>;
-  /** When provided, shows a row per color with stock breakdown. Falls back to stockBySize when empty. */
-  stockByColor?: StockByColorRow[];
+  variants: AdminVariantStockRow[];
   lowStockThreshold?: number;
 }
 
 export function StockHoverCell({
   totalStock,
-  stockBySize,
-  stockByColor,
+  variants,
   lowStockThreshold = LOW_STOCK_THRESHOLD,
 }: StockHoverCellProps) {
   const [open, setOpen] = useState(false);
@@ -47,12 +44,19 @@ export function StockHoverCell({
   const triggerRef = useRef<HTMLDivElement>(null);
   const closeTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const rows =
-    stockByColor && stockByColor.length > 0
-      ? stockByColor
-      : [{ colorName: "Stock", stockBySize }];
+  const anyLow = useMemo(
+    () => productHasLowStock(variants, lowStockThreshold),
+    [variants, lowStockThreshold],
+  );
 
-  const anyLow = productHasLowStock(stockByColor, stockBySize, lowStockThreshold);
+  const sortedVariants = useMemo(() => {
+    return [...variants].sort((a, b) => {
+      const la = a.displayLabel.toLowerCase();
+      const lb = b.displayLabel.toLowerCase();
+      if (la !== lb) return la.localeCompare(lb);
+      return a.variantId - b.variantId;
+    });
+  }, [variants]);
 
   const updatePosition = () => {
     const el = triggerRef.current;
@@ -90,9 +94,19 @@ export function StockHoverCell({
     };
   }, []);
 
+  const rowClass = (qty: number) => {
+    if (qty <= 0) {
+      return "border-destructive/60 bg-destructive/5 text-destructive";
+    }
+    if (qty < lowStockThreshold) {
+      return "border-amber-500/60 bg-amber-500/10 text-amber-900 dark:text-amber-100";
+    }
+    return "border-border bg-muted/30 text-foreground";
+  };
+
   const popupContent = open && (
     <div
-      className="fixed z-[9999] min-w-[200px] -translate-x-1/2 rounded-md border border-border bg-background px-4 py-3 shadow-lg pointer-events-auto"
+      className="fixed z-[9999] min-w-[220px] max-w-[min(90vw,360px)] -translate-x-1/2 rounded-md border border-border bg-background px-4 py-3 shadow-lg pointer-events-auto"
       style={{
         top: position.top,
         left: position.left,
@@ -101,36 +115,31 @@ export function StockHoverCell({
       onMouseLeave={handleMouseLeave}
     >
       <p className="mb-2 text-xs font-medium uppercase tracking-wider text-muted-foreground">
-        Stock
+        Stock by variant
       </p>
-      <p className={cn("mb-3 text-lg font-bold", anyLow && "text-destructive")}>{totalStock}</p>
-      <div className="space-y-3">
-        {rows.map((row) => (
-          <div key={row.colorName} className="space-y-1.5">
-            <p className="text-xs font-medium text-foreground">{row.colorName}</p>
-            <div className="flex gap-2 flex-wrap">
-              {SIZES.map((size) => {
-                const n = row.stockBySize[size] ?? 0;
-                const low = n < lowStockThreshold;
-                return (
-                  <div
-                    key={size}
-                    className={cn(
-                      "flex min-w-[2.5rem] flex-col items-center rounded border bg-muted/30 px-2 py-1.5",
-                      low
-                        ? "border-destructive border-2 ring-1 ring-destructive/30"
-                        : "border-border",
-                    )}
-                  >
-                    <span className="text-xs text-muted-foreground">{size}</span>
-                    <span className={cn("font-medium", low && "text-destructive")}>{n}</span>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-        ))}
-      </div>
+      <p className={cn("mb-3 text-lg font-bold tabular-nums", anyLow && "text-destructive")}>
+        {totalStock} in stock
+      </p>
+      <ul className="space-y-2 max-h-[min(60vh,320px)] overflow-y-auto pr-1">
+        {sortedVariants.length === 0 ? (
+          <li className="text-xs text-muted-foreground">No variant rows</li>
+        ) : (
+          sortedVariants.map((v) => (
+            <li
+              key={v.variantId}
+              className={cn(
+                "flex items-center justify-between gap-3 rounded-md border px-2.5 py-2 text-sm",
+                rowClass(v.quantity),
+              )}
+            >
+              <span className="min-w-0 truncate font-medium" title={v.displayLabel}>
+                {v.displayLabel}
+              </span>
+              <span className="tabular-nums shrink-0 font-semibold">{v.quantity}</span>
+            </li>
+          ))
+        )}
+      </ul>
     </div>
   );
 
@@ -143,12 +152,12 @@ export function StockHoverCell({
         onMouseLeave={handleMouseLeave}
       >
         {anyLow && (
-          <span className="inline-flex text-amber-500" title="Low stock: some variants below threshold">
+          <span className="inline-flex text-amber-500" title="Low stock: a variant is below threshold (but not sold out)">
             <AlertTriangle className="size-4 shrink-0" aria-hidden />
           </span>
         )}
         <span className={cn("cursor-default tabular-nums", anyLow && "text-destructive font-medium")}>
-          {totalStock}
+          {totalStock} in stock
         </span>
       </div>
       {open && typeof document !== "undefined" && createPortal(popupContent, document.body)}
