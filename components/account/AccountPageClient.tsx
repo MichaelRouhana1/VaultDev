@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useTransition, useEffect, useRef } from "react";
+import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { SignOutButton } from "@clerk/nextjs";
@@ -11,19 +12,31 @@ import { AccountChangePasswordPanel } from "@/components/account/AccountChangePa
 import { DeleteAccountButton } from "@/components/DeleteAccountButton";
 import type { VaultProfileStored } from "@/lib/account-vault-profile";
 import { cn } from "@/lib/utils";
-import { Mail, Lock, Trash2 } from "lucide-react";
+import { ChevronDown, Mail, Lock, Package, Trash2 } from "lucide-react";
+
+export type AccountOrderItemDto = {
+  productName: string;
+  size: string;
+  quantity: number;
+  priceAtPurchase: string;
+  productImageUrl?: string | null;
+};
 
 export type AccountOrderDto = {
   id: number;
   createdAt: string;
   status: string;
+  subtotalAmount: string;
+  shippingFee: string;
+  discountAmount: string;
   totalAmount: string;
-  items: {
-    productName: string;
-    size: string;
-    quantity: number;
-    priceAtPurchase: string;
-  }[];
+  shipping: {
+    name: string;
+    phone: string;
+    line1: string;
+    city: string;
+  };
+  items: AccountOrderItemDto[];
 };
 
 type Panel = "purchases" | "details" | "change-email" | "change-password";
@@ -41,6 +54,46 @@ const inputClass =
 
 const labelClass =
   "block text-[0.65rem] font-semibold uppercase tracking-[0.2em] text-foreground mb-2";
+
+function formatUsd(amount: string): string {
+  const n = parseFloat(amount);
+  if (!Number.isFinite(n)) return amount;
+  return n.toFixed(2);
+}
+
+function parseAmount(amount: string): number {
+  const n = parseFloat(amount);
+  return Number.isFinite(n) ? n : 0;
+}
+
+function orderStatusBadgeClass(status: string): string {
+  const s = status.toUpperCase();
+  switch (s) {
+    case "DELIVERED":
+      return "bg-emerald-500/15 text-emerald-800 dark:text-emerald-200 border-emerald-500/30";
+    case "SHIPPED":
+      return "bg-sky-500/15 text-sky-900 dark:text-sky-100 border-sky-500/30";
+    case "PROCESSING":
+      return "bg-amber-500/15 text-amber-950 dark:text-amber-100 border-amber-500/35";
+    case "CANCELLED":
+      return "bg-destructive/10 text-destructive border-destructive/25";
+    case "PENDING":
+    default:
+      return "bg-muted text-muted-foreground border-border";
+  }
+}
+
+function orderStatusLabel(status: string): string {
+  const s = status.toUpperCase();
+  const map: Record<string, string> = {
+    PENDING: "Pending",
+    PROCESSING: "Processing",
+    SHIPPED: "Shipped",
+    DELIVERED: "Delivered",
+    CANCELLED: "Cancelled",
+  };
+  return map[s] ?? status;
+}
 
 type Props = {
   vaultTitle: string;
@@ -62,8 +115,13 @@ export function AccountPageClient({
   const router = useRouter();
   const [panel, setPanel] = useState<Panel>("purchases");
   const [isSaving, startSave] = useTransition();
+  const [expandedOrderId, setExpandedOrderId] = useState<number | null>(null);
 
   const securityPanelTopRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (panel !== "purchases") setExpandedOrderId(null);
+  }, [panel]);
 
   useEffect(() => {
     if (panel !== "change-email" && panel !== "change-password") return;
@@ -188,42 +246,222 @@ export function AccountPageClient({
                 </div>
               ) : (
                 <div className="space-y-10">
-                  <h2 className="text-sm font-semibold uppercase tracking-[0.2em] text-foreground">
-                    My purchases
-                  </h2>
-                  <ul className="space-y-8">
-                    {orders.map((order) => (
-                      <li key={order.id} className="border-b border-border pb-8 last:border-0">
-                        <div className="flex flex-wrap items-baseline justify-between gap-2">
-                          <span className="text-xs font-semibold uppercase tracking-widest text-foreground">
-                            Order #{order.id}
-                          </span>
-                          <time className="text-xs text-muted-foreground" dateTime={order.createdAt}>
-                            {new Date(order.createdAt).toLocaleDateString(undefined, {
-                              year: "numeric",
-                              month: "short",
-                              day: "numeric",
-                            })}
-                          </time>
-                        </div>
-                        <div className="mt-2 flex flex-wrap items-center gap-3">
-                          <span className="text-xs uppercase tracking-wider text-muted-foreground">
-                            {order.status}
-                          </span>
-                          <span className="text-sm font-semibold text-foreground">${order.totalAmount}</span>
-                        </div>
-                        <ul className="mt-4 space-y-1 text-sm text-muted-foreground">
-                          {order.items.map((item, i) => (
-                            <li key={i}>
-                              {item.productName} · {item.size} × {item.quantity} · $
-                              {typeof item.priceAtPurchase === "string"
-                                ? item.priceAtPurchase
-                                : String(item.priceAtPurchase)}
-                            </li>
-                          ))}
-                        </ul>
-                      </li>
-                    ))}
+                  <div>
+                    <h2 className="text-sm font-semibold uppercase tracking-[0.2em] text-foreground">
+                      Order history
+                    </h2>
+                    <p className="mt-2 max-w-xl text-xs text-muted-foreground leading-relaxed">
+                      View details, line items, and shipping for each order. Select an order to expand.
+                    </p>
+                  </div>
+                  <ul className="flex flex-col gap-4">
+                    {orders.map((order) => {
+                      const expanded = expandedOrderId === order.id;
+                      const placed = new Date(order.createdAt);
+                      const placedLabel = placed.toLocaleDateString(undefined, {
+                        year: "numeric",
+                        month: "short",
+                        day: "numeric",
+                      });
+                      const discountNum = parseAmount(order.discountAmount);
+                      const shippingNum = parseAmount(order.shippingFee);
+                      const items = order.items ?? [];
+
+                      return (
+                        <li
+                          key={order.id}
+                          className="overflow-hidden rounded-none border border-border bg-card shadow-sm transition-shadow hover:shadow-md"
+                        >
+                          <button
+                            type="button"
+                            onClick={() =>
+                              setExpandedOrderId((id) => (id === order.id ? null : order.id))
+                            }
+                            aria-expanded={expanded}
+                            className="flex w-full items-start gap-3 px-4 py-4 text-left transition-colors hover:bg-muted/40 md:items-center md:gap-4 md:px-5 md:py-5"
+                          >
+                            <div className="min-w-0 flex-1 space-y-1">
+                              <p className="font-mono text-sm font-bold tabular-nums tracking-tight text-foreground">
+                                #{String(order.id).padStart(5, "0")}
+                              </p>
+                              <p className="text-xs text-muted-foreground">
+                                Placed on{" "}
+                                <time dateTime={order.createdAt}>{placedLabel}</time>
+                              </p>
+                            </div>
+                            <div className="flex shrink-0 flex-col items-end gap-2 sm:flex-row sm:items-center sm:gap-4">
+                              <div className="text-right">
+                                <p className="text-[0.65rem] font-semibold uppercase tracking-[0.15em] text-muted-foreground">
+                                  Total
+                                </p>
+                                <p className="text-base font-semibold tabular-nums text-foreground">
+                                  ${formatUsd(order.totalAmount)}
+                                </p>
+                              </div>
+                              <span
+                                className={cn(
+                                  "inline-flex border px-2.5 py-1 text-[0.65rem] font-semibold uppercase tracking-wider",
+                                  orderStatusBadgeClass(order.status),
+                                )}
+                              >
+                                {orderStatusLabel(order.status)}
+                              </span>
+                              <ChevronDown
+                                className={cn(
+                                  "size-5 shrink-0 text-muted-foreground transition-transform duration-300 ease-out",
+                                  expanded && "rotate-180",
+                                )}
+                                aria-hidden
+                              />
+                            </div>
+                          </button>
+
+                          <div
+                            className={cn(
+                              "grid transition-[grid-template-rows] duration-300 ease-in-out",
+                              expanded ? "grid-rows-[1fr]" : "grid-rows-[0fr]",
+                            )}
+                          >
+                            <div className="min-h-0 overflow-hidden">
+                              <div className="border-t border-border bg-muted/40 px-4 py-6 md:px-5">
+                                <div className="space-y-6">
+                                  <div>
+                                    <h3 className="text-[0.65rem] font-semibold uppercase tracking-[0.2em] text-muted-foreground">
+                                      Items
+                                    </h3>
+                                    <ul className="mt-4 space-y-4">
+                                      {items.length === 0 ? (
+                                        <li className="text-sm text-muted-foreground">
+                                          No line items recorded for this order.
+                                        </li>
+                                      ) : (
+                                        items.map((item, i) => {
+                                          const lineTotal =
+                                            parseAmount(item.priceAtPurchase) * item.quantity;
+                                          const src = item.productImageUrl?.trim();
+                                          return (
+                                            <li
+                                              key={`${order.id}-${i}-${item.productName}`}
+                                              className="flex gap-4 border-b border-border/60 pb-4 last:border-0 last:pb-0"
+                                            >
+                                              <div className="relative h-16 w-16 shrink-0 overflow-hidden border border-border bg-muted">
+                                                {src ? (
+                                                  <Image
+                                                    src={src}
+                                                    alt={item.productName}
+                                                    fill
+                                                    className="object-cover"
+                                                    sizes="64px"
+                                                  />
+                                                ) : (
+                                                  <span className="flex h-full w-full items-center justify-center text-muted-foreground">
+                                                    <Package className="size-6" strokeWidth={1.25} />
+                                                  </span>
+                                                )}
+                                              </div>
+                                              <div className="min-w-0 flex-1">
+                                                <p className="text-sm font-medium leading-snug text-foreground">
+                                                  {item.productName}
+                                                </p>
+                                                <p className="mt-1 text-xs text-muted-foreground">
+                                                  Size {item.size}
+                                                </p>
+                                                <div className="mt-2 flex flex-wrap items-baseline gap-x-3 gap-y-1 text-xs text-muted-foreground">
+                                                  <span>Qty: {item.quantity}</span>
+                                                  <span className="tabular-nums">
+                                                    ${formatUsd(item.priceAtPurchase)} each
+                                                  </span>
+                                                </div>
+                                              </div>
+                                              <div className="shrink-0 text-right">
+                                                <p className="text-sm font-semibold tabular-nums text-foreground">
+                                                  ${formatUsd(String(lineTotal))}
+                                                </p>
+                                              </div>
+                                            </li>
+                                          );
+                                        })
+                                      )}
+                                    </ul>
+                                  </div>
+
+                                  <div className="flex flex-col gap-6 border-t border-border/80 pt-6 sm:flex-row sm:justify-between">
+                                    <div className="max-w-md space-y-1 text-sm">
+                                      <h3 className="text-[0.65rem] font-semibold uppercase tracking-[0.2em] text-muted-foreground">
+                                        Shipping address
+                                      </h3>
+                                      <p className="font-medium text-foreground">
+                                        {order.shipping?.name ?? "—"}
+                                      </p>
+                                      <p className="text-muted-foreground">{order.shipping?.line1 ?? "—"}</p>
+                                      <p className="text-muted-foreground">{order.shipping?.city ?? "—"}</p>
+                                      <p className="text-muted-foreground tabular-nums">
+                                        {order.shipping?.phone ?? "—"}
+                                      </p>
+                                    </div>
+
+                                    <div className="w-full max-w-xs space-y-2 sm:text-right">
+                                      <h3 className="text-left text-[0.65rem] font-semibold uppercase tracking-[0.2em] text-muted-foreground sm:text-right">
+                                        Summary
+                                      </h3>
+                                      <div className="space-y-1.5 text-sm">
+                                        <div className="flex justify-between gap-4 tabular-nums">
+                                          <span className="text-muted-foreground">Subtotal</span>
+                                          <span>${formatUsd(order.subtotalAmount)}</span>
+                                        </div>
+                                        {discountNum > 0 && (
+                                          <div className="flex justify-between gap-4 tabular-nums text-emerald-700 dark:text-emerald-400">
+                                            <span>Discount</span>
+                                            <span>−${formatUsd(order.discountAmount)}</span>
+                                          </div>
+                                        )}
+                                        <div className="flex justify-between gap-4 tabular-nums">
+                                          <span className="text-muted-foreground">Shipping</span>
+                                          <span>
+                                            {shippingNum <= 0
+                                              ? "Free"
+                                              : `$${formatUsd(order.shippingFee)}`}
+                                          </span>
+                                        </div>
+                                        <div className="flex justify-between gap-4 border-t border-border pt-2 text-base font-semibold tabular-nums">
+                                          <span>Total</span>
+                                          <span>${formatUsd(order.totalAmount)}</span>
+                                        </div>
+                                      </div>
+                                    </div>
+                                  </div>
+
+                                  <div className="flex flex-wrap gap-3 border-t border-border/80 pt-6">
+                                    <button
+                                      type="button"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        window.alert("Tracking is not available for this order yet.");
+                                      }}
+                                      className="border border-border bg-background px-4 py-2.5 text-[0.65rem] font-semibold uppercase tracking-[0.15em] text-foreground transition-colors hover:bg-muted"
+                                    >
+                                      Track order
+                                    </button>
+                                    <button
+                                      type="button"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        window.alert(
+                                          "Please email support from the address on your account for order help.",
+                                        );
+                                      }}
+                                      className="border border-transparent px-4 py-2.5 text-[0.65rem] font-semibold uppercase tracking-[0.15em] text-muted-foreground underline-offset-4 hover:text-foreground hover:underline"
+                                    >
+                                      Contact support
+                                    </button>
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        </li>
+                      );
+                    })}
                   </ul>
                 </div>
               )}
