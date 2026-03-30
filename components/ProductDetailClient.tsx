@@ -13,8 +13,11 @@ import {
   CarouselDots,
   type CarouselApi,
 } from "@/components/ui/carousel";
-import { getProductDisplayPrice, isProductOnSale } from "@/lib/utils";
+import { cn, getProductDisplayPrice, isProductOnSale } from "@/lib/utils";
+import { ProductDetailAccordion } from "@/components/ProductDetailAccordion";
+import type { ProductPageAccordionResolved } from "@/actions/product-page-copy";
 import type { Product, ProductVariant, ProductColor } from "@/db/schema";
+import { WishlistBookmarkIcon } from "@/components/WishlistBookmarkIcon";
 
 const DEFAULT_SIZES = ["XS", "S", "M", "L", "XL"];
 
@@ -28,6 +31,7 @@ interface ProductDetailClientProps {
   wishlistProductIds: number[];
   /** From URL — used for cart product links */
   listStoreType: "streetwear" | "formal";
+  productPageAccordionCopy: ProductPageAccordionResolved;
 }
 
 export function ProductDetailClient({
@@ -39,6 +43,7 @@ export function ProductDetailClient({
   variantsByProductId,
   wishlistProductIds,
   listStoreType,
+  productPageAccordionCopy,
 }: ProductDetailClientProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -54,6 +59,9 @@ export function ProductDetailClient({
   const [carouselApi, setCarouselApi] = useState<CarouselApi | undefined>(undefined);
   const lightboxScrollRef = useRef<HTMLDivElement>(null);
   const dragRef = useRef<{ x: number; y: number; scrollLeft: number; scrollTop: number } | null>(null);
+  const similarSectionRef = useRef<HTMLElement | null>(null);
+  const [similarSectionInView, setSimilarSectionInView] = useState(false);
+  const [stickyBuyPhase, setStickyBuyPhase] = useState<"summary" | "pickSize">("summary");
 
   const firstColor = colors[0];
   const colorFromUrl = searchParams.get("color");
@@ -82,6 +90,31 @@ export function ProductDetailClient({
   useEffect(() => {
     carouselApi?.scrollTo(0);
   }, [selectedColor?.id, imageUrls.length, carouselApi]);
+
+  useEffect(() => {
+    setStickyBuyPhase("summary");
+  }, [selectedColor?.id]);
+
+  useEffect(() => {
+    if (similarProducts.length === 0) {
+      setSimilarSectionInView(false);
+      return;
+    }
+    const el = similarSectionRef.current;
+    if (!el) return;
+    const io = new IntersectionObserver(
+      (entries) => {
+        setSimilarSectionInView(entries.some((e) => e.isIntersecting));
+      },
+      { threshold: 0, rootMargin: "0px" },
+    );
+    io.observe(el);
+    return () => io.disconnect();
+  }, [similarProducts.length]);
+
+  useEffect(() => {
+    if (!similarSectionInView) setStickyBuyPhase("summary");
+  }, [similarSectionInView]);
 
   const hasMultipleImages = imageUrls.length >= 2;
 
@@ -213,13 +246,13 @@ export function ProductDetailClient({
     await toggleItem(product.id);
   };
 
-  const handleAddToBag = () => {
-    if (!selectedSize || !isSizeInStock(selectedSize)) return;
+  const addLineForSize = (size: string) => {
+    if (!isSizeInStock(size)) return;
     const productImage = imageUrls[0];
     const colorName = selectedColor?.name ?? product.color ?? undefined;
     addToCart({
       productId: product.id,
-      size: selectedSize,
+      size,
       quantity: 1,
       priceAtPurchase: displayPrice,
       productName: product.name,
@@ -228,10 +261,31 @@ export function ProductDetailClient({
       storeTypeForUrl: listStoreType,
       sku:
         colors.length > 1 && selectedColor
-          ? `${product.id}-${selectedColor.id}-${selectedSize}`
+          ? `${product.id}-${selectedColor.id}-${size}`
           : undefined,
     });
     openCart();
+    setSelectedSize(size);
+    setStickyBuyPhase("summary");
+  };
+
+  const handleAddToBag = () => {
+    if (!selectedSize || !isSizeInStock(selectedSize)) return;
+    addLineForSize(selectedSize);
+  };
+
+  const handleStickyBarAddClick = () => {
+    if (!hasAnyInStock) return;
+    if (canAddToCart) {
+      addLineForSize(selectedSize!);
+      return;
+    }
+    setStickyBuyPhase("pickSize");
+  };
+
+  const handleStickyBarSizeClick = (size: string) => {
+    if (!isSizeInStock(size)) return;
+    addLineForSize(size);
   };
 
   const mainSrc =
@@ -239,8 +293,25 @@ export function ProductDetailClient({
       ? imageUrls[mainImageIndex]
       : null;
 
+  const stickyThumbSrc = imageUrls[0] && !imageErrors[0] ? imageUrls[0] : null;
+  const showStickyBuyBar = similarProducts.length > 0 && similarSectionInView && !lightboxOpen;
+
+  const priceBlock = onSale ? (
+    <span className="inline-flex flex-wrap items-baseline gap-2">
+      <span className="line-through text-muted-foreground text-sm">${price}</span>
+      <span className="text-destructive font-semibold">${displayPrice}</span>
+    </span>
+  ) : (
+    <span className="text-sm font-semibold">${displayPrice}</span>
+  );
+
   return (
-    <main className="w-full max-w-[1400px] mx-auto px-6 py-12">
+    <main
+      className={cn(
+        "w-full max-w-[1400px] mx-auto px-6 py-12 relative",
+        showStickyBuyBar && "pb-28 md:pb-24",
+      )}
+    >
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 lg:gap-16">
         {/* Image gallery */}
         <div className="flex flex-col gap-4">
@@ -250,17 +321,9 @@ export function ProductDetailClient({
               type="button"
               onClick={handleWishlistClick}
               className="absolute top-4 right-4 w-10 h-10 z-10 flex items-center justify-center bg-white/90 dark:bg-black/60 text-foreground hover:bg-white dark:hover:bg-black/80 transition-colors rounded-none"
-              aria-label={wishlistState ? "Remove from favorites" : "Add to favorites"}
+              aria-label={wishlistState ? "Remove from wishlist" : "Add to wishlist"}
             >
-              {wishlistState ? (
-                <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
-                  <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z" />
-                </svg>
-              ) : (
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
-                  <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z" />
-                </svg>
-              )}
+              <WishlistBookmarkIcon active={wishlistState} className="w-5 h-5" />
             </button>
             <Carousel
               setApi={setCarouselApi}
@@ -334,22 +397,14 @@ export function ProductDetailClient({
                 </div>
               )}
 
-              {/* Wishlist heart */}
+              {/* Wishlist bookmark */}
               <button
                 type="button"
                 onClick={handleWishlistClick}
                 className="absolute top-4 right-4 w-10 h-10 flex items-center justify-center bg-white/90 dark:bg-black/60 text-foreground hover:bg-white dark:hover:bg-black/80 transition-colors z-10"
-                aria-label={wishlistState ? "Remove from favorites" : "Add to favorites"}
+                aria-label={wishlistState ? "Remove from wishlist" : "Add to wishlist"}
               >
-                {wishlistState ? (
-                  <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
-                    <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z" />
-                  </svg>
-                ) : (
-                  <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
-                    <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z" />
-                  </svg>
-                )}
+                <WishlistBookmarkIcon active={wishlistState} className="w-5 h-5" />
               </button>
 
               {hasMultipleImages && (
@@ -599,56 +654,62 @@ export function ProductDetailClient({
               type="button"
               onClick={handleWishlistClick}
               className="text-muted-foreground hover:text-foreground transition-colors"
-              aria-label="Add to favorites"
+              aria-label={wishlistState ? "Remove from wishlist" : "Add to wishlist"}
             >
-              <svg className="w-5 h-5" fill={wishlistState ? "currentColor" : "none"} stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
-              </svg>
+              <WishlistBookmarkIcon active={wishlistState} className="w-5 h-5" />
             </button>
           </div>
 
-          {colors.length > 0 ? (
+          {colors.length > 1 ? (
             <div className="mt-4">
-              <p className="text-xs font-medium uppercase tracking-widest text-muted-foreground mb-2">
-                Color{colors.length > 1 ? ` — ${selectedColor?.name ?? ""}` : ""}
+              <p className="text-xs font-medium uppercase tracking-widest text-muted-foreground mb-3">
+                Color — {selectedColor?.name ?? ""}
               </p>
-              <div className="flex gap-3 flex-wrap">
+              <div className="flex flex-wrap gap-3">
                 {colors.map((c) => {
                   const isSelected = selectedColor?.id === c.id;
+                  const thumb = c.imageUrls?.[0] ?? null;
                   return (
                     <button
                       key={c.id}
                       type="button"
                       onClick={() => handleColorSelect(c)}
-                      className={`relative w-10 h-10 rounded-full transition-all duration-200 hover:scale-110 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-background focus:ring-foreground/50 ${isSelected
-                        ? "ring-2 ring-foreground ring-offset-2 ring-offset-background scale-110"
-                        : "ring-1 ring-border/50 hover:ring-foreground/30"
-                        }`}
-                      style={{ backgroundColor: c.hexCode ?? "var(--muted)" }}
+                      className={cn(
+                        "box-border bg-background p-1.5 transition-colors rounded-none focus:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background",
+                        isSelected ? "border-2 border-foreground" : "border border-border hover:border-foreground/35",
+                      )}
                       title={c.name}
                       aria-label={`Select ${c.name}`}
                       aria-pressed={isSelected}
-                    />
+                    >
+                      <span
+                        className="block h-8 w-8 bg-muted bg-cover bg-center"
+                        style={
+                          thumb
+                            ? { backgroundImage: `url(${thumb})` }
+                            : { backgroundColor: c.hexCode ?? "var(--muted)" }
+                        }
+                      />
+                    </button>
                   );
                 })}
               </div>
             </div>
-          ) : product.color ? (
-            <p className="mt-2 text-sm text-muted-foreground">{product.color}</p>
+          ) : colors.length === 0 && product.color ? (
+            <p className="mt-4 text-sm text-muted-foreground">{product.color}</p>
           ) : null}
 
-          {imageUrls[0] && (
+          {colors.length > 1 && imageUrls[0] ? (
             <div className="mt-4 aspect-square w-16 h-16 overflow-hidden border border-border">
               <Image
                 src={imageUrls[0]}
-                alt={`Selected color ${selectedColor?.name ?? product.color ?? ''}`.trim()}
+                alt={`Selected color ${selectedColor?.name ?? ""}`.trim()}
                 width={64}
                 height={64}
                 className="w-full h-full object-cover"
-
               />
             </div>
-          )}
+          ) : null}
 
           <p className="mt-6 text-lg font-normal text-foreground">
             {onSale ? (
@@ -704,18 +765,19 @@ export function ProductDetailClient({
             <p className="mt-2 text-xs text-muted-foreground">Please select a size</p>
           )}
 
-          <p className="mt-6 text-sm font-light text-muted-foreground">
-            Free pickup at: VAULT
-          </p>
-
-          {product.description && (
-            <p className="mt-6 text-sm text-muted-foreground">{product.description}</p>
-          )}
+          <ProductDetailAccordion
+            productDescription={product.description}
+            accordionCopy={productPageAccordionCopy}
+          />
         </div>
       </div>
 
       {similarProducts.length > 0 && (
-        <section className="mt-24 pt-16 border-t border-border">
+        <section
+          ref={similarSectionRef}
+          id="similar-items"
+          className="mt-24 pt-16 border-t border-border scroll-mt-8"
+        >
           <h2 className="text-sm font-medium text-foreground tracking-[0.2em] uppercase mb-8">
             Similar Items
           </h2>
@@ -733,6 +795,104 @@ export function ProductDetailClient({
           </div>
         </section>
       )}
+
+      {/* Sticky buy bar — appears when Similar Items section is in view (Bershka-style) */}
+      <div
+        className={cn(
+          "fixed inset-x-0 bottom-0 z-40 border-t border-border bg-background/95 backdrop-blur-md shadow-[0_-4px_24px_rgba(0,0,0,0.06)] transition-transform duration-300 ease-out",
+          showStickyBuyBar ? "translate-y-0" : "translate-y-full pointer-events-none",
+        )}
+        aria-hidden={!showStickyBuyBar}
+      >
+        <div className="max-w-[1400px] mx-auto px-4 sm:px-6 py-3 pb-[max(0.75rem,env(safe-area-inset-bottom,0px))]">
+          <div className="flex flex-col gap-3">
+            <div className="flex items-center gap-3 min-w-0">
+              <div className="relative h-14 w-14 shrink-0 overflow-hidden bg-muted border border-border">
+                {stickyThumbSrc ? (
+                  <Image
+                    src={stickyThumbSrc}
+                    alt={product.name}
+                    fill
+                    className="object-cover"
+                    sizes="56px"
+                  />
+                ) : (
+                  <div className="flex h-full w-full items-center justify-center text-muted-foreground text-xs">
+                    —
+                  </div>
+                )}
+              </div>
+              <div className="min-w-0 flex-1 flex flex-col gap-0.5 sm:flex-row sm:items-center sm:gap-6">
+                <div className="min-w-0">
+                  <p className="text-xs font-semibold uppercase tracking-[0.15em] text-foreground truncate">
+                    {product.name}
+                  </p>
+                  <p className="text-[0.65rem] font-medium uppercase tracking-wider text-muted-foreground">
+                    {selectedColor?.name ?? product.color ?? ""}
+                  </p>
+                </div>
+                <div className="shrink-0 sm:ml-auto">{priceBlock}</div>
+              </div>
+              <div className="flex items-center gap-2 shrink-0">
+                {stickyBuyPhase === "summary" ? (
+                  <button
+                    type="button"
+                    onClick={handleStickyBarAddClick}
+                    disabled={!hasAnyInStock}
+                    className="rounded-none bg-foreground px-4 py-2.5 text-[0.65rem] font-semibold uppercase tracking-[0.2em] text-background hover:opacity-90 disabled:opacity-40 disabled:cursor-not-allowed whitespace-nowrap"
+                  >
+                    Add to basket
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => setStickyBuyPhase("summary")}
+                    className="rounded-none border border-border px-3 py-2 text-[0.65rem] font-medium uppercase tracking-wider text-foreground hover:bg-muted/60 whitespace-nowrap"
+                  >
+                    Back
+                  </button>
+                )}
+                <button
+                  type="button"
+                  onClick={handleWishlistClick}
+                  className="flex h-10 w-10 shrink-0 items-center justify-center text-foreground hover:opacity-70 border border-border rounded-none"
+                  aria-label={wishlistState ? "Remove from wishlist" : "Add to wishlist"}
+                >
+                  <WishlistBookmarkIcon active={wishlistState} className="w-5 h-5" />
+                </button>
+              </div>
+            </div>
+            {stickyBuyPhase === "pickSize" && (
+              <div className="flex flex-wrap gap-2 items-center pl-0 sm:pl-[4.25rem] border-t border-border/60 pt-3">
+                <span className="w-full sm:w-auto text-[0.65rem] font-semibold uppercase tracking-wider text-muted-foreground sm:mr-2">
+                  Size
+                </span>
+                <div className="flex flex-wrap gap-2">
+                  {sizes.map((size) => {
+                    const inStock = isSizeInStock(size);
+                    return (
+                      <button
+                        key={size}
+                        type="button"
+                        disabled={!inStock}
+                        onClick={() => handleStickyBarSizeClick(size)}
+                        className={cn(
+                          "min-w-[2.5rem] px-3 py-2 text-xs font-medium uppercase tracking-wider rounded-none border transition-colors",
+                          !inStock
+                            ? "border-border text-muted-foreground opacity-45 cursor-not-allowed bg-muted/20"
+                            : "border-border text-foreground hover:border-foreground hover:bg-muted/40",
+                        )}
+                      >
+                        {size}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
     </main>
   );
 }

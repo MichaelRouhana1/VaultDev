@@ -291,7 +291,7 @@ export function CartClient({
             <div className="flex flex-col items-center justify-center py-16 border border-border">
               <p className="text-muted-foreground mb-4">No favourites yet</p>
               <p className="text-xs text-muted-foreground mb-4 text-center max-w-sm">
-                Save items with the heart icon while you browse. Sign in anytime to sync across devices.
+                Save items with the bookmark icon while you browse. Sign in anytime to sync across devices.
               </p>
               <Link
                 href="/streetwear/shop"

@@ -45,7 +45,9 @@ export type AuditAction =
   /** Retention prune of audit_logs + read notifications (Security logs maintenance). */
   | "retention.cleanup"
   /** Bulk guest email/phone export from orders (admin Security Logs UI). */
-  | "contact.export";
+  | "contact.export"
+  /** PDP accordion copy (description extra, shipping, returns) per store. */
+  | "product_page_copy.save";
 
 export interface AuditEntry {
   timestamp: string;

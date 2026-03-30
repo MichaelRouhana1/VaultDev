@@ -71,7 +71,7 @@ export function CreateProductForm({
     setColors((prev) => prev.filter((c) => c.id !== id));
   };
 
-  const updateColor = (id: string, updates: Partial<Omit<ColorEntry, "id">>) => {
+  const updateColor = (id: string | number, updates: Partial<Omit<ColorEntry, "id">>) => {
     setColors((prev) =>
       prev.map((c) => (c.id === id ? { ...c, ...updates } : c))
     );

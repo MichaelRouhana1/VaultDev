@@ -340,6 +340,16 @@ export const sectionSettings = pgTable("section_settings", {
   isVisible: boolean("is_visible").notNull().default(true),
 });
 
+/** Store-specific copy for PDP accordion (additional description + shipping + returns). */
+export const productPageCopy = pgTable("product_page_copy", {
+  id: serial("id").primaryKey(),
+  storeType: storeTypeEnum("store_type").notNull().unique(),
+  descriptionExtra: text("description_extra"),
+  shippingDelivery: text("shipping_delivery"),
+  returnsText: text("returns_text"),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
 // Get the Look section - admin-managed categories
 export const lookbookItems = pgTable("lookbook_items", {
   id: serial("id").primaryKey(),
@@ -457,6 +467,9 @@ export type NewWishlist = typeof wishlists.$inferInsert;
 
 export type SectionSetting = typeof sectionSettings.$inferSelect;
 export type NewSectionSetting = typeof sectionSettings.$inferInsert;
+
+export type ProductPageCopyRow = typeof productPageCopy.$inferSelect;
+export type NewProductPageCopyRow = typeof productPageCopy.$inferInsert;
 
 export type LookbookItem = typeof lookbookItems.$inferSelect;
 export type NewLookbookItem = typeof lookbookItems.$inferInsert;

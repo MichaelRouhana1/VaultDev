@@ -14,6 +14,7 @@ import {
   getProductColorsByProductIds,
   getPrimaryCategorySlugForProduct,
 } from "@/actions/storefront-products";
+import { getProductPageAccordionCopy } from "@/actions/product-page-copy";
 
 export async function generateMetadata({ params }: { params: Promise<{ id: string; storeType: string }> }): Promise<Metadata> {
   const { id } = await params;
@@ -50,7 +51,7 @@ export default async function ProductPage({
   const productWithImages = { ...product, images: firstColorImages };
 
   const primaryCategorySlug = await getPrimaryCategorySlugForProduct(productId);
-  const similarProducts = await getSimilarVisibleProductsExcept(productId, st, 10);
+  const similarProducts = await getSimilarVisibleProductsExcept(productId, st, 30);
 
   const similarProductIds = similarProducts.map((p) => p.id);
   const [similarVariants, similarColors] =
@@ -92,6 +93,8 @@ export default async function ProductPage({
 
   const inWishlist = wishlistProductIds.includes(product.id);
 
+  const productPageAccordionCopy = await getProductPageAccordionCopy(st);
+
   return (
     <div className="pt-14">
       <div className="flex items-center gap-2 text-sm text-muted-foreground mb-6 px-6">
@@ -114,6 +117,7 @@ export default async function ProductPage({
         variantsByProductId={variantsByProductId}
         wishlistProductIds={wishlistProductIds}
         listStoreType={st}
+        productPageAccordionCopy={productPageAccordionCopy}
       />
     </div>
   );

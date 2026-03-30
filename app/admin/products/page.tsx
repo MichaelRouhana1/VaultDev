@@ -8,6 +8,8 @@ import { ProductsTable } from "./ProductsTable";
 import { getAllCategories } from "@/actions/categories";
 import { getAdminStoreType } from "@/actions/admin-store";
 import { requireAdmin } from "@/lib/security";
+import { getProductPageAccordionCopy } from "@/actions/product-page-copy";
+import { ProductPageCopyButton } from "@/components/admin/ProductPageCopyButton";
 import { buildProductSearchWhere } from "@/lib/product-search";
 import { conditionProductsMatchCategorySlug } from "@/lib/shop-category-filter";
 
@@ -22,6 +24,7 @@ export default async function AdminProductsPage({
 
   await requireAdmin();
   const adminStore = await getAdminStoreType();
+  const productPageAccordionCopy = await getProductPageAccordionCopy(adminStore);
   const allCategories = await getAllCategories();
   const categoryList = allCategories
     .filter((c) => (c.storeType === adminStore || c.storeType === "both") && c.level !== "root")
@@ -133,12 +136,15 @@ export default async function AdminProductsPage({
             Managing: {adminStore}
           </span>
         </div>
-        <Link
-          href="/admin/products/new"
-          className="px-6 py-2.5 bg-foreground text-background text-sm font-medium uppercase tracking-wider hover:opacity-90 transition-opacity"
-        >
-          Add Product
-        </Link>
+        <div className="flex items-center gap-3">
+          <ProductPageCopyButton storeType={adminStore} initialCopy={productPageAccordionCopy} />
+          <Link
+            href="/admin/products/new"
+            className="px-6 py-2.5 bg-foreground text-background text-sm font-medium uppercase tracking-wider hover:opacity-90 transition-opacity"
+          >
+            Add Product
+          </Link>
+        </div>
       </div>
 
       <Suspense fallback={<div className="animate-pulse h-64 bg-muted rounded" />}>
