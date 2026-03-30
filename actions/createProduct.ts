@@ -53,6 +53,12 @@ type ProductCreateVariantMatrixInput = {
   optionValues: Record<string, string>;
 };
 
+/** Color / Colour option — used to set `product_option_values.product_color_id` from `product_colors`. */
+function isColorOptionName(name: string): boolean {
+  const n = name.trim().toLowerCase();
+  return n === "color" || n === "colour";
+}
+
 function allocateUniqueSlug(base: string, used: Set<string>): string {
   let candidate = slugifyOptionValue(base);
   let n = 0;
@@ -70,7 +76,7 @@ function resolveLegacyColorId(
   colorNameToId: Map<string, number>,
   fallbackColorId: number,
 ): number {
-  const colorOpt = options.find((o) => o.name.trim().toLowerCase() === "color");
+  const colorOpt = options.find((o) => isColorOptionName(o.name));
   if (!colorOpt) return fallbackColorId;
   const raw = row.optionValues[colorOpt.name];
   if (raw == null) return fallbackColorId;
@@ -86,7 +92,7 @@ function resolveLegacySize(row: ProductCreateVariantMatrixInput, options: Produc
   }
   const parts: string[] = [];
   for (const o of options) {
-    if (o.name.trim().toLowerCase() === "color") continue;
+    if (isColorOptionName(o.name)) continue;
     const v = row.optionValues[o.name];
     if (v != null && v.trim() !== "") parts.push(v.trim());
   }
@@ -244,21 +250,6 @@ export async function createProduct(formData: FormData): Promise<{ success?: boo
     });
   }
 
-  if (hasVariants) {
-    const colorOpt = optionsPayload.find((o) => o.name.trim().toLowerCase() === "color");
-    if (colorOpt) {
-      const nameSet = new Set(colorEntries.map((c) => c.name.trim().toLowerCase()));
-      for (const v of colorOpt.values) {
-        if (!nameSet.has(v.trim().toLowerCase())) {
-          return {
-            success: false,
-            error: `Color option value "${v}" must match a color name (with images) exactly.`,
-          };
-        }
-      }
-    }
-  }
-
   const allSkus = variantsPayload.map((v) => v.sku);
   const existingSku = await db
     .select({ sku: productVariants.sku })
@@ -340,7 +331,7 @@ export async function createProduct(formData: FormData): Promise<{ success?: boo
           const trimmed = val.trim();
           const slug = allocateUniqueSlug(trimmed, slugUsed);
           let productColorId: number | null = null;
-          if (o.name.trim().toLowerCase() === "color") {
+          if (isColorOptionName(o.name)) {
             const cid = colorNameToId.get(trimmed.toLowerCase());
             if (cid != null) productColorId = cid;
           }

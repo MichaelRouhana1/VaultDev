@@ -261,19 +261,6 @@ export function CreateProductForm({
           }
         }
       }
-
-      const colorOpt = parsedOptionsForCombos.find((o) => o.name.toLowerCase() === "color");
-      if (colorOpt) {
-        const names = new Set(colors.map((c) => c.name.trim().toLowerCase()));
-        for (const v of colorOpt.values) {
-          if (!names.has(v.trim().toLowerCase())) {
-            setState({
-              error: `Color option includes "${v}" but no color with that name exists. Add a color or fix the option values.`,
-            });
-            return;
-          }
-        }
-      }
     }
 
     setIsPending(true);
