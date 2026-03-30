@@ -1,10 +1,25 @@
 "use server";
 
+import { z } from "zod";
 import { db } from "@/db";
-import { products, productVariants, productColors, productCollections, productAttributeValues } from "@/db/schema";
+import {
+  products,
+  productVariants,
+  productColors,
+  productCollections,
+  productAttributeValues,
+  productOptions,
+  productOptionValues,
+  variantOptionValues,
+} from "@/db/schema";
 import { uploadProductImages } from "@/lib/uploadImages";
 import { auditLog } from "@/lib/audit";
-import { productSchema } from "@/lib/schemas";
+import {
+  productCreateBaseSchema,
+  productCreateOptionSchema,
+  productCreateVariantMatrixRowSchema,
+} from "@/lib/schemas";
+import { slugifyOptionValue } from "@/lib/utils";
 import { logger } from "@/lib/logger";
 import { requireAdminAction } from "@/lib/security";
 import { validateProductCategoryAssignment } from "@/lib/product-category-assign";
@@ -13,8 +28,7 @@ import {
   parseCollectionIdsFromFormData,
   validateProductCollectionAssignments,
 } from "@/lib/product-collections";
-
-const SIZES = ["XS", "S", "M", "L", "XL"] as const;
+import { inArray } from "drizzle-orm";
 
 function parseAttributeValueIdsFromForm(formData: FormData): number[] {
   const raw = formData.getAll("attributeValueIds");
@@ -26,20 +40,92 @@ function parseAttributeValueIdsFromForm(formData: FormData): number[] {
   return [...new Set(ids)];
 }
 
+type ProductCreateOptionInput = {
+  name: string;
+  values: string[];
+};
+
+type ProductCreateVariantMatrixInput = {
+  sku: string;
+  stock_quantity: number;
+  price_override?: number | null;
+  optionValues: Record<string, string>;
+};
+
+function buildOptionCombos(options: ProductCreateOptionInput[]): Record<string, string>[] {
+  if (options.length === 0) return [];
+  let rows: Record<string, string>[] = [{}];
+  for (const o of options) {
+    const next: Record<string, string>[] = [];
+    for (const row of rows) {
+      for (const v of o.values) {
+        next.push({ ...row, [o.name]: v });
+      }
+    }
+    rows = next;
+  }
+  return rows;
+}
+
+function comboKey(optionNames: string[], values: Record<string, string>): string {
+  return optionNames.map((n) => `${n}=${values[n] ?? ""}`).join("&");
+}
+
+function allocateUniqueSlug(base: string, used: Set<string>): string {
+  let candidate = slugifyOptionValue(base);
+  let n = 0;
+  while (used.has(candidate)) {
+    n += 1;
+    candidate = `${slugifyOptionValue(base)}-${n}`;
+  }
+  used.add(candidate);
+  return candidate;
+}
+
+function resolveLegacyColorId(
+  row: ProductCreateVariantMatrixInput,
+  options: ProductCreateOptionInput[],
+  colorNameToId: Map<string, number>,
+  fallbackColorId: number,
+): number {
+  const colorOpt = options.find((o) => o.name.trim().toLowerCase() === "color");
+  if (!colorOpt) return fallbackColorId;
+  const raw = row.optionValues[colorOpt.name];
+  if (raw == null) return fallbackColorId;
+  const id = colorNameToId.get(raw.trim().toLowerCase());
+  return id ?? fallbackColorId;
+}
+
+function resolveLegacySize(row: ProductCreateVariantMatrixInput, options: ProductCreateOptionInput[]): string {
+  const sizeOpt = options.find((o) => o.name.trim().toLowerCase() === "size");
+  if (sizeOpt) {
+    const s = row.optionValues[sizeOpt.name];
+    if (s != null && s.trim() !== "") return s.trim();
+  }
+  const parts: string[] = [];
+  for (const o of options) {
+    if (o.name.trim().toLowerCase() === "color") continue;
+    const v = row.optionValues[o.name];
+    if (v != null && v.trim() !== "") parts.push(v.trim());
+  }
+  return parts.length > 0 ? parts.join(" / ") : "DEFAULT";
+}
+
 export async function createProduct(formData: FormData): Promise<{ success?: boolean; error?: string; productId?: number }> {
-  const parsed = productSchema.safeParse({
+  const hasVariants = formData.get("hasVariants") === "true";
+
+  const parsedBase = productCreateBaseSchema.safeParse({
     name: formData.get("name"),
     description: formData.get("description") || null,
     price: formData.get("price"),
     storeType: formData.get("storeType"),
     mainCategoryId: formData.get("mainCategoryId"),
     isVisible: formData.get("isVisible") === "true",
-    color_count: parseInt(String(formData.get("color_count") ?? "0"), 10),
   });
 
-  if (!parsed.success) {
-    const errorDetails = parsed.error.issues[0]?.message || "Validation failed";
-    logger.error("Create product validation failed", undefined, { errorDetails, formData: Array.from(formData.entries()) });
+  if (!parsedBase.success) {
+    const errorDetails = parsedBase.error.issues[0]?.message || "Validation failed";
+    logger.error("Create product validation failed", undefined, { errorDetails });
     return { success: false, error: errorDetails };
   }
 
@@ -54,8 +140,88 @@ export async function createProduct(formData: FormData): Promise<{ success?: boo
     storeType,
     mainCategoryId,
     isVisible,
-    color_count: colorCount,
-  } = parsed.data;
+  } = parsedBase.data;
+
+  const colorCount = Math.max(0, parseInt(String(formData.get("color_count") ?? "0"), 10));
+
+  let optionsPayload: ProductCreateOptionInput[] = [];
+  let variantsPayload: ProductCreateVariantMatrixInput[] = [];
+
+  if (hasVariants) {
+    let rawOptions: unknown;
+    let rawVariants: unknown;
+    try {
+      rawOptions = JSON.parse(String(formData.get("optionsJson") ?? "[]"));
+      rawVariants = JSON.parse(String(formData.get("variantsJson") ?? "[]"));
+    } catch {
+      return { success: false, error: "Invalid options or variants JSON" };
+    }
+
+    const optParsed = z.array(productCreateOptionSchema).min(1, "Add at least one option").safeParse(rawOptions);
+    if (!optParsed.success) {
+      return { success: false, error: optParsed.error.issues[0]?.message ?? "Invalid options" };
+    }
+    optionsPayload = optParsed.data;
+
+    const varParsed = z
+      .array(productCreateVariantMatrixRowSchema)
+      .min(1, "Add at least one variant row")
+      .safeParse(rawVariants);
+    if (!varParsed.success) {
+      return { success: false, error: varParsed.error.issues[0]?.message ?? "Invalid variants" };
+    }
+    variantsPayload = varParsed.data;
+
+    const optionNames = optionsPayload.map((o) => o.name.trim());
+    const combos = buildOptionCombos(optionsPayload);
+    const expectedKeys = new Set(combos.map((c) => comboKey(optionNames, c)));
+    const seen = new Set<string>();
+    for (const v of variantsPayload) {
+      const k = comboKey(optionNames, v.optionValues);
+      if (!expectedKeys.has(k)) {
+        return { success: false, error: "Each variant row must match one combination of option values" };
+      }
+      if (seen.has(k)) {
+        return { success: false, error: "Duplicate variant row for the same option combination" };
+      }
+      seen.add(k);
+    }
+    if (variantsPayload.length !== combos.length) {
+      return { success: false, error: `Expected ${combos.length} variant rows, got ${variantsPayload.length}` };
+    }
+
+    const skus = variantsPayload.map((v) => v.sku);
+    if (new Set(skus).size !== skus.length) {
+      return { success: false, error: "Duplicate SKUs in the variant matrix" };
+    }
+  } else {
+    const defaultSku = String(formData.get("defaultSku") ?? "").trim();
+    const defaultStock = parseInt(String(formData.get("defaultStockQuantity") ?? ""), 10);
+    if (!defaultSku) {
+      return { success: false, error: "SKU is required" };
+    }
+    if (!Number.isFinite(defaultStock) || defaultStock < 0) {
+      return { success: false, error: "Stock quantity must be a non-negative number" };
+    }
+    if (colorCount !== 1) {
+      return {
+        success: false,
+        error: "Single-variant products need exactly one color entry (for product images).",
+      };
+    }
+    variantsPayload = [
+      {
+        sku: defaultSku,
+        stock_quantity: defaultStock,
+        price_override: null,
+        optionValues: {},
+      },
+    ];
+  }
+
+  if (hasVariants && colorCount < 1) {
+    return { success: false, error: "Add at least one color with images" };
+  }
 
   const attributeValueIds = parseAttributeValueIdsFromForm(formData);
   const attrErr = await validateAttributeValueIds(attributeValueIds);
@@ -80,27 +246,45 @@ export async function createProduct(formData: FormData): Promise<{ success?: boo
     name: string;
     hexCode: string | null;
     imageFiles: File[];
-    stockBySize: Record<string, number>;
   }> = [];
 
   for (let i = 0; i < colorCount; i++) {
     const colorName = (formData.get(`color_${i}_name`) as string)?.trim();
     const colorHex = (formData.get(`color_${i}_hex`) as string)?.trim() || null;
     const imageFiles = formData.getAll(`color_${i}_images`) as File[];
-    const stockBySize: Record<string, number> = {};
-    for (const size of SIZES) {
-      stockBySize[size] = Math.max(0, parseInt(String(formData.get(`color_${i}_stock_${size}`)), 10) || 0);
-    }
     if (!colorName) {
-      logger.error("Color missing name across variants", undefined, { colorIndex: i });
-      return { error: `Color ${i + 1} must have a name` };
+      return { success: false, error: `Color ${i + 1} must have a name` };
     }
     colorEntries.push({
       name: colorName,
       hexCode: colorHex,
       imageFiles: imageFiles.filter((f) => f?.size),
-      stockBySize,
     });
+  }
+
+  if (hasVariants) {
+    const colorOpt = optionsPayload.find((o) => o.name.trim().toLowerCase() === "color");
+    if (colorOpt) {
+      const nameSet = new Set(colorEntries.map((c) => c.name.trim().toLowerCase()));
+      for (const v of colorOpt.values) {
+        if (!nameSet.has(v.trim().toLowerCase())) {
+          return {
+            success: false,
+            error: `Color option value "${v}" must match a color name (with images) exactly.`,
+          };
+        }
+      }
+    }
+  }
+
+  const allSkus = variantsPayload.map((v) => v.sku);
+  const existingSku = await db
+    .select({ sku: productVariants.sku })
+    .from(productVariants)
+    .where(inArray(productVariants.sku, allSkus))
+    .limit(1);
+  if (existingSku.length > 0 && existingSku[0].sku) {
+    return { success: false, error: `SKU already in use: ${existingSku[0].sku}` };
   }
 
   const colorImageUrls: string[][] = [];
@@ -109,7 +293,7 @@ export async function createProduct(formData: FormData): Promise<{ success?: boo
     const result = await uploadProductImages(colorEntries[i].imageFiles, prefix);
     if (result.error) {
       logger.error("Failed to upload product images", undefined, { errorDetails: result.error });
-      return { error: result.error };
+      return { success: false, error: result.error };
     }
     colorImageUrls.push(result.urls);
   }
@@ -142,18 +326,110 @@ export async function createProduct(formData: FormData): Promise<{ success?: boo
       colorIds.push(pc.id);
     }
 
-    for (let i = 0; i < colorEntries.length; i++) {
-      const colorId = colorIds[i];
-      const stockBySize = colorEntries[i].stockBySize;
-      for (const size of SIZES) {
-        const stock = stockBySize[size] ?? 0;
-        await tx.insert(productVariants).values({
-          productId: product.id,
-          colorId,
-          size,
-          stock,
-        });
+    const fallbackColorId = colorIds[0]!;
+    const colorNameToId = new Map(
+      colorEntries.map((c, i) => [c.name.trim().toLowerCase(), colorIds[i]!] as const),
+    );
+
+    if (hasVariants && optionsPayload.length > 0) {
+      const optionIds: number[] = [];
+      for (let oi = 0; oi < optionsPayload.length; oi++) {
+        const o = optionsPayload[oi]!;
+        const [row] = await tx
+          .insert(productOptions)
+          .values({
+            productId: product.id,
+            name: o.name.trim(),
+            sortOrder: oi,
+          })
+          .returning({ id: productOptions.id });
+        optionIds.push(row.id);
       }
+
+      const valueIdByOptionIndex = new Map<number, Map<string, number>>();
+
+      for (let oi = 0; oi < optionsPayload.length; oi++) {
+        const o = optionsPayload[oi]!;
+        const optionId = optionIds[oi]!;
+        const slugUsed = new Set<string>();
+        const labelToId = new Map<string, number>();
+        let sortOrder = 0;
+        for (const val of o.values) {
+          const trimmed = val.trim();
+          const slug = allocateUniqueSlug(trimmed, slugUsed);
+          let productColorId: number | null = null;
+          if (o.name.trim().toLowerCase() === "color") {
+            const cid = colorNameToId.get(trimmed.toLowerCase());
+            if (cid != null) productColorId = cid;
+          }
+          const [ins] = await tx
+            .insert(productOptionValues)
+            .values({
+              productOptionId: optionId,
+              value: trimmed,
+              slug,
+              sortOrder,
+              productColorId,
+            })
+            .returning({ id: productOptionValues.id });
+          labelToId.set(trimmed, ins.id);
+          sortOrder += 1;
+        }
+        valueIdByOptionIndex.set(oi, labelToId);
+      }
+
+      for (const vrow of variantsPayload) {
+        const colorId = resolveLegacyColorId(vrow, optionsPayload, colorNameToId, fallbackColorId);
+        const size = resolveLegacySize(vrow, optionsPayload);
+        const priceOverride =
+          vrow.price_override != null && vrow.price_override > 0
+            ? vrow.price_override.toFixed(2)
+            : null;
+
+        const [v] = await tx
+          .insert(productVariants)
+          .values({
+            productId: product.id,
+            colorId,
+            size,
+            stock: vrow.stock_quantity,
+            stockQuantity: vrow.stock_quantity,
+            sku: vrow.sku,
+            priceOverride,
+          })
+          .returning({ id: productVariants.id });
+
+        for (let oi = 0; oi < optionsPayload.length; oi++) {
+          const o = optionsPayload[oi]!;
+          const label = vrow.optionValues[o.name];
+          if (label == null) {
+            throw new Error(`Missing option value for ${o.name}`);
+          }
+          const map = valueIdByOptionIndex.get(oi)!;
+          const optValId = map.get(label.trim());
+          if (optValId == null) {
+            throw new Error(`Unknown value "${label}" for option ${o.name}`);
+          }
+          await tx.insert(variantOptionValues).values({
+            productVariantId: v.id,
+            productOptionValueId: optValId,
+          });
+        }
+      }
+    } else {
+      const row = variantsPayload[0]!;
+      await tx.insert(productVariants).values({
+        productId: product.id,
+        colorId: fallbackColorId,
+        size: "DEFAULT",
+        stock: row.stock_quantity,
+        stockQuantity: row.stock_quantity,
+        sku: row.sku,
+        priceOverride:
+          row.price_override != null && row.price_override > 0
+            ? row.price_override.toFixed(2)
+            : null,
+      });
     }
 
     if (collectionIds.length > 0) {

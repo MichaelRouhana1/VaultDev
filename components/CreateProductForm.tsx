@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { createProduct } from "@/actions/createProduct";
 import { Button } from "@/components/ui/button";
@@ -21,11 +21,51 @@ import {
   type CollectionOption,
 } from "@/components/admin/ProductCollectionsFields";
 import { ImageUploader, type ColorEntry } from "@/components/admin/ImageUploader";
-import { InventoryManager } from "@/components/admin/InventoryManager";
 import type { ProductFormCategoryTree } from "@/actions/categories";
 import type { AttributeWithValues } from "@/actions/attributes";
 
 const SIZES = ["XS", "S", "M", "L", "XL"] as const;
+
+const emptyStockBySize = (): Record<string, number> =>
+  Object.fromEntries(SIZES.map((s) => [s, 0])) as Record<string, number>;
+
+type OptionDraft = { id: string; name: string; valuesText: string };
+
+type MatrixCell = { sku: string; stockQuantity: string; priceOverride: string };
+
+function parseValuesFromText(text: string): string[] {
+  const raw = text
+    .split(/[,，]/)
+    .map((t) => t.trim())
+    .filter(Boolean);
+  const seen = new Set<string>();
+  const out: string[] = [];
+  for (const v of raw) {
+    if (seen.has(v)) continue;
+    seen.add(v);
+    out.push(v);
+  }
+  return out;
+}
+
+function buildOptionCombos(options: { name: string; values: string[] }[]): Record<string, string>[] {
+  if (options.length === 0) return [];
+  let rows: Record<string, string>[] = [{}];
+  for (const o of options) {
+    const next: Record<string, string>[] = [];
+    for (const row of rows) {
+      for (const v of o.values) {
+        next.push({ ...row, [o.name]: v });
+      }
+    }
+    rows = next;
+  }
+  return rows;
+}
+
+function comboKey(optionNames: string[], values: Record<string, string>): string {
+  return optionNames.map((n) => `${n}=${values[n] ?? ""}`).join("&");
+}
 
 export function CreateProductForm({
   categoryTrees,
@@ -50,9 +90,50 @@ export function CreateProductForm({
     setCollectionIds([]);
   }, [listingStore]);
 
+  const [hasVariants, setHasVariants] = useState(false);
+  const [options, setOptions] = useState<OptionDraft[]>([]);
+  const [matrix, setMatrix] = useState<Record<string, MatrixCell>>({});
+
+  const [defaultSku, setDefaultSku] = useState("");
+  const [defaultStock, setDefaultStock] = useState("0");
+
   const [colors, setColors] = useState<ColorEntry[]>([]);
   const [state, setState] = useState<{ error?: string; productId?: number } | null>(null);
   const [isPending, setIsPending] = useState(false);
+
+  const parsedOptionsForCombos = useMemo(() => {
+    return options
+      .map((o) => ({
+        name: o.name.trim(),
+        values: parseValuesFromText(o.valuesText),
+      }))
+      .filter((o) => o.name.length > 0 && o.values.length > 0);
+  }, [options]);
+
+  const combos = useMemo(
+    () => buildOptionCombos(parsedOptionsForCombos),
+    [parsedOptionsForCombos],
+  );
+
+  const optionNamesForKeys = useMemo(
+    () => parsedOptionsForCombos.map((o) => o.name),
+    [parsedOptionsForCombos],
+  );
+
+  useEffect(() => {
+    if (!hasVariants || combos.length === 0) {
+      return;
+    }
+    setMatrix((prev) => {
+      const next: Record<string, MatrixCell> = {};
+      for (const c of combos) {
+        const k = comboKey(optionNamesForKeys, c);
+        const existing = prev[k];
+        next[k] = existing ?? { sku: "", stockQuantity: "0", priceOverride: "" };
+      }
+      return next;
+    });
+  }, [hasVariants, combos, optionNamesForKeys]);
 
   const addColor = () => {
     setColors((prev) => [
@@ -62,7 +143,7 @@ export function CreateProductForm({
         name: "",
         hexCode: "#000000",
         imageFiles: [],
-        stockBySize: Object.fromEntries(SIZES.map((s) => [s, 0])),
+        stockBySize: emptyStockBySize(),
       },
     ]);
   };
@@ -72,16 +153,12 @@ export function CreateProductForm({
   };
 
   const updateColor = (id: string | number, updates: Partial<Omit<ColorEntry, "id">>) => {
-    setColors((prev) =>
-      prev.map((c) => (c.id === id ? { ...c, ...updates } : c))
-    );
+    setColors((prev) => prev.map((c) => (c.id === id ? { ...c, ...updates } : c)));
   };
 
   const addFilesToColor = (id: string, files: File[]) => {
     setColors((prev) =>
-      prev.map((c) =>
-        c.id === id ? { ...c, imageFiles: [...c.imageFiles, ...files] } : c
-      )
+      prev.map((c) => (c.id === id ? { ...c, imageFiles: [...c.imageFiles, ...files] } : c)),
     );
   };
 
@@ -90,9 +167,31 @@ export function CreateProductForm({
       prev.map((c) =>
         c.id === colorId
           ? { ...c, imageFiles: c.imageFiles.filter((_, i) => i !== fileIndex) }
-          : c
-      )
+          : c,
+      ),
     );
+  };
+
+  const addOption = () => {
+    setOptions((prev) => [
+      ...prev,
+      { id: crypto.randomUUID(), name: "", valuesText: "" },
+    ]);
+  };
+
+  const removeOption = (id: string) => {
+    setOptions((prev) => prev.filter((o) => o.id !== id));
+  };
+
+  const updateOption = (id: string, patch: Partial<Omit<OptionDraft, "id">>) => {
+    setOptions((prev) => prev.map((o) => (o.id === id ? { ...o, ...patch } : o)));
+  };
+
+  const updateMatrixCell = (key: string, patch: Partial<MatrixCell>) => {
+    setMatrix((prev) => ({
+      ...prev,
+      [key]: { ...(prev[key] ?? { sku: "", stockQuantity: "0", priceOverride: "" }), ...patch },
+    }));
   };
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
@@ -101,7 +200,7 @@ export function CreateProductForm({
     if (!form) return;
 
     if (colors.length === 0) {
-      setState({ error: "Add at least one color" });
+      setState({ error: "Add at least one color (for product images)" });
       return;
     }
 
@@ -109,6 +208,84 @@ export function CreateProductForm({
     if (invalidColors.length > 0) {
       setState({ error: "Each color must have a name" });
       return;
+    }
+
+    if (!hasVariants) {
+      if (colors.length !== 1) {
+        setState({
+          error:
+            "Single-variant mode allows exactly one color (for images). Turn on options for multiple colors, or remove extra colors.",
+        });
+        return;
+      }
+      if (!defaultSku.trim()) {
+        setState({ error: "SKU is required" });
+        return;
+      }
+      const st = parseInt(defaultStock, 10);
+      if (!Number.isFinite(st) || st < 0) {
+        setState({ error: "Stock quantity must be a non-negative number" });
+        return;
+      }
+    } else {
+      if (parsedOptionsForCombos.length === 0) {
+        setState({ error: "Add at least one option with a name and values" });
+        return;
+      }
+      const incomplete = options.some(
+        (o) =>
+          o.name.trim() &&
+          parseValuesFromText(o.valuesText).length === 0,
+      );
+      if (incomplete) {
+        setState({ error: "Each option with a name must list at least one value" });
+        return;
+      }
+      const unnamed = options.some((o) => !o.name.trim() && parseValuesFromText(o.valuesText).length > 0);
+      if (unnamed) {
+        setState({ error: "Each option with values must have a name" });
+        return;
+      }
+
+      if (combos.length === 0) {
+        setState({ error: "Could not build variant combinations from options" });
+        return;
+      }
+
+      for (const c of combos) {
+        const k = comboKey(optionNamesForKeys, c);
+        const cell = matrix[k];
+        if (!cell?.sku?.trim()) {
+          setState({ error: "Every variant row needs a SKU" });
+          return;
+        }
+        const sq = parseInt(cell.stockQuantity, 10);
+        if (!Number.isFinite(sq) || sq < 0) {
+          setState({ error: "Every variant row needs a valid stock quantity" });
+          return;
+        }
+        const po = cell.priceOverride.trim();
+        if (po !== "") {
+          const n = parseFloat(po);
+          if (!Number.isFinite(n) || n <= 0) {
+            setState({ error: "Price override must be empty or a positive number" });
+            return;
+          }
+        }
+      }
+
+      const colorOpt = parsedOptionsForCombos.find((o) => o.name.toLowerCase() === "color");
+      if (colorOpt) {
+        const names = new Set(colors.map((c) => c.name.trim().toLowerCase()));
+        for (const v of colorOpt.values) {
+          if (!names.has(v.trim().toLowerCase())) {
+            setState({
+              error: `Color option includes "${v}" but no color with that name exists. Add a color or fix the option values.`,
+            });
+            return;
+          }
+        }
+      }
     }
 
     setIsPending(true);
@@ -123,10 +300,30 @@ export function CreateProductForm({
       color.imageFiles.forEach((file) => {
         formData.append(`color_${i}_images`, file);
       });
-      SIZES.forEach((size) => {
-        formData.set(`color_${i}_stock_${size}`, String(color.stockBySize[size] ?? 0));
-      });
     });
+
+    if (hasVariants) {
+      formData.set("optionsJson", JSON.stringify(parsedOptionsForCombos));
+      const variantsPayload = combos.map((combo) => {
+        const k = comboKey(optionNamesForKeys, combo);
+        const cell = matrix[k]!;
+        const po = cell.priceOverride.trim();
+        let price_override: number | null = null;
+        if (po !== "") {
+          price_override = parseFloat(po);
+        }
+        return {
+          sku: cell.sku.trim(),
+          stock_quantity: parseInt(cell.stockQuantity, 10) || 0,
+          price_override,
+          optionValues: combo,
+        };
+      });
+      formData.set("variantsJson", JSON.stringify(variantsPayload));
+    } else {
+      formData.set("defaultSku", defaultSku.trim());
+      formData.set("defaultStockQuantity", String(parseInt(defaultStock, 10) || 0));
+    }
 
     const result = await createProduct(formData);
     setState(result);
@@ -141,9 +338,14 @@ export function CreateProductForm({
     return null;
   }
 
+  const canAddAnotherColor = hasVariants || colors.length === 0;
+  const showVariantMatrix = hasVariants && combos.length > 0;
+
   return (
     <form onSubmit={handleSubmit}>
-      <Card className="max-w-2xl">
+      <input type="hidden" name="hasVariants" value={hasVariants ? "true" : "false"} />
+
+      <Card className="max-w-3xl">
         <CardHeader>
           <CardTitle>Product details</CardTitle>
           <CardDescription>Add a new product to your store</CardDescription>
@@ -163,6 +365,7 @@ export function CreateProductForm({
               placeholder="Product description"
             />
           </div>
+
           <div className="grid gap-4 sm:grid-cols-2">
             <PriceInput />
             <ProductTaxonomyFields
@@ -178,7 +381,55 @@ export function CreateProductForm({
               onChange={setCollectionIds}
             />
           </div>
+
+          <div className="rounded-md border border-border bg-muted/20 p-4 space-y-3">
+            <div className="flex items-start gap-3">
+              <input
+                type="checkbox"
+                id="hasVariantsToggle"
+                checked={hasVariants}
+                onChange={(e) => setHasVariants(e.target.checked)}
+                className="mt-1 h-4 w-4 rounded border-input"
+              />
+              <div>
+                <Label htmlFor="hasVariantsToggle" className="font-medium cursor-pointer">
+                  This product has options, like size or color
+                </Label>
+                <p className="text-xs text-muted-foreground mt-1">
+                  When off, you set one SKU and stock. When on, build options and a variant matrix (each row is a sellable SKU).
+                </p>
+              </div>
+            </div>
+
+            {!hasVariants ? (
+              <div className="grid gap-4 sm:grid-cols-2 pt-2 border-t border-border">
+                <div className="space-y-2">
+                  <Label htmlFor="defaultSku">SKU</Label>
+                  <Input
+                    id="defaultSku"
+                    value={defaultSku}
+                    onChange={(e) => setDefaultSku(e.target.value)}
+                    placeholder="e.g. VAULT-SHIRT-001"
+                    autoComplete="off"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="defaultStock">Stock quantity</Label>
+                  <Input
+                    id="defaultStock"
+                    type="number"
+                    min={0}
+                    inputMode="numeric"
+                    value={defaultStock}
+                    onChange={(e) => setDefaultStock(e.target.value)}
+                  />
+                </div>
+              </div>
+            ) : null}
+          </div>
+
           <ProductAttributeFields attributesWithValues={attributesWithValues} />
+
           <div className="flex items-center gap-2">
             <input
               type="checkbox"
@@ -193,18 +444,21 @@ export function CreateProductForm({
             </Label>
           </div>
 
-          {/* Color Management Section */}
           <div className="space-y-4">
-            <div className="flex items-center justify-between">
+            <div className="flex items-center justify-between gap-4">
               <div>
-                <h3 className="text-sm font-medium">Colors</h3>
+                <h3 className="text-sm font-medium">Colors &amp; images</h3>
                 <p className="text-xs text-muted-foreground">
-                  Add colors with their own images and stock levels
+                  {hasVariants
+                    ? "Add a color for each swatch. If you use a “Color” option, values must match these names."
+                    : "Exactly one color (used for gallery images on the product page)."}
                 </p>
               </div>
-              <Button type="button" variant="outline" size="sm" onClick={addColor}>
-                Add color
-              </Button>
+              {canAddAnotherColor ? (
+                <Button type="button" variant="outline" size="sm" onClick={addColor}>
+                  Add color
+                </Button>
+              ) : null}
             </div>
 
             {colors.map((color) => (
@@ -215,15 +469,13 @@ export function CreateProductForm({
                 onRemove={() => removeColor(color.id)}
                 onAddFiles={(files) => addFilesToColor(color.id, files)}
                 onRemoveFile={(idx) => removeFileFromColor(color.id, idx)}
-                canRemove={colors.length > 1}
+                canRemove={hasVariants && colors.length > 1}
               />
             ))}
 
             {colors.length === 0 && (
               <div className="border-2 border-dashed border-border rounded-lg p-8 text-center">
-                <p className="text-sm text-muted-foreground mb-4">
-                  No colors added yet. Add at least one color to continue.
-                </p>
+                <p className="text-sm text-muted-foreground mb-4">Add at least one color with images.</p>
                 <Button type="button" variant="outline" onClick={addColor}>
                   Add first color
                 </Button>
@@ -231,12 +483,134 @@ export function CreateProductForm({
             )}
           </div>
 
-          {/* Variant Matrix - shown when colors exist */}
-          <InventoryManager colors={colors} sizes={SIZES} updateColor={updateColor} />
+          {hasVariants ? (
+            <div className="space-y-4 border-t border-border pt-6">
+              <div className="flex items-center justify-between gap-4">
+                <div>
+                  <h3 className="text-sm font-medium">Options</h3>
+                  <p className="text-xs text-muted-foreground">
+                    Name each option (e.g. Size) and list values separated by commas (e.g. 32, 34, 36).
+                  </p>
+                </div>
+                <Button type="button" variant="outline" size="sm" onClick={addOption}>
+                  Add option
+                </Button>
+              </div>
 
-          {state?.error && (
-            <p className="text-sm text-destructive">{state.error}</p>
-          )}
+              {options.length === 0 ? (
+                <p className="text-sm text-muted-foreground">No options yet. Click “Add option” to build variants.</p>
+              ) : (
+                <div className="space-y-3">
+                  {options.map((opt) => (
+                    <div
+                      key={opt.id}
+                      className="grid gap-3 sm:grid-cols-[1fr_2fr_auto] sm:items-end border border-border rounded-md p-3"
+                    >
+                      <div className="space-y-2">
+                        <Label className="text-xs">Option name</Label>
+                        <Input
+                          value={opt.name}
+                          onChange={(e) => updateOption(opt.id, { name: e.target.value })}
+                          placeholder="e.g. Size, Color"
+                        />
+                      </div>
+                      <div className="space-y-2 sm:col-span-1">
+                        <Label className="text-xs">Values (comma-separated)</Label>
+                        <Input
+                          value={opt.valuesText}
+                          onChange={(e) => updateOption(opt.id, { valuesText: e.target.value })}
+                          placeholder="e.g. 32, 34, 36 or Red, Blue"
+                        />
+                      </div>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        className="text-destructive"
+                        onClick={() => removeOption(opt.id)}
+                      >
+                        Remove
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {showVariantMatrix ? (
+                <div className="space-y-2">
+                  <h3 className="text-sm font-medium">Variant matrix</h3>
+                  <p className="text-xs text-muted-foreground">
+                    One row per combination. SKU must be unique across your store.
+                  </p>
+                  <div className="border border-border rounded-lg overflow-x-auto">
+                    <table className="w-full text-sm min-w-[640px]">
+                      <thead className="bg-muted">
+                        <tr>
+                          {optionNamesForKeys.map((name) => (
+                            <th key={name} className="text-left p-2 font-medium whitespace-nowrap">
+                              {name}
+                            </th>
+                          ))}
+                          <th className="text-left p-2 font-medium">SKU</th>
+                          <th className="text-left p-2 font-medium w-24">Stock</th>
+                          <th className="text-left p-2 font-medium w-28">Price override</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {combos.map((combo, rowIndex) => {
+                          const k = comboKey(optionNamesForKeys, combo);
+                          const cell = matrix[k] ?? { sku: "", stockQuantity: "0", priceOverride: "" };
+                          return (
+                            <tr key={`variant-row-${rowIndex}-${k}`} className="border-t border-border">
+                              {optionNamesForKeys.map((name) => (
+                                <td key={name} className="p-2 align-middle">
+                                  {combo[name]}
+                                </td>
+                              ))}
+                              <td className="p-2 align-middle">
+                                <Input
+                                  className="h-8 min-w-[8rem]"
+                                  value={cell.sku}
+                                  onChange={(e) => updateMatrixCell(k, { sku: e.target.value })}
+                                  placeholder="SKU"
+                                  required={false}
+                                />
+                              </td>
+                              <td className="p-2 align-middle">
+                                <Input
+                                  className="h-8 w-20"
+                                  type="number"
+                                  min={0}
+                                  inputMode="numeric"
+                                  value={cell.stockQuantity}
+                                  onChange={(e) => updateMatrixCell(k, { stockQuantity: e.target.value })}
+                                />
+                              </td>
+                              <td className="p-2 align-middle">
+                                <Input
+                                  className="h-8 w-24"
+                                  type="number"
+                                  min={0}
+                                  step="0.01"
+                                  inputMode="decimal"
+                                  placeholder="—"
+                                  value={cell.priceOverride}
+                                  onChange={(e) => updateMatrixCell(k, { priceOverride: e.target.value })}
+                                />
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              ) : null}
+            </div>
+          ) : null}
+
+          {state?.error && <p className="text-sm text-destructive">{state.error}</p>}
+
           <div className="flex gap-4">
             <Button type="submit" disabled={isPending || colors.length === 0}>
               {isPending ? "Creating…" : "Create product"}
@@ -250,5 +624,3 @@ export function CreateProductForm({
     </form>
   );
 }
-
-

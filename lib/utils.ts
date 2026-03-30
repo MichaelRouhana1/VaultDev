@@ -92,3 +92,16 @@ export function getProductDiscountPercent(product: ProductWithPrice): number {
   if (price <= 0) return 0;
   return Math.round((1 - salePrice / price) * 100);
 }
+
+/**
+ * URL-safe slug for `product_option_values.slug` (e.g. "US 9.5" → "us-9-5").
+ * Uniqueness per option is enforced separately (append suffix if needed).
+ */
+export function slugifyOptionValue(value: string): string {
+  const s = value
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+  return s.length > 0 ? s : "value";
+}
