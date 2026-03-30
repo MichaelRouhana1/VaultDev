@@ -298,20 +298,24 @@ export function ShopClient({
             <>
               <div
                 className={cn(
-                  "grid gap-6",
+                  "grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 transition-all duration-300 ease-in-out",
                   desktopFilterOpen
-                    ? "grid-cols-2 md:grid-cols-2 lg:grid-cols-3"
-                    : "grid-cols-2 md:grid-cols-3 lg:grid-cols-4",
+                    ? "gap-2 sm:gap-4 lg:gap-3"
+                    : "gap-4 sm:gap-6 lg:gap-8",
                 )}
               >
                 {visibleProducts.map((product) => (
-                  <ProductCard
+                  <div
                     key={product.id}
-                    product={product}
-                    variants={variantsByProductId[product.id] ?? []}
-                    colors={colorsByProductId[product.id]}
-                    inWishlist={wishlistProductIds.includes(product.id)}
-                  />
+                    className="min-w-0 transition-all duration-300 ease-in-out"
+                  >
+                    <ProductCard
+                      product={product}
+                      variants={variantsByProductId[product.id] ?? []}
+                      colors={colorsByProductId[product.id]}
+                      inWishlist={wishlistProductIds.includes(product.id)}
+                    />
+                  </div>
                 ))}
               </div>
               {hasMore && (
