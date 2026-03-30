@@ -254,15 +254,14 @@ export function ProductCard({
             </div>
           )}
         </div>
-        <div className={`flex items-start justify-between gap-2 ${compact ? "mt-2" : "mt-3"}`}>
-          <div className="min-w-0 flex-1">
-            <h2
-              className={`font-light text-foreground truncate ${compact ? "text-xs" : "text-sm"
-                }`}
-            >
-              {product.name}
-            </h2>
-            <p className="text-xs font-light text-muted-foreground mt-0.5">
+        <div className={`flex flex-col gap-0.5 ${compact ? "mt-2" : "mt-3"}`}>
+          <h2
+            className={`font-light text-foreground truncate ${compact ? "text-xs" : "text-sm"}`}
+          >
+            {product.name}
+          </h2>
+          <div className="flex flex-wrap items-center gap-x-2 gap-y-1.5 min-w-0">
+            <p className="text-xs font-light text-muted-foreground shrink-0">
               {colorLabel}
               {hasMultipleColors && colors && (
                 <span className="ml-1 text-muted-foreground">
@@ -270,51 +269,47 @@ export function ProductCard({
                 </span>
               )}
             </p>
-            <p className="text-sm font-light text-foreground mt-0.5">
-              {onSale ? (
-                <>
-                  <span className="line-through text-muted-foreground">${price}</span>{" "}
-                  <span className="text-destructive font-medium">${displayPrice}</span>
-                </>
-              ) : (
-                `$${displayPrice}`
-              )}
-            </p>
+            {hasMultipleColors && colors && (
+              <div className="flex items-center gap-1.5 shrink-0">
+                {colors.map((color, i) => (
+                  <button
+                    key={color.id}
+                    type="button"
+                    onClick={(e) => handleColorClick(e, i)}
+                    className={`relative shrink-0 rounded-none overflow-hidden transition-transform hover:scale-105 focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-1 focus-visible:ring-foreground ${compact ? "size-3" : "size-4"
+                      } ${i === selectedColorIndex ? "ring-1 ring-foreground ring-offset-0.5 ring-offset-background" : "border border-border"}`}
+                    style={
+                      color.hexCode ? { backgroundColor: color.hexCode } : undefined
+                    }
+                    aria-label={`Color: ${color.name}`}
+                    aria-pressed={i === selectedColorIndex}
+                  >
+                    {!color.hexCode && color.imageUrls?.[0] && (
+                      <span className="absolute inset-0 block overflow-hidden bg-muted">
+                        <Image
+                          src={color.imageUrls[0]}
+                          alt={`${product.name} in ${color.name}`}
+                          fill
+                          className="object-cover"
+                          sizes={compact ? "12px" : "16px"}
+                        />
+                      </span>
+                    )}
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
-          {/* Color bubbles on the right - visible only on hover */}
-          {hasMultipleColors && colors && (
-            <div className="flex items-center gap-1.5 shrink-0 self-center opacity-0 group-hover:opacity-100 transition-opacity duration-200">
-              {colors.map((color, i) => (
-                <button
-                  key={color.id}
-                  type="button"
-                  onClick={(e) => handleColorClick(e, i)}
-                  className={`relative shrink-0 rounded-full transition-transform hover:scale-110 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-foreground ${compact ? "w-4 h-4" : "w-5 h-5"
-                    } ${i === selectedColorIndex ? "border border-foreground" : "border-2 border-border"}`}
-                  style={
-                    color.hexCode
-                      ? { backgroundColor: color.hexCode }
-                      : undefined
-                  }
-                  aria-label={`Color: ${color.name}`}
-                  aria-pressed={i === selectedColorIndex}
-                >
-                  {!color.hexCode && color.imageUrls?.[0] && (
-                    <span className="absolute inset-0 block rounded-full overflow-hidden bg-muted">
-                      <Image
-                        src={color.imageUrls[0]}
-                        alt={`${product.name} in ${color.name}`}
-                        fill
-                        className="object-cover"
-
-                        sizes="20px"
-                      />
-                    </span>
-                  )}
-                </button>
-              ))}
-            </div>
-          )}
+          <p className="text-sm font-light text-foreground mt-0.5">
+            {onSale ? (
+              <>
+                <span className="line-through text-muted-foreground">${price}</span>{" "}
+                <span className="text-destructive font-medium">${displayPrice}</span>
+              </>
+            ) : (
+              `$${displayPrice}`
+            )}
+          </p>
         </div>
       </Link>
     </article>

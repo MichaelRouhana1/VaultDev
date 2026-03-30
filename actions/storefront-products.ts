@@ -350,11 +350,11 @@ export const getPublicProductDetailForStore = cache(
   },
 );
 
-/** Similar products: share at least one attribute value, else same main category. */
+/** Similar products: same main shop category (ignores attribute tags so e.g. different fits still match). */
 export const getSimilarVisibleProductsExcept = cache(
   async (forProductId: number, storeType: StoreTypeFilter, limit = 10) => {
     const [p] = await db
-      .select()
+      .select({ mainCategoryId: products.mainCategoryId })
       .from(products)
       .where(
         and(
@@ -365,40 +365,6 @@ export const getSimilarVisibleProductsExcept = cache(
       )
       .limit(1);
     if (!p) return [];
-
-    const links = await db
-      .select({ attributeValueId: productAttributeValues.attributeValueId })
-      .from(productAttributeValues)
-      .where(eq(productAttributeValues.productId, forProductId));
-    const valueIds = links.map((l) => l.attributeValueId);
-
-    if (valueIds.length > 0) {
-      const candidateRows = await db
-        .select({ productId: productAttributeValues.productId })
-        .from(productAttributeValues)
-        .where(
-          and(
-            inArray(productAttributeValues.attributeValueId, valueIds),
-            ne(productAttributeValues.productId, forProductId),
-          ),
-        );
-      const idList = [...new Set(candidateRows.map((r) => r.productId))].slice(0, limit);
-      if (idList.length > 0) {
-        return db
-          .select()
-          .from(products)
-          .where(
-            and(
-              eq(products.isVisible, true),
-              eq(products.isArchived, false),
-              eq(products.storeType, storeType),
-              inArray(products.id, idList),
-              ne(products.id, forProductId),
-            ),
-          )
-          .limit(limit);
-      }
-    }
 
     return db
       .select()
@@ -412,6 +378,7 @@ export const getSimilarVisibleProductsExcept = cache(
           ne(products.id, forProductId),
         ),
       )
+      .orderBy(desc(products.id))
       .limit(limit);
   },
 );

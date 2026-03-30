@@ -280,8 +280,7 @@ export function ProductDetailClient({
       setStickyBuyPhase("summary");
       return;
     }
-    // Sticky bar always opens the size row (never one-tap add from remembered PDP size).
-    openCart();
+    // Expand size chips only; cart opens after a size is chosen (see addLineForSize).
     setStickyBuyPhase("pickSize");
   };
 
@@ -310,13 +309,13 @@ export function ProductDetailClient({
   return (
     <main
       className={cn(
-        "w-full max-w-[1400px] mx-auto px-6 py-12 relative",
-        showStickyBuyBar && "pb-28 md:pb-24",
+        "w-full max-w-[min(100%,1680px)] mx-auto px-4 sm:px-5 lg:px-6 xl:px-8 py-12 relative",
+        showStickyBuyBar && "pb-20 md:pb-[4.75rem]",
       )}
     >
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 lg:gap-16">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 lg:gap-20 xl:gap-28 lg:items-start">
         {/* Image gallery */}
-        <div className="flex flex-col gap-4">
+        <div className="flex flex-col gap-4 lg:min-w-0 lg:pr-3 xl:pr-6 2xl:pr-8">
           {/* Mobile: peek carousel with dots */}
           <div className="md:hidden w-full relative">
             <button
@@ -647,7 +646,7 @@ export function ProductDetailClient({
         </div>
 
         {/* Product info */}
-        <div className="flex flex-col">
+        <div className="flex flex-col lg:min-w-0 lg:pl-2 xl:pl-6 2xl:pl-8">
           <div className="flex items-start justify-between gap-4">
             <h1 className="text-xl font-normal text-foreground uppercase tracking-widest">
               {product.name.toUpperCase()}
@@ -759,7 +758,7 @@ export function ProductDetailClient({
             type="button"
             onClick={handleAddToBag}
             disabled={!canAddToCart}
-            className="mt-10 w-full py-4 text-xs font-medium uppercase tracking-widest text-background bg-foreground hover:opacity-90 transition-opacity disabled:opacity-50 disabled:cursor-not-allowed"
+            className="mt-10 w-full py-5 text-sm font-bold uppercase tracking-widest text-background bg-foreground hover:opacity-90 transition-opacity disabled:opacity-50 disabled:cursor-not-allowed"
           >
             Add to bag
           </button>
@@ -801,21 +800,22 @@ export function ProductDetailClient({
       {/* Sticky buy bar — appears when Similar Items section is in view (Bershka-style) */}
       <div
         className={cn(
-          "fixed inset-x-0 bottom-0 z-40 border-t border-border bg-background/95 backdrop-blur-md shadow-[0_-4px_24px_rgba(0,0,0,0.06)] transition-transform duration-300 ease-out",
+          // Match Navbar glass: frosted strip when backdrop-filter is supported
+          "fixed inset-x-0 bottom-0 z-40 border-t border-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 transition-transform duration-300 ease-out",
           showStickyBuyBar ? "translate-y-0" : "translate-y-full pointer-events-none",
         )}
         aria-hidden={!showStickyBuyBar}
       >
-        <div className="max-w-[1400px] mx-auto px-4 sm:px-6 py-3 pb-[max(0.75rem,env(safe-area-inset-bottom,0px))]">
-          <div className="flex flex-wrap items-center gap-x-3 gap-y-2 min-w-0">
-            <div className="relative h-14 w-14 shrink-0 overflow-hidden bg-muted border border-border">
+        <div className="max-w-[min(100%,1680px)] mx-auto px-4 sm:px-5 lg:px-6 xl:px-8 py-2 pb-[max(0.5rem,env(safe-area-inset-bottom,0px))]">
+          <div className="flex flex-wrap items-center gap-x-2.5 gap-y-1.5 min-w-0">
+            <div className="relative h-11 w-11 shrink-0 overflow-hidden bg-muted border border-border">
               {stickyThumbSrc ? (
                 <Image
                   src={stickyThumbSrc}
                   alt={product.name}
                   fill
                   className="object-cover"
-                  sizes="56px"
+                  sizes="44px"
                 />
               ) : (
                 <div className="flex h-full w-full items-center justify-center text-muted-foreground text-xs">
@@ -846,7 +846,7 @@ export function ProductDetailClient({
                         disabled={!inStock}
                         onClick={() => handleStickyBarSizeClick(size)}
                         className={cn(
-                          "min-w-[2.25rem] px-2.5 py-2 text-[0.65rem] font-medium uppercase tracking-wider rounded-none border transition-colors",
+                          "min-w-[2rem] px-2 py-1.5 text-[0.6rem] font-medium uppercase tracking-wider rounded-none border transition-colors",
                           !inStock
                             ? "border-border text-muted-foreground opacity-45 cursor-not-allowed bg-muted/20"
                             : "border-border text-foreground hover:border-foreground hover:bg-muted/40",
@@ -863,14 +863,14 @@ export function ProductDetailClient({
                 onClick={handleStickyBarAddClick}
                 disabled={!hasAnyInStock}
                 aria-expanded={stickyBuyPhase === "pickSize"}
-                className="rounded-none bg-foreground px-4 py-2.5 text-[0.65rem] font-semibold uppercase tracking-[0.2em] text-background hover:opacity-90 disabled:opacity-40 disabled:cursor-not-allowed whitespace-nowrap"
+                className="rounded-none bg-foreground px-4 py-2.5 text-xs font-bold uppercase tracking-[0.2em] text-background hover:opacity-90 disabled:opacity-40 disabled:cursor-not-allowed whitespace-nowrap"
               >
                 Add to basket
               </button>
               <button
                 type="button"
                 onClick={handleWishlistClick}
-                className="flex h-10 w-10 shrink-0 items-center justify-center text-foreground hover:opacity-70 border border-border rounded-none"
+                className="flex h-10 w-10 shrink-0 items-center justify-center text-foreground hover:opacity-70 rounded-none"
                 aria-label={wishlistState ? "Remove from wishlist" : "Add to wishlist"}
               >
                 <WishlistBookmarkIcon active={wishlistState} className="w-5 h-5" />
