@@ -12,20 +12,21 @@ import {
   getProductDiscountPercent,
   sortSizes,
 } from "@/lib/utils";
-import type { Product } from "@/db/schema";
+import type { Product, StorefrontProduct } from "@/db/schema";
 import type { ProductVariant, ProductColor } from "@/db/schema";
 import { WishlistBookmarkIcon } from "@/components/WishlistBookmarkIcon";
 
 const DEFAULT_SIZES = ["XS", "S", "M", "L", "XL"];
 
 /** PDP URL segment when not inferrable from pathname (e.g. /cart). */
-function storeTypeForProductUrl(product: Product): "streetwear" | "formal" {
+function storeTypeForProductUrl(product: Pick<Product, "storeType">): "streetwear" | "formal" {
   if (product.storeType === "formal") return "formal";
   return "streetwear";
 }
 
 interface ProductCardProps {
-  product: Product;
+  /** Listing rows omit generated `searchVector` for RSC safety; PDP passes full `Product`. */
+  product: StorefrontProduct | Product;
   variants?: ProductVariant[];
   colors?: ProductColor[] | null;
   inWishlist?: boolean;

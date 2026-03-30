@@ -230,7 +230,25 @@ export const getShopProductsForStore = cache(
       categorySlug: filters.categorySlug,
       searchQuery: filters.searchQuery,
     });
-    return db.select().from(products).where(and(...baseFilters));
+    // Omit `searchVector` (tsvector): not JSON-safe for RSC props; can break Flight parsing on navigation (e.g. `?sort=`).
+    return db
+      .select({
+        id: products.id,
+        name: products.name,
+        description: products.description,
+        price: products.price,
+        salePrice: products.salePrice,
+        saleStartsAt: products.saleStartsAt,
+        saleEndsAt: products.saleEndsAt,
+        isSaleActive: products.isSaleActive,
+        color: products.color,
+        isVisible: products.isVisible,
+        isArchived: products.isArchived,
+        storeType: products.storeType,
+        mainCategoryId: products.mainCategoryId,
+      })
+      .from(products)
+      .where(and(...baseFilters));
   },
 );
 

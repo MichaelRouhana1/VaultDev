@@ -14,7 +14,7 @@ import {
   type AttributeFilterSection,
 } from "@/components/FilterPanel";
 import { cn } from "@/lib/utils";
-import type { Product, ProductVariant, ProductColor } from "@/db/schema";
+import type { StorefrontProduct, ProductVariant, ProductColor } from "@/db/schema";
 import type { ProductCategory } from "@/actions/categories";
 import type { ProductCategoryFilterTags } from "@/actions/storefront-products";
 
@@ -22,7 +22,7 @@ const PRODUCTS_PER_PAGE = 12;
 const VALID_LEGACY_CATEGORIES = ["CLOTHING", "SHOES", "ACCESSORIES", "BAGS", "OTHER"] as const;
 
 interface ShopClientProps {
-  products: (Product & { categorySlug?: string | null })[];
+  products: (StorefrontProduct & { categorySlug?: string | null; images?: string[] })[];
   variantsByProductId: Record<number, ProductVariant[]>;
   colorsByProductId?: Record<number, ProductColor[]>;
   /** Attribute value slugs per product (for client-side facet filtering). */
@@ -265,19 +265,16 @@ export function ShopClient({
       <div className="flex relative w-full items-start gap-x-6 px-6 py-8">
         <aside
           className={cn(
-            "hidden md:block shrink-0 transition-all duration-300 ease-in-out overflow-hidden",
+            "hidden md:block shrink-0 self-start transition-[width,opacity] duration-300 ease-in-out",
             desktopFilterOpen
-              ? "w-[250px] lg:w-[280px] opacity-100"
-              : "w-0 opacity-0 m-0 p-0 pointer-events-none",
+              ? "w-[250px] lg:w-[280px] opacity-100 sticky top-32 z-20 max-h-[calc(100vh-8rem)] overflow-y-auto overflow-x-hidden overscroll-y-contain border-r border-border"
+              : "w-0 opacity-0 m-0 p-0 pointer-events-none overflow-hidden",
           )}
           aria-hidden={!desktopFilterOpen}
         >
-          <div
-            className={cn(
-              "w-[250px] lg:w-[280px] pr-4 lg:pr-6 sticky top-20 max-h-[calc(100vh-6rem)] overflow-y-auto overscroll-y-contain",
-            )}
-          >
+          <div className="w-[250px] lg:w-[280px] pr-4 lg:pr-6 pb-2 pt-5">
             <FilterPanelContent
+              hideTitle
               filters={filters}
               onFiltersChange={setFilters}
               priceBounds={priceBounds}

@@ -50,6 +50,8 @@ export interface FilterPanelContentProps {
   showCloseButton?: boolean;
   onClose?: () => void;
   className?: string;
+  /** Desktop inline sidebar: hide duplicate "Filters" heading (toolbar already shows Filters). */
+  hideTitle?: boolean;
 }
 
 function FilterSection({
@@ -159,6 +161,7 @@ export function FilterPanelContent({
   showCloseButton = false,
   onClose,
   className = "",
+  hideTitle = false,
 }: FilterPanelContentProps) {
   const sections = useMemo(() => attributeSections ?? [], [attributeSections]);
 
@@ -200,7 +203,9 @@ export function FilterPanelContent({
           </svg>
         </button>
       )}
-      <h2 className="text-sm font-medium uppercase tracking-[0.2em] text-foreground mb-8 pr-8 md:pr-0">Filters</h2>
+      {!hideTitle && (
+        <h2 className="text-sm font-medium uppercase tracking-[0.2em] text-foreground mb-8 pr-8 md:pr-0">Filters</h2>
+      )}
       <PriceRangeSection
         bounds={priceBounds}
         valueMin={filters.priceMin}

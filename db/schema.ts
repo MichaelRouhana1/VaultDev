@@ -537,6 +537,8 @@ export type ProductCategory = Category;
 export type NewProductCategory = NewCategory;
 
 export type Product = typeof products.$inferSelect;
+/** Row without generated `searchVector` — safe for RSC / JSON (shop listings, cards). */
+export type StorefrontProduct = Omit<Product, "searchVector">;
 export type NewProduct = typeof products.$inferInsert;
 
 export type ProductColor = typeof productColors.$inferSelect;
