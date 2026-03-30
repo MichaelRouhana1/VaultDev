@@ -105,3 +105,62 @@ export function slugifyOptionValue(value: string): string {
     .replace(/^-+|-+$/g, "");
   return s.length > 0 ? s : "value";
 }
+
+/** Standard apparel sizes in display order (use 3XL not XXXL; 4XL/5XL for extended plus). */
+const STANDARD_SIZE_ORDER = [
+  "XXS",
+  "XS",
+  "S",
+  "M",
+  "L",
+  "XL",
+  "XXL",
+  "3XL",
+  "4XL",
+  "5XL",
+  "ONE SIZE",
+] as const;
+
+function normalizeStandardSizeToken(raw: string): string {
+  let u = raw.trim().toUpperCase().replace(/\s+/g, " ");
+  if (u === "XXXL") u = "3XL";
+  if (u === "XXXXL") u = "4XL";
+  if (u === "XXXXXL") u = "5XL";
+  if (u === "OS" || u === "ONESIZE" || u === "ONE-SIZE") u = "ONE SIZE";
+  return u;
+}
+
+type SizeSortBucket = { tier: 0 | 1 | 2; primary: number; secondary: string };
+
+function sizeSortBucket(label: string): SizeSortBucket {
+  const raw = label.trim();
+  const std = normalizeStandardSizeToken(raw);
+  const stdIdx = (STANDARD_SIZE_ORDER as readonly string[]).indexOf(std);
+  if (stdIdx !== -1) {
+    return { tier: 0, primary: stdIdx, secondary: raw };
+  }
+
+  if (/^\d+(\.\d+)?$/.test(raw)) {
+    const n = parseFloat(raw);
+    if (Number.isFinite(n)) {
+      return { tier: 1, primary: n, secondary: raw };
+    }
+  }
+
+  return { tier: 2, primary: 0, secondary: raw };
+}
+
+/**
+ * Sort size labels for display: standard letters (XXS → 5XL, ONE SIZE), then numeric waist/length,
+ * then remaining values alphabetically.
+ */
+export function sortSizes(sizes: string[]): string[] {
+  return [...sizes].sort((a, b) => {
+    const ka = sizeSortBucket(a);
+    const kb = sizeSortBucket(b);
+    if (ka.tier !== kb.tier) return ka.tier - kb.tier;
+    if (ka.tier === 0) return ka.primary - kb.primary;
+    if (ka.tier === 1) return ka.primary - kb.primary;
+    return ka.secondary.localeCompare(kb.secondary, undefined, { numeric: true, sensitivity: "base" });
+  });
+}

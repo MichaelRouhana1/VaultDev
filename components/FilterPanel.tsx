@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo } from "react";
+import { sortSizes } from "@/lib/utils";
 
 export interface FilterState {
   priceMin: number;
@@ -161,6 +162,11 @@ export function FilterPanelContent({
 }: FilterPanelContentProps) {
   const sections = useMemo(() => attributeSections ?? [], [attributeSections]);
 
+  const sortedSizeOptions = useMemo(
+    () => sortSizes([...(variantSizeOptions ?? SIZE_OPTIONS)]),
+    [variantSizeOptions],
+  );
+
   const toggleScalar = (key: "size" | "color") => (value: string) => {
     const current = filters[key];
     const next = current.includes(value) ? current.filter((v: string) => v !== value) : [...current, value];
@@ -220,10 +226,10 @@ export function FilterPanelContent({
           />
         ) : null,
       )}
-      {(variantSizeOptions === undefined ? SIZE_OPTIONS.length > 0 : variantSizeOptions.length > 0) && (
+      {sortedSizeOptions.length > 0 && (
         <FilterSection
           title="Size"
-          options={variantSizeOptions ?? SIZE_OPTIONS}
+          options={sortedSizeOptions}
           selected={filters.size}
           onToggle={toggleScalar("size")}
         />

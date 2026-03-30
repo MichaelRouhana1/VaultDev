@@ -6,7 +6,12 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useCart } from "@/context/CartContext";
 import { useWishlist } from "@/context/WishlistContext";
-import { getProductDisplayPrice, isProductOnSale, getProductDiscountPercent } from "@/lib/utils";
+import {
+  getProductDisplayPrice,
+  isProductOnSale,
+  getProductDiscountPercent,
+  sortSizes,
+} from "@/lib/utils";
 import type { Product } from "@/db/schema";
 import type { ProductVariant, ProductColor } from "@/db/schema";
 import { WishlistBookmarkIcon } from "@/components/WishlistBookmarkIcon";
@@ -68,12 +73,11 @@ export function ProductCard({
   const isOutOfStock = totalStock === 0;
   const isSizeInStock = (size: string) => (variantMap.get(size)?.stock ?? 0) > 0;
 
-  const sizes =
+  const sizes = sortSizes(
     variantsForColor.length > 0
-      ? [...new Set(variantsForColor.map((v) => v.size))].sort(
-        (a, b) => DEFAULT_SIZES.indexOf(a) - DEFAULT_SIZES.indexOf(b)
-      )
-      : DEFAULT_SIZES;
+      ? [...new Set(variantsForColor.map((v) => v.size))]
+      : [...DEFAULT_SIZES],
+  );
 
   const handleWishlistClick = async (e: React.MouseEvent) => {
     e.preventDefault();
