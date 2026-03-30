@@ -6,7 +6,7 @@
  */
 
 import { cache } from "react";
-import { and, asc, desc, eq, inArray, ne, sql, type SQL } from "drizzle-orm";
+import { and, asc, desc, eq, inArray, ne, type SQL } from "drizzle-orm";
 import { alias } from "drizzle-orm/pg-core";
 import { db } from "@/db";
 import {
@@ -20,8 +20,6 @@ import {
 } from "@/db/schema";
 import { buildProductSearchWhere } from "@/lib/product-search";
 import { conditionProductsMatchCategorySlug } from "@/lib/shop-category-filter";
-import { resolveAttributeSlugsToIds } from "@/actions/attributes";
-
 export type StoreTypeFilter = "streetwear" | "formal";
 
 /** Coerce DB text for UI (same idea as `actions/attributes`). */
@@ -222,30 +220,16 @@ export const getHomeDiscoverProductsWithFirstImage = cache(async (storeType: Sto
   }));
 });
 
+/** Shop grid: store + optional category + optional search. Attribute facets filter on the client. */
 export const getShopProductsForStore = cache(
   async (
     storeType: StoreTypeFilter,
-    filters: { categorySlug?: string; searchQuery?: string; attributeSlugs?: string[] },
+    filters: { categorySlug?: string; searchQuery?: string },
   ) => {
     const baseFilters = await shopListingFilterSql(storeType, {
       categorySlug: filters.categorySlug,
       searchQuery: filters.searchQuery,
     });
-
-    const slugs = filters.attributeSlugs?.filter(Boolean) ?? [];
-    if (slugs.length > 0) {
-      const valueIds = await resolveAttributeSlugsToIds(slugs);
-      for (const vid of valueIds) {
-        baseFilters.push(
-          sql`EXISTS (
-            SELECT 1 FROM ${productAttributeValues}
-            WHERE ${productAttributeValues.productId} = ${products.id}
-            AND ${productAttributeValues.attributeValueId} = ${vid}
-          )`,
-        );
-      }
-    }
-
     return db.select().from(products).where(and(...baseFilters));
   },
 );

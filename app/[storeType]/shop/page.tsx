@@ -12,21 +12,17 @@ import {
   getProductColorsByProductIds,
   getPrimaryCategorySlugByProductIds,
   getProductCategoryFilterTagsByProductIds,
+  getProductAttributeValueSlugsByProductIds,
 } from "@/actions/storefront-products";
 import { Suspense } from "react";
 import { notFound } from "next/navigation";
 
 interface ShopPageProps {
   params: Promise<{ storeType: string }>;
-  searchParams: Promise<{ category?: string; cat?: string; sort?: string; q?: string; attributes?: string }>;
+  searchParams: Promise<{ category?: string; cat?: string; sort?: string; q?: string }>;
 }
 
 import type { Metadata } from "next";
-
-function parseAttributeSlugsParam(raw: string | undefined): string[] {
-  if (!raw?.trim()) return [];
-  return [...new Set(raw.split(",").map((s) => s.trim().toLowerCase()).filter(Boolean))];
-}
 
 export async function generateMetadata({ params }: ShopPageProps): Promise<Metadata> {
   const { storeType } = await params;
@@ -60,7 +56,6 @@ export default async function ShopPage({ params, searchParams }: ShopPageProps) 
   const search = await searchParams;
   const cat = search.cat;
   const q = search.q?.trim();
-  const attributeSlugs = parseAttributeSlugsParam(search.attributes);
 
   const [validSlugs, storeSlugs, storeCategories] = await Promise.all([
     getValidCategorySlugs(),
@@ -85,10 +80,7 @@ export default async function ShopPage({ params, searchParams }: ShopPageProps) 
   const [attributeSectionsForFilters, facetProductIds, productList] = await Promise.all([
     getShopAttributeFacetsForListingContext(st, listingContext),
     getShopProductIdsForListingContext(st, listingContext),
-    getShopProductsForStore(st, {
-      ...listingContext,
-      attributeSlugs: attributeSlugs.length > 0 ? attributeSlugs : undefined,
-    }),
+    getShopProductsForStore(st, listingContext),
   ]);
 
   let filterVariantSizes: string[] = [];
@@ -114,13 +106,14 @@ export default async function ShopPage({ params, searchParams }: ShopPageProps) 
   }
 
   const productIds = productList.map((p) => p.id);
-  const [primarySlugByProductId, categoryFilterTags] =
+  const [primarySlugByProductId, categoryFilterTags, attributeSlugsByProductId] =
     productIds.length > 0
       ? await Promise.all([
           getPrimaryCategorySlugByProductIds(productIds),
           getProductCategoryFilterTagsByProductIds(productIds),
+          getProductAttributeValueSlugsByProductIds(productIds),
         ])
-      : [{}, {}];
+      : [{}, {}, {}];
   const [variantsList, colorsList] =
     productIds.length > 0
       ? await Promise.all([
@@ -190,6 +183,7 @@ export default async function ShopPage({ params, searchParams }: ShopPageProps) 
           products={productsWithImages}
           variantsByProductId={variantsByProductId}
           colorsByProductId={colorsByProductId}
+          attributeSlugsByProductId={attributeSlugsByProductId}
           wishlistProductIds={wishlistProductIds}
           categoryLabel={categoryLabel}
           storeMainCategories={storeCategories}

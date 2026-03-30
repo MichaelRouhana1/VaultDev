@@ -25,6 +25,8 @@ interface ShopClientProps {
   products: (Product & { categorySlug?: string | null })[];
   variantsByProductId: Record<number, ProductVariant[]>;
   colorsByProductId?: Record<number, ProductColor[]>;
+  /** Attribute value slugs per product (for client-side facet filtering). */
+  attributeSlugsByProductId: Record<number, string[]>;
   wishlistProductIds: number[];
   categoryLabel?: string | null;
   storeMainCategories: ProductCategory[];
@@ -39,15 +41,11 @@ interface ShopClientProps {
   initialQuery?: string;
 }
 
-function parseAttributesParam(raw: string | null): string[] {
-  if (!raw?.trim()) return [];
-  return [...new Set(raw.split(",").map((s) => s.trim().toLowerCase()).filter(Boolean))];
-}
-
 export function ShopClient({
   products,
   variantsByProductId,
   colorsByProductId = {},
+  attributeSlugsByProductId,
   wishlistProductIds,
   categoryLabel,
   storeMainCategories,
@@ -65,12 +63,6 @@ export function ShopClient({
   const categorySlug = searchParams.get("cat");
   const sortParam = searchParams.get("sort") ?? "newest";
 
-  const attributesQuery = searchParams.get("attributes");
-  const selectedAttributeSlugs = useMemo(
-    () => parseAttributesParam(attributesQuery),
-    [attributesQuery],
-  );
-
   const [mobileFilterOpen, setMobileFilterOpen] = useState(false);
   const [desktopFilterOpen, setDesktopFilterOpen] = useState(false);
   const [sort, setSort] = useState<SortOption>(
@@ -85,6 +77,8 @@ export function ShopClient({
     color: [],
     mainCategory: [],
   });
+  /** Attribute group name → selected value slugs (client-only; matches FilterPanel sections). */
+  const [selectedAttributes, setSelectedAttributes] = useState<Record<string, string[]>>({});
   const [visibleCount, setVisibleCount] = useState(PRODUCTS_PER_PAGE);
   const priceInitialized = useRef(false);
 
@@ -100,6 +94,10 @@ export function ShopClient({
   useEffect(() => {
     priceInitialized.current = false;
   }, [category]);
+
+  useEffect(() => {
+    setSelectedAttributes({});
+  }, [category, categorySlug, initialQuery, storeType]);
 
   useEffect(() => {
     if (products.length > 0 && priceBounds.max > 0 && !priceInitialized.current) {
@@ -125,23 +123,24 @@ export function ShopClient({
     router.push(query ? `${base}?${query}` : base);
   };
 
-  const toggleAttributeSlug = useCallback(
-    (slug: string) => {
-      const normalized = slug.trim().toLowerCase();
-      const next = selectedAttributeSlugs.includes(normalized)
-        ? selectedAttributeSlugs.filter((s) => s !== normalized)
-        : [...selectedAttributeSlugs, normalized];
-      const params = new URLSearchParams(searchParams.toString());
-      if (next.length === 0) {
-        params.delete("attributes");
+  const toggleAttribute = useCallback((attributeName: string, slug: string) => {
+    const trimmed = slug.trim();
+    if (!trimmed) return;
+    setSelectedAttributes((prev) => {
+      const current = prev[attributeName] ?? [];
+      const has = current.some((s) => s.toLowerCase() === trimmed.toLowerCase());
+      const nextGroup = has
+        ? current.filter((s) => s.toLowerCase() !== trimmed.toLowerCase())
+        : [...current, trimmed];
+      const next = { ...prev };
+      if (nextGroup.length === 0) {
+        delete next[attributeName];
       } else {
-        params.set("attributes", next.join(","));
+        next[attributeName] = nextGroup;
       }
-      const query = params.toString();
-      router.push(`/${storeType}/shop${query ? `?${query}` : ""}`);
-    },
-    [router, searchParams, storeType, selectedAttributeSlugs],
-  );
+      return next;
+    });
+  }, []);
 
   const filteredAndSorted = useMemo(() => {
     let list = [...products];
@@ -176,6 +175,16 @@ export function ShopClient({
       });
     }
 
+    for (const section of attributeSectionsForFilters) {
+      const selected = selectedAttributes[section.name] ?? [];
+      if (selected.length === 0) continue;
+      const selectedLower = selected.map((s) => s.trim().toLowerCase()).filter(Boolean);
+      list = list.filter((p) => {
+        const productSlugs = (attributeSlugsByProductId[p.id] ?? []).map((s) => s.trim().toLowerCase());
+        return selectedLower.some((sel) => productSlugs.includes(sel));
+      });
+    }
+
     if (sort === "recommended" || sort === "newest") {
       list.sort((a, b) => b.id - a.id);
     } else if (sort === "price-low") {
@@ -189,7 +198,17 @@ export function ShopClient({
     }
 
     return list;
-  }, [products, variantsByProductId, colorsByProductId, filters, sort, categoryFilterTags]);
+  }, [
+    products,
+    variantsByProductId,
+    colorsByProductId,
+    attributeSlugsByProductId,
+    filters,
+    selectedAttributes,
+    attributeSectionsForFilters,
+    sort,
+    categoryFilterTags,
+  ]);
 
   const visibleProducts = filteredAndSorted.slice(0, visibleCount);
   const hasMore = visibleCount < filteredAndSorted.length;
@@ -240,8 +259,8 @@ export function ShopClient({
         attributeSections={attributeSectionsForFilters}
         variantSizeOptions={filterVariantSizes}
         productColorOptions={filterProductColorNames}
-        selectedAttributeSlugs={selectedAttributeSlugs}
-        onToggleAttribute={toggleAttributeSlug}
+        selectedAttributes={selectedAttributes}
+        onToggleAttribute={toggleAttribute}
       />
       <div className="flex relative w-full items-start gap-x-6 px-6 py-8">
         <aside
@@ -267,8 +286,8 @@ export function ShopClient({
               attributeSections={attributeSectionsForFilters}
               variantSizeOptions={filterVariantSizes}
               productColorOptions={filterProductColorNames}
-              selectedAttributeSlugs={selectedAttributeSlugs}
-              onToggleAttribute={toggleAttributeSlug}
+              selectedAttributes={selectedAttributes}
+              onToggleAttribute={toggleAttribute}
             />
           </div>
         </aside>

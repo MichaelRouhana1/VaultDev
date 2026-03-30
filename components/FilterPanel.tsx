@@ -42,8 +42,9 @@ export interface FilterPanelContentProps {
   variantSizeOptions?: string[];
   /** When set, Color chips use these product color names (listing context). Omit for legacy static list. */
   productColorOptions?: string[];
-  selectedAttributeSlugs?: string[];
-  onToggleAttribute?: (slug: string) => void;
+  /** Selected value slugs per attribute group name (e.g. `{ Fit: ["baggy"] }`). Client-only shop filtering. */
+  selectedAttributes?: Record<string, string[]>;
+  onToggleAttribute?: (attributeName: string, slug: string) => void;
   /** Mobile drawer close control */
   showCloseButton?: boolean;
   onClose?: () => void;
@@ -152,14 +153,13 @@ export function FilterPanelContent({
   attributeSections = [],
   variantSizeOptions,
   productColorOptions,
-  selectedAttributeSlugs = [],
+  selectedAttributes = {},
   onToggleAttribute,
   showCloseButton = false,
   onClose,
   className = "",
 }: FilterPanelContentProps) {
   const sections = useMemo(() => attributeSections ?? [], [attributeSections]);
-  const selectedAttrs = useMemo(() => selectedAttributeSlugs ?? [], [selectedAttributeSlugs]);
 
   const toggleScalar = (key: "size" | "color") => (value: string) => {
     const current = filters[key];
@@ -215,8 +215,8 @@ export function FilterPanelContent({
             key={section.name}
             title={section.name}
             options={section.values.map((v) => ({ value: v.slug, label: v.label }))}
-            selected={selectedAttrs}
-            onToggle={onToggleAttribute}
+            selected={selectedAttributes[section.name] ?? []}
+            onToggle={(slug) => onToggleAttribute(section.name, slug)}
           />
         ) : null,
       )}
@@ -254,8 +254,8 @@ interface FilterPanelProps {
   attributeSections?: AttributeFilterSection[];
   variantSizeOptions?: string[];
   productColorOptions?: string[];
-  selectedAttributeSlugs?: string[];
-  onToggleAttribute?: (slug: string) => void;
+  selectedAttributes?: Record<string, string[]>;
+  onToggleAttribute?: (attributeName: string, slug: string) => void;
 }
 
 /** Full-screen slide-in filter drawer for viewports below `md`. Hidden from `md` up (desktop uses inline sidebar in ShopClient). */
@@ -270,7 +270,7 @@ export function FilterPanel({
   attributeSections = [],
   variantSizeOptions,
   productColorOptions,
-  selectedAttributeSlugs = [],
+  selectedAttributes = {},
   onToggleAttribute,
 }: FilterPanelProps) {
   useEffect(() => {
@@ -327,7 +327,7 @@ export function FilterPanel({
             attributeSections={attributeSections}
             variantSizeOptions={variantSizeOptions}
             productColorOptions={productColorOptions}
-            selectedAttributeSlugs={selectedAttributeSlugs}
+            selectedAttributes={selectedAttributes}
             onToggleAttribute={onToggleAttribute}
             showCloseButton
             onClose={onClose}
