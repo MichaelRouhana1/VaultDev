@@ -13,6 +13,7 @@ import {
   jsonb,
   customType,
   primaryKey,
+  unique,
 } from "drizzle-orm/pg-core";
 
 // Enums
@@ -154,7 +155,7 @@ export const productColors = pgTable("product_colors", {
   imageUrls: text("image_urls").array().notNull().default([]),
 }, (t) => [index("product_colors_product_id_idx").on(t.productId)]);
 
-// ProductVariants - size + stock per color
+// ProductVariants - size + stock per color (legacy columns retained until data cutover)
 export const productVariants = pgTable("product_variants", {
   id: serial("id").primaryKey(),
   productId: integer("product_id")
@@ -165,7 +166,64 @@ export const productVariants = pgTable("product_variants", {
     .references(() => productColors.id, { onDelete: "cascade" }),
   size: text("size").notNull(),
   stock: integer("stock").notNull().default(0),
+  /** Globally unique; null allowed until backfill (`scripts/migrate-variants.ts`). */
+  sku: text("sku").unique(),
+  /** When null, storefront uses base product pricing / sale logic. */
+  priceOverride: decimal("price_override", { precision: 10, scale: 2 }),
+  stockQuantity: integer("stock_quantity").notNull().default(0),
 }, (t) => [index("product_variants_product_id_idx").on(t.productId)]);
+
+/** Per-product option dimension (e.g. Size, Color). No rows = product uses a single synthetic variant only. */
+export const productOptions = pgTable(
+  "product_options",
+  {
+    id: serial("id").primaryKey(),
+    productId: integer("product_id")
+      .notNull()
+      .references(() => products.id, { onDelete: "cascade" }),
+    name: text("name").notNull(),
+    sortOrder: integer("sort_order").notNull().default(0),
+  },
+  (t) => [index("product_options_product_id_idx").on(t.productId)],
+);
+
+/** Selectable value under a product option; `slug` for URL filters (unique per option). */
+export const productOptionValues = pgTable(
+  "product_option_values",
+  {
+    id: serial("id").primaryKey(),
+    productOptionId: integer("product_option_id")
+      .notNull()
+      .references(() => productOptions.id, { onDelete: "cascade" }),
+    value: text("value").notNull(),
+    slug: text("slug").notNull(),
+    sortOrder: integer("sort_order").notNull().default(0),
+    productColorId: integer("product_color_id").references(() => productColors.id, {
+      onDelete: "set null",
+    }),
+  },
+  (t) => [
+    index("product_option_values_option_id_idx").on(t.productOptionId),
+    unique("product_option_values_option_slug_uidx").on(t.productOptionId, t.slug),
+  ],
+);
+
+/** Links a purchasable variant to exactly one value per option (enforced in app). */
+export const variantOptionValues = pgTable(
+  "variant_option_values",
+  {
+    productVariantId: integer("product_variant_id")
+      .notNull()
+      .references(() => productVariants.id, { onDelete: "cascade" }),
+    productOptionValueId: integer("product_option_value_id")
+      .notNull()
+      .references(() => productOptionValues.id, { onDelete: "cascade" }),
+  },
+  (t) => [
+    primaryKey({ columns: [t.productVariantId, t.productOptionValueId] }),
+    index("variant_option_values_option_value_id_idx").on(t.productOptionValueId),
+  ],
+);
 
 /** Marketing / merchandising groups (many-to-many with products). */
 export const collections = pgTable(
@@ -288,6 +346,7 @@ export const productsRelations = relations(products, ({ one, many }) => ({
   }),
   variants: many(productVariants),
   colors: many(productColors),
+  productOptions: many(productOptions),
   productCollectionLinks: many(productCollections),
   attributeValueLinks: many(productAttributeValues),
   orderItems: many(orderItems),
@@ -312,11 +371,44 @@ export const productCollectionsRelations = relations(productCollections, ({ one 
 export const productColorsRelations = relations(productColors, ({ one, many }) => ({
   product: one(products),
   variants: many(productVariants),
+  optionValues: many(productOptionValues),
 }));
 
-export const productVariantsRelations = relations(productVariants, ({ one }) => ({
+export const productOptionsRelations = relations(productOptions, ({ one, many }) => ({
+  product: one(products, {
+    fields: [productOptions.productId],
+    references: [products.id],
+  }),
+  values: many(productOptionValues),
+}));
+
+export const productOptionValuesRelations = relations(productOptionValues, ({ one, many }) => ({
+  productOption: one(productOptions, {
+    fields: [productOptionValues.productOptionId],
+    references: [productOptions.id],
+  }),
+  productColor: one(productColors, {
+    fields: [productOptionValues.productColorId],
+    references: [productColors.id],
+  }),
+  variantLinks: many(variantOptionValues),
+}));
+
+export const variantOptionValuesRelations = relations(variantOptionValues, ({ one }) => ({
+  variant: one(productVariants, {
+    fields: [variantOptionValues.productVariantId],
+    references: [productVariants.id],
+  }),
+  optionValue: one(productOptionValues, {
+    fields: [variantOptionValues.productOptionValueId],
+    references: [productOptionValues.id],
+  }),
+}));
+
+export const productVariantsRelations = relations(productVariants, ({ one, many }) => ({
   product: one(products),
   color: one(productColors),
+  optionValueLinks: many(variantOptionValues),
 }));
 
 export const promoCodesRelations = relations(promoCodes, ({ many }) => ({
@@ -452,6 +544,13 @@ export type NewProductColor = typeof productColors.$inferInsert;
 
 export type ProductVariant = typeof productVariants.$inferSelect;
 export type NewProductVariant = typeof productVariants.$inferInsert;
+
+export type ProductOption = typeof productOptions.$inferSelect;
+export type NewProductOption = typeof productOptions.$inferInsert;
+export type ProductOptionValue = typeof productOptionValues.$inferSelect;
+export type NewProductOptionValue = typeof productOptionValues.$inferInsert;
+export type VariantOptionValue = typeof variantOptionValues.$inferSelect;
+export type NewVariantOptionValue = typeof variantOptionValues.$inferInsert;
 
 export type PromoCode = typeof promoCodes.$inferSelect;
 export type NewPromoCode = typeof promoCodes.$inferInsert;
