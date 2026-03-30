@@ -18,6 +18,12 @@ export type AttributeWithValues = {
   values: { id: number; name: string; slug: string }[];
 };
 
+/** Postgres column `name` can surface as non-string from some drivers; coerce for UI. */
+function asUiString(value: unknown): string {
+  if (value == null) return "";
+  return typeof value === "string" ? value : String(value);
+}
+
 function slugify(raw: string): string {
   return raw
     .trim()
@@ -33,12 +39,12 @@ export const getAttributesWithValues = cache(async (): Promise<AttributeWithValu
   const byAttr = new Map<number, { id: number; name: string; slug: string }[]>();
   for (const v of vals) {
     const list = byAttr.get(v.attributeId) ?? [];
-    list.push({ id: v.id, name: v.name, slug: v.slug });
+    list.push({ id: v.id, name: asUiString(v.name), slug: asUiString(v.slug) });
     byAttr.set(v.attributeId, list);
   }
   return attrs.map((a) => ({
     id: a.id,
-    name: a.name,
+    name: asUiString(a.name),
     sortOrder: a.sortOrder,
     values: byAttr.get(a.id) ?? [],
   }));

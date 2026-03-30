@@ -4,9 +4,12 @@ import { useMemo, useState, useEffect } from "react";
 import { Label } from "@/components/ui/label";
 import type { AttributeWithValues } from "@/actions/attributes";
 
+/** Stable default — `= []` in params is a new array every render and breaks useEffect deps. */
+const EMPTY_SELECTED_IDS: number[] = [];
+
 export function ProductAttributeFields({
   attributesWithValues,
-  initialSelectedIds = [],
+  initialSelectedIds = EMPTY_SELECTED_IDS,
 }: {
   attributesWithValues: AttributeWithValues[];
   initialSelectedIds?: number[];

@@ -6,12 +6,13 @@ import { ShopClient } from "@/components/ShopClient";
 import { getValidCategorySlugs, getStoreCategorySlugs, getStoreCategories } from "@/actions/categories";
 import {
   getShopProductsForStore,
+  getShopAttributeFacetsForListingContext,
+  getShopProductIdsForListingContext,
   getProductVariantsByProductIds,
   getProductColorsByProductIds,
   getPrimaryCategorySlugByProductIds,
   getProductCategoryFilterTagsByProductIds,
 } from "@/actions/storefront-products";
-import { getAttributesWithValues } from "@/actions/attributes";
 import { Suspense } from "react";
 import { notFound } from "next/navigation";
 
@@ -61,11 +62,10 @@ export default async function ShopPage({ params, searchParams }: ShopPageProps) 
   const q = search.q?.trim();
   const attributeSlugs = parseAttributeSlugsParam(search.attributes);
 
-  const [validSlugs, storeSlugs, storeCategories, attrDefs] = await Promise.all([
+  const [validSlugs, storeSlugs, storeCategories] = await Promise.all([
     getValidCategorySlugs(),
     getStoreCategorySlugs(storeType),
     getStoreCategories(storeType),
-    getAttributesWithValues(),
   ]);
 
   if (storeSlugs.length === 0 && (storeType === "streetwear" || storeType === "formal")) {
@@ -77,11 +77,41 @@ export default async function ShopPage({ params, searchParams }: ShopPageProps) 
   const catFilter = cat && validSlugs.includes(cat) && storeSlugs.includes(cat);
 
   const st = storeType as "streetwear" | "formal";
-  const productList = await getShopProductsForStore(st, {
+  const listingContext = {
     categorySlug: catFilter && cat ? cat : undefined,
     searchQuery: q ?? "",
-    attributeSlugs: attributeSlugs.length > 0 ? attributeSlugs : undefined,
-  });
+  };
+
+  const [attributeSectionsForFilters, facetProductIds, productList] = await Promise.all([
+    getShopAttributeFacetsForListingContext(st, listingContext),
+    getShopProductIdsForListingContext(st, listingContext),
+    getShopProductsForStore(st, {
+      ...listingContext,
+      attributeSlugs: attributeSlugs.length > 0 ? attributeSlugs : undefined,
+    }),
+  ]);
+
+  let filterVariantSizes: string[] = [];
+  let filterProductColorNames: string[] = [];
+  if (facetProductIds.length > 0) {
+    const [facetVariants, facetColors] = await Promise.all([
+      getProductVariantsByProductIds(facetProductIds),
+      getProductColorsByProductIds(facetProductIds),
+    ]);
+    const sizes = new Set<string>();
+    for (const v of facetVariants) {
+      if (v.stock > 0) sizes.add(v.size);
+    }
+    filterVariantSizes = [...sizes].sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));
+    const colorNames = new Set<string>();
+    for (const c of facetColors) {
+      const n = typeof c.name === "string" ? c.name.trim() : "";
+      if (n) colorNames.add(n);
+    }
+    filterProductColorNames = [...colorNames].sort((a, b) =>
+      a.localeCompare(b, undefined, { sensitivity: "base" }),
+    );
+  }
 
   const productIds = productList.map((p) => p.id);
   const [primarySlugByProductId, categoryFilterTags] =
@@ -129,11 +159,6 @@ export default async function ShopPage({ params, searchParams }: ShopPageProps) 
     {},
   );
 
-  const attributeSectionsForFilters = attrDefs.map((a) => ({
-    name: a.name.toUpperCase(),
-    values: a.values.map((v) => ({ slug: v.slug, label: v.name })),
-  }));
-
   let shopFilterContext: "all" | "main" = "all";
   if (catFilter && cat && storeCategories.some((c) => c.slug === cat)) {
     shopFilterContext = "main";
@@ -169,6 +194,8 @@ export default async function ShopPage({ params, searchParams }: ShopPageProps) 
           categoryLabel={categoryLabel}
           storeMainCategories={storeCategories}
           attributeSectionsForFilters={attributeSectionsForFilters}
+          filterVariantSizes={filterVariantSizes}
+          filterProductColorNames={filterProductColorNames}
           shopFilterContext={shopFilterContext}
           categoryFilterTags={categoryFilterTags}
           storeType={storeType}

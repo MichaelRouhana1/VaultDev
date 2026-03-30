@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { useSession, useUser } from "@clerk/nextjs";
+import { SignOutButton, useSession, useUser } from "@clerk/nextjs";
 import { isClerkAPIResponseError, isReverificationCancelledError } from "@clerk/nextjs/errors";
 import { toast } from "sonner";
 import { AccountPasswordInput } from "@/components/account/AccountPasswordInput";
@@ -109,16 +109,32 @@ export function AccountChangePasswordPanel({ onSuccess }: Props) {
   return (
     <div className="mx-auto max-w-md space-y-4 py-2">
       <form onSubmit={handleSubmit} className="space-y-4">
-        <AccountPasswordInput
-          id="chg-pw-current"
-          label="Current password"
-          labelClassName={labelClass}
-          value={currentPassword}
-          onChange={setCurrentPassword}
-          autoComplete="current-password"
-          placeholder="••••••••"
-          disabled={busy}
-        />
+        <div className="space-y-2">
+          <AccountPasswordInput
+            id="chg-pw-current"
+            label="Current password"
+            labelClassName={labelClass}
+            value={currentPassword}
+            onChange={setCurrentPassword}
+            autoComplete="current-password"
+            placeholder="••••••••"
+            disabled={busy}
+          />
+          <div className="flex flex-col items-end gap-1">
+            <SignOutButton signOutOptions={{ redirectUrl: "/sign-in" }}>
+              <button
+                type="button"
+                disabled={busy}
+                className="text-[0.65rem] font-semibold uppercase tracking-[0.15em] text-muted-foreground underline-offset-4 transition-colors hover:text-foreground hover:underline disabled:pointer-events-none disabled:opacity-50"
+              >
+                Forgot password?
+              </button>
+            </SignOutButton>
+            <p className="max-w-[16rem] text-right text-[0.6rem] leading-snug text-muted-foreground/90">
+              We’ll sign you out so you can request a reset link on the sign-in page.
+            </p>
+          </div>
+        </div>
         <AccountPasswordInput
           id="chg-pw-new"
           label="New password"

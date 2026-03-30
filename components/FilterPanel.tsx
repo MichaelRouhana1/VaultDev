@@ -38,6 +38,10 @@ export interface FilterPanelContentProps {
   showMainCategorySection: boolean;
   mainCategories?: { value: string; label: string }[];
   attributeSections?: AttributeFilterSection[];
+  /** When set, Size chips are limited to these variant sizes (listing context). Omit for legacy static list. */
+  variantSizeOptions?: string[];
+  /** When set, Color chips use these product color names (listing context). Omit for legacy static list. */
+  productColorOptions?: string[];
   selectedAttributeSlugs?: string[];
   onToggleAttribute?: (slug: string) => void;
   /** Mobile drawer close control */
@@ -146,6 +150,8 @@ export function FilterPanelContent({
   showMainCategorySection,
   mainCategories = [],
   attributeSections = [],
+  variantSizeOptions,
+  productColorOptions,
   selectedAttributeSlugs = [],
   onToggleAttribute,
   showCloseButton = false,
@@ -214,8 +220,25 @@ export function FilterPanelContent({
           />
         ) : null,
       )}
-      <FilterSection title="Size" options={SIZE_OPTIONS} selected={filters.size} onToggle={toggleScalar("size")} />
-      <FilterSection title="Color" options={COLOR_OPTIONS} selected={filters.color} onToggle={toggleScalar("color")} />
+      {(variantSizeOptions === undefined ? SIZE_OPTIONS.length > 0 : variantSizeOptions.length > 0) && (
+        <FilterSection
+          title="Size"
+          options={variantSizeOptions ?? SIZE_OPTIONS}
+          selected={filters.size}
+          onToggle={toggleScalar("size")}
+        />
+      )}
+      {(productColorOptions === undefined ? COLOR_OPTIONS.length > 0 : productColorOptions.length > 0) && (
+        <FilterSection
+          title="Color"
+          options={(productColorOptions ?? COLOR_OPTIONS).map((c) => ({
+            value: c,
+            label: c.toUpperCase(),
+          }))}
+          selected={filters.color}
+          onToggle={toggleScalar("color")}
+        />
+      )}
     </div>
   );
 }
@@ -229,6 +252,8 @@ interface FilterPanelProps {
   showMainCategorySection: boolean;
   mainCategories?: { value: string; label: string }[];
   attributeSections?: AttributeFilterSection[];
+  variantSizeOptions?: string[];
+  productColorOptions?: string[];
   selectedAttributeSlugs?: string[];
   onToggleAttribute?: (slug: string) => void;
 }
@@ -243,6 +268,8 @@ export function FilterPanel({
   showMainCategorySection,
   mainCategories = [],
   attributeSections = [],
+  variantSizeOptions,
+  productColorOptions,
   selectedAttributeSlugs = [],
   onToggleAttribute,
 }: FilterPanelProps) {
@@ -298,6 +325,8 @@ export function FilterPanel({
             showMainCategorySection={showMainCategorySection}
             mainCategories={mainCategories}
             attributeSections={attributeSections}
+            variantSizeOptions={variantSizeOptions}
+            productColorOptions={productColorOptions}
             selectedAttributeSlugs={selectedAttributeSlugs}
             onToggleAttribute={onToggleAttribute}
             showCloseButton

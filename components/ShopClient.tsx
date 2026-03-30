@@ -29,6 +29,10 @@ interface ShopClientProps {
   categoryLabel?: string | null;
   storeMainCategories: ProductCategory[];
   attributeSectionsForFilters: AttributeFilterSection[];
+  /** Variant sizes with stock > 0 in the current listing context (store / category / search). */
+  filterVariantSizes: string[];
+  /** Distinct product color names in the current listing context. */
+  filterProductColorNames: string[];
   shopFilterContext: ShopFilterPanelContext;
   categoryFilterTags: Record<number, ProductCategoryFilterTags>;
   storeType: string;
@@ -48,6 +52,8 @@ export function ShopClient({
   categoryLabel,
   storeMainCategories,
   attributeSectionsForFilters,
+  filterVariantSizes,
+  filterProductColorNames,
   shopFilterContext,
   categoryFilterTags,
   storeType,
@@ -164,10 +170,9 @@ export function ShopClient({
 
     if (filters.color.length > 0) {
       list = list.filter((p) => {
-        const nameLower = p.name.toLowerCase();
-        const descLower = (p.description ?? "").toLowerCase();
-        const searchText = `${nameLower} ${descLower}`;
-        return filters.color.some((c) => searchText.includes(c.toLowerCase()));
+        const cols = colorsByProductId[p.id] ?? [];
+        const namesLower = cols.map((c) => c.name.toLowerCase());
+        return filters.color.some((sel) => namesLower.includes(sel.toLowerCase()));
       });
     }
 
@@ -184,7 +189,7 @@ export function ShopClient({
     }
 
     return list;
-  }, [products, variantsByProductId, filters, sort, categoryFilterTags]);
+  }, [products, variantsByProductId, colorsByProductId, filters, sort, categoryFilterTags]);
 
   const visibleProducts = filteredAndSorted.slice(0, visibleCount);
   const hasMore = visibleCount < filteredAndSorted.length;
@@ -233,6 +238,8 @@ export function ShopClient({
         showMainCategorySection={showMainCategorySection}
         mainCategories={mainCategoryOptions}
         attributeSections={attributeSectionsForFilters}
+        variantSizeOptions={filterVariantSizes}
+        productColorOptions={filterProductColorNames}
         selectedAttributeSlugs={selectedAttributeSlugs}
         onToggleAttribute={toggleAttributeSlug}
       />
@@ -258,6 +265,8 @@ export function ShopClient({
               showMainCategorySection={showMainCategorySection}
               mainCategories={mainCategoryOptions}
               attributeSections={attributeSectionsForFilters}
+              variantSizeOptions={filterVariantSizes}
+              productColorOptions={filterProductColorNames}
               selectedAttributeSlugs={selectedAttributeSlugs}
               onToggleAttribute={toggleAttributeSlug}
             />
