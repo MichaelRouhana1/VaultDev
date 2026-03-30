@@ -64,7 +64,7 @@ export function Navbar() {
   };
 
   useEffect(() => {
-    setOpenCart(() => () => setCartOpen(true));
+    setOpenCart(() => setCartOpen(true));
   }, [setOpenCart]);
 
   useEffect(() => {

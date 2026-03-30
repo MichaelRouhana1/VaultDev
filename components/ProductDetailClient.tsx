@@ -276,10 +276,12 @@ export function ProductDetailClient({
 
   const handleStickyBarAddClick = () => {
     if (!hasAnyInStock) return;
-    if (canAddToCart) {
-      addLineForSize(selectedSize!);
+    if (stickyBuyPhase === "pickSize") {
+      setStickyBuyPhase("summary");
       return;
     }
+    // Sticky bar always opens the size row (never one-tap add from remembered PDP size).
+    openCart();
     setStickyBuyPhase("pickSize");
   };
 
@@ -805,69 +807,36 @@ export function ProductDetailClient({
         aria-hidden={!showStickyBuyBar}
       >
         <div className="max-w-[1400px] mx-auto px-4 sm:px-6 py-3 pb-[max(0.75rem,env(safe-area-inset-bottom,0px))]">
-          <div className="flex flex-col gap-3">
-            <div className="flex items-center gap-3 min-w-0">
-              <div className="relative h-14 w-14 shrink-0 overflow-hidden bg-muted border border-border">
-                {stickyThumbSrc ? (
-                  <Image
-                    src={stickyThumbSrc}
-                    alt={product.name}
-                    fill
-                    className="object-cover"
-                    sizes="56px"
-                  />
-                ) : (
-                  <div className="flex h-full w-full items-center justify-center text-muted-foreground text-xs">
-                    —
-                  </div>
-                )}
-              </div>
-              <div className="min-w-0 flex-1 flex flex-col gap-0.5 sm:flex-row sm:items-center sm:gap-6">
-                <div className="min-w-0">
-                  <p className="text-xs font-semibold uppercase tracking-[0.15em] text-foreground truncate">
-                    {product.name}
-                  </p>
-                  <p className="text-[0.65rem] font-medium uppercase tracking-wider text-muted-foreground">
-                    {selectedColor?.name ?? product.color ?? ""}
-                  </p>
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-2 min-w-0">
+            <div className="relative h-14 w-14 shrink-0 overflow-hidden bg-muted border border-border">
+              {stickyThumbSrc ? (
+                <Image
+                  src={stickyThumbSrc}
+                  alt={product.name}
+                  fill
+                  className="object-cover"
+                  sizes="56px"
+                />
+              ) : (
+                <div className="flex h-full w-full items-center justify-center text-muted-foreground text-xs">
+                  —
                 </div>
-                <div className="shrink-0 sm:ml-auto">{priceBlock}</div>
-              </div>
-              <div className="flex items-center gap-2 shrink-0">
-                {stickyBuyPhase === "summary" ? (
-                  <button
-                    type="button"
-                    onClick={handleStickyBarAddClick}
-                    disabled={!hasAnyInStock}
-                    className="rounded-none bg-foreground px-4 py-2.5 text-[0.65rem] font-semibold uppercase tracking-[0.2em] text-background hover:opacity-90 disabled:opacity-40 disabled:cursor-not-allowed whitespace-nowrap"
-                  >
-                    Add to basket
-                  </button>
-                ) : (
-                  <button
-                    type="button"
-                    onClick={() => setStickyBuyPhase("summary")}
-                    className="rounded-none border border-border px-3 py-2 text-[0.65rem] font-medium uppercase tracking-wider text-foreground hover:bg-muted/60 whitespace-nowrap"
-                  >
-                    Back
-                  </button>
-                )}
-                <button
-                  type="button"
-                  onClick={handleWishlistClick}
-                  className="flex h-10 w-10 shrink-0 items-center justify-center text-foreground hover:opacity-70 border border-border rounded-none"
-                  aria-label={wishlistState ? "Remove from wishlist" : "Add to wishlist"}
-                >
-                  <WishlistBookmarkIcon active={wishlistState} className="w-5 h-5" />
-                </button>
-              </div>
+              )}
             </div>
-            {stickyBuyPhase === "pickSize" && (
-              <div className="flex flex-wrap gap-2 items-center pl-0 sm:pl-[4.25rem] border-t border-border/60 pt-3">
-                <span className="w-full sm:w-auto text-[0.65rem] font-semibold uppercase tracking-wider text-muted-foreground sm:mr-2">
-                  Size
-                </span>
-                <div className="flex flex-wrap gap-2">
+            <div className="min-w-0 flex-1 basis-[min(100%,12rem)]">
+              <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0 min-w-0">
+                <p className="text-xs font-semibold uppercase tracking-[0.15em] text-foreground truncate max-w-[min(100%,28rem)]">
+                  {product.name}
+                </p>
+                <div className="shrink-0">{priceBlock}</div>
+              </div>
+              <p className="text-[0.65rem] font-medium uppercase tracking-wider text-muted-foreground mt-0.5">
+                {selectedColor?.name ?? product.color ?? ""}
+              </p>
+            </div>
+            <div className="flex flex-wrap items-center gap-2 shrink-0 ml-auto sm:ml-0">
+              {stickyBuyPhase === "pickSize" && (
+                <div className="flex flex-wrap items-center gap-1.5">
                   {sizes.map((size) => {
                     const inStock = isSizeInStock(size);
                     return (
@@ -877,7 +846,7 @@ export function ProductDetailClient({
                         disabled={!inStock}
                         onClick={() => handleStickyBarSizeClick(size)}
                         className={cn(
-                          "min-w-[2.5rem] px-3 py-2 text-xs font-medium uppercase tracking-wider rounded-none border transition-colors",
+                          "min-w-[2.25rem] px-2.5 py-2 text-[0.65rem] font-medium uppercase tracking-wider rounded-none border transition-colors",
                           !inStock
                             ? "border-border text-muted-foreground opacity-45 cursor-not-allowed bg-muted/20"
                             : "border-border text-foreground hover:border-foreground hover:bg-muted/40",
@@ -888,8 +857,25 @@ export function ProductDetailClient({
                     );
                   })}
                 </div>
-              </div>
-            )}
+              )}
+              <button
+                type="button"
+                onClick={handleStickyBarAddClick}
+                disabled={!hasAnyInStock}
+                aria-expanded={stickyBuyPhase === "pickSize"}
+                className="rounded-none bg-foreground px-4 py-2.5 text-[0.65rem] font-semibold uppercase tracking-[0.2em] text-background hover:opacity-90 disabled:opacity-40 disabled:cursor-not-allowed whitespace-nowrap"
+              >
+                Add to basket
+              </button>
+              <button
+                type="button"
+                onClick={handleWishlistClick}
+                className="flex h-10 w-10 shrink-0 items-center justify-center text-foreground hover:opacity-70 border border-border rounded-none"
+                aria-label={wishlistState ? "Remove from wishlist" : "Add to wishlist"}
+              >
+                <WishlistBookmarkIcon active={wishlistState} className="w-5 h-5" />
+              </button>
+            </div>
           </div>
         </div>
       </div>
