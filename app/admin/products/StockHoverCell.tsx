@@ -3,7 +3,7 @@
 import { useState, useRef, useEffect, useMemo } from "react";
 import { createPortal } from "react-dom";
 import { AlertTriangle } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { cn, sortSizes } from "@/lib/utils";
 
 export const LOW_STOCK_THRESHOLD = 5;
 
@@ -13,6 +13,10 @@ export type AdminVariantStockRow = {
   displayLabel: string;
   quantity: number;
   sku: string | null;
+  /** Option display name → value (e.g. `{ Size: "32", Color: "Black" }`). */
+  optionValues: Record<string, string>;
+  /** Option names in catalog sort order. */
+  orderedOptionNames: string[];
 };
 
 /**
@@ -25,6 +29,57 @@ export function productHasLowStock(
 ): boolean {
   if (!variants?.length) return false;
   return variants.some((v) => v.quantity > 0 && v.quantity < threshold);
+}
+
+type GroupMode = { kind: "single" } | { kind: "multi"; groupByOptionName: string };
+
+function resolveGroupMode(orderedOptionNames: string[]): GroupMode {
+  if (orderedOptionNames.length <= 1) {
+    return { kind: "single" };
+  }
+  const colorName = orderedOptionNames.find((n) => {
+    const l = n.toLowerCase();
+    return l === "color" || l === "colour";
+  });
+  return { kind: "multi", groupByOptionName: colorName ?? orderedOptionNames[0]! };
+}
+
+function cellLabel(
+  v: AdminVariantStockRow,
+  mode: GroupMode,
+): string {
+  if (mode.kind === "single") {
+    if (v.orderedOptionNames.length === 0) {
+      return v.displayLabel;
+    }
+    if (v.orderedOptionNames.length === 1) {
+      const n = v.orderedOptionNames[0]!;
+      return v.optionValues[n] ?? v.displayLabel;
+    }
+  }
+  const groupName = mode.kind === "multi" ? mode.groupByOptionName : "";
+  const rest = v.orderedOptionNames.filter((name) => name !== groupName);
+  const labels = rest.map((name) => v.optionValues[name]).filter(Boolean);
+  return labels.length > 0 ? labels.join(" · ") : v.displayLabel;
+}
+
+function sortGroupTitles(titles: string[], groupByOptionName: string): string[] {
+  const l = groupByOptionName.toLowerCase();
+  if (l === "size" || l.endsWith(" size")) {
+    return sortSizes([...titles]);
+  }
+  return [...titles].sort((a, b) =>
+    a.localeCompare(b, undefined, { sensitivity: "base", numeric: true }),
+  );
+}
+
+function sortVariantsInGroup(rows: { v: AdminVariantStockRow; label: string }[]): typeof rows {
+  return [...rows].sort((a, b) => {
+    const la = a.label.toLowerCase();
+    const lb = b.label.toLowerCase();
+    if (la !== lb) return la.localeCompare(lb, undefined, { numeric: true, sensitivity: "base" });
+    return a.v.variantId - b.v.variantId;
+  });
 }
 
 interface StockHoverCellProps {
@@ -49,13 +104,39 @@ export function StockHoverCell({
     [variants, lowStockThreshold],
   );
 
-  const sortedVariants = useMemo(() => {
-    return [...variants].sort((a, b) => {
-      const la = a.displayLabel.toLowerCase();
-      const lb = b.displayLabel.toLowerCase();
-      if (la !== lb) return la.localeCompare(lb);
-      return a.variantId - b.variantId;
-    });
+  const grouped = useMemo(() => {
+    if (variants.length === 0) {
+      return { mode: { kind: "single" } as GroupMode, groups: [] as { title: string; rows: { v: AdminVariantStockRow; label: string }[] }[] };
+    }
+
+    const template = variants.find((v) => v.orderedOptionNames.length > 0) ?? variants[0]!;
+    const mode = resolveGroupMode(template.orderedOptionNames);
+
+    if (mode.kind === "single") {
+      const rows = variants.map((v) => ({ v, label: cellLabel(v, mode) }));
+      return {
+        mode,
+        groups: [{ title: "All options", rows: sortVariantsInGroup(rows) }],
+      };
+    }
+
+    const { groupByOptionName } = mode;
+    const byTitle = new Map<string, { v: AdminVariantStockRow; label: string }[]>();
+    for (const v of variants) {
+      const title = v.optionValues[groupByOptionName]?.trim() || "—";
+      const label = cellLabel(v, mode);
+      const list = byTitle.get(title) ?? [];
+      list.push({ v, label });
+      byTitle.set(title, list);
+    }
+
+    const sortedTitles = sortGroupTitles([...byTitle.keys()], groupByOptionName);
+    const groups = sortedTitles.map((title) => ({
+      title,
+      rows: sortVariantsInGroup(byTitle.get(title) ?? []),
+    }));
+
+    return { mode, groups };
   }, [variants]);
 
   const updatePosition = () => {
@@ -94,19 +175,19 @@ export function StockHoverCell({
     };
   }, []);
 
-  const rowClass = (qty: number) => {
+  const badgeClass = (qty: number) => {
     if (qty <= 0) {
-      return "border-destructive/60 bg-destructive/5 text-destructive";
+      return "border-destructive/50 bg-destructive/10 text-destructive/90 opacity-90";
     }
     if (qty < lowStockThreshold) {
-      return "border-amber-500/60 bg-amber-500/10 text-amber-900 dark:text-amber-100";
+      return "border-amber-500/50 bg-amber-500/15 text-amber-950 dark:text-amber-100";
     }
-    return "border-border bg-muted/30 text-foreground";
+    return "border-border/80 bg-muted/50 text-foreground";
   };
 
   const popupContent = open && (
     <div
-      className="fixed z-[9999] min-w-[220px] max-w-[min(90vw,360px)] -translate-x-1/2 rounded-md border border-border bg-background px-4 py-3 shadow-lg pointer-events-auto"
+      className="fixed z-[9999] min-w-[240px] max-w-[min(92vw,420px)] -translate-x-1/2 rounded-md border border-border bg-background px-4 py-3 shadow-lg pointer-events-auto"
       style={{
         top: position.top,
         left: position.left,
@@ -120,26 +201,37 @@ export function StockHoverCell({
       <p className={cn("mb-3 text-lg font-bold tabular-nums", anyLow && "text-destructive")}>
         {totalStock} in stock
       </p>
-      <ul className="space-y-2 max-h-[min(60vh,320px)] overflow-y-auto pr-1">
-        {sortedVariants.length === 0 ? (
-          <li className="text-xs text-muted-foreground">No variant rows</li>
+      <div className="max-h-[300px] overflow-y-auto pr-2">
+        {grouped.groups.length === 0 ? (
+          <p className="text-xs text-muted-foreground">No variant rows</p>
         ) : (
-          sortedVariants.map((v) => (
-            <li
-              key={v.variantId}
-              className={cn(
-                "flex items-center justify-between gap-3 rounded-md border px-2.5 py-2 text-sm",
-                rowClass(v.quantity),
-              )}
-            >
-              <span className="min-w-0 truncate font-medium" title={v.displayLabel}>
-                {v.displayLabel}
-              </span>
-              <span className="tabular-nums shrink-0 font-semibold">{v.quantity}</span>
-            </li>
-          ))
+          <div className="space-y-5">
+            {grouped.groups.map((g) => (
+              <div key={g.title}>
+                <h4 className="text-xs font-bold text-muted-foreground mb-2 uppercase tracking-wider">
+                  {g.title}
+                </h4>
+                <div className="grid grid-cols-3 gap-2">
+                  {g.rows.map(({ v, label }) => (
+                    <div
+                      key={v.variantId}
+                      className={cn(
+                        "rounded-md border px-2 py-1.5 text-center text-[11px] font-semibold tabular-nums leading-tight",
+                        badgeClass(v.quantity),
+                      )}
+                      title={v.displayLabel}
+                    >
+                      <span className="truncate" title={`${label} : ${v.quantity}`}>
+                        {label} : {v.quantity}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
         )}
-      </ul>
+      </div>
     </div>
   );
 

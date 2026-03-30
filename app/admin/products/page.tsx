@@ -27,16 +27,18 @@ type VariantAgg = {
   sku: string | null;
   qty: number;
   legacySize: string;
-  parts: { sort: number; value: string }[];
+  parts: { sort: number; name: string; value: string }[];
 };
 
 function displayLabelFor(a: VariantAgg): string {
   if (a.parts.length > 0) {
-    const sorted = [...a.parts].sort((x, y) => x.sort - y.sort || x.value.localeCompare(y.value));
+    const sorted = [...a.parts].sort(
+      (x, y) => x.sort - y.sort || x.name.localeCompare(y.name) || x.value.localeCompare(y.value),
+    );
     const seen = new Set<string>();
     const values: string[] = [];
     for (const p of sorted) {
-      const key = `${p.sort}:${p.value}`;
+      const key = `${p.sort}:${p.name}:${p.value}`;
       if (seen.has(key)) continue;
       seen.add(key);
       values.push(p.value);
@@ -56,6 +58,7 @@ function buildVariantRowsFromJoin(
     stockQuantity: number;
     stock: number;
     legacySize: string;
+    optionName: string | null;
     optionSortOrder: number | null;
     optionValue: string | null;
   }[],
@@ -74,8 +77,8 @@ function buildVariantRowsFromJoin(
       };
       byVariant.set(r.variantId, a);
     }
-    if (r.optionValue != null && r.optionSortOrder != null) {
-      a.parts.push({ sort: r.optionSortOrder, value: r.optionValue });
+    if (r.optionValue != null && r.optionSortOrder != null && r.optionName != null && r.optionName.trim() !== "") {
+      a.parts.push({ sort: r.optionSortOrder, name: r.optionName.trim(), value: r.optionValue.trim() });
     }
   }
 
@@ -146,6 +149,7 @@ export default async function AdminProductsPage({
               stockQuantity: productVariants.stockQuantity,
               stock: productVariants.stock,
               legacySize: productVariants.size,
+              optionName: productOptions.name,
               optionSortOrder: productOptions.sortOrder,
               optionValue: productOptionValues.value,
             })
@@ -174,11 +178,26 @@ export default async function AdminProductsPage({
 
   for (const [variantId, agg] of variantAggs) {
     const pid = agg.productId;
+    const sortedParts = [...agg.parts].sort(
+      (x, y) => x.sort - y.sort || x.name.localeCompare(y.name) || x.value.localeCompare(y.value),
+    );
+    const optionValues: Record<string, string> = {};
+    const orderedOptionNames: string[] = [];
+    const seenNames = new Set<string>();
+    for (const p of sortedParts) {
+      optionValues[p.name] = p.value;
+      if (!seenNames.has(p.name)) {
+        seenNames.add(p.name);
+        orderedOptionNames.push(p.name);
+      }
+    }
     const row: AdminVariantStockRow = {
       variantId,
       displayLabel: displayLabelFor(agg),
       quantity: agg.qty,
       sku: agg.sku,
+      optionValues,
+      orderedOptionNames,
     };
     if (!variantsByProductId[pid]) variantsByProductId[pid] = [];
     variantsByProductId[pid].push(row);
