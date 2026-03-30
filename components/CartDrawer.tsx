@@ -28,6 +28,9 @@ export function CartDrawer({ isOpen, onClose }: CartDrawerProps) {
       size: i.size,
       quantity: i.quantity,
       priceAtPurchase: i.priceAtPurchase,
+      productName: i.productName,
+      ...(i.productImage ? { productImage: i.productImage } : {}),
+      ...(i.productColor ? { productColor: i.productColor } : {}),
     }));
     router.push(
       `/checkout?cart=${encodeURIComponent(JSON.stringify(cart))}`

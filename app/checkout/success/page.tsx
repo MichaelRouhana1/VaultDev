@@ -22,6 +22,7 @@ import {
   ACTIVATION_TOKEN_COOKIE,
 } from "@/lib/order-activation-cookies";
 import { getValidActivationOrder } from "@/lib/order-activation";
+import { formatOrderReference } from "@/lib/order-reference";
 
 export default async function CheckoutSuccessPage() {
   const cookieStore = await cookies();
@@ -105,7 +106,11 @@ export default async function CheckoutSuccessPage() {
           <h1 className="text-2xl font-bold">Order confirmed</h1>
           {displayOrderId != null ? (
             <p className="text-muted-foreground">
-              Your order <strong>#{displayOrderId}</strong> has been placed successfully.
+              Order{" "}
+              <strong className="font-mono tracking-tight text-foreground">
+                {formatOrderReference(displayOrderId)}
+              </strong>{" "}
+              has been placed successfully.
             </p>
           ) : (
             <p className="text-muted-foreground">Your order has been placed successfully.</p>

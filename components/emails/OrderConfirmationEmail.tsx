@@ -10,6 +10,7 @@ import {
   Section,
   Text,
 } from "@react-email/components";
+import { formatOrderReference } from "@/lib/order-reference";
 
 export interface OrderConfirmationEmailProps {
   customerName: string;
@@ -35,7 +36,8 @@ export function OrderConfirmationEmail({
   addressLine1,
   city,
 }: OrderConfirmationEmailProps) {
-  const previewText = `Order #${orderId} confirmed — thank you for shopping with VAULT`;
+  const orderRef = formatOrderReference(orderId);
+  const previewText = `Order ${orderRef} confirmed — thank you for shopping with VAULT`;
 
   return (
     <Html lang="en">
@@ -50,7 +52,8 @@ export function OrderConfirmationEmail({
           <Heading style={h1}>Order confirmed</Heading>
           <Text style={text}>Hi {customerName},</Text>
           <Text style={text}>
-            Thank you for your order. We&apos;ve received order <strong>#{orderId}</strong> and will
+            Thank you for your order. We&apos;ve received order{" "}
+            <strong style={{ fontFamily: "ui-monospace, monospace" }}>{orderRef}</strong> and will
             prepare it for shipment.
           </Text>
 

@@ -1,9 +1,14 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { useActionState } from "react";
 import { useRouter } from "next/navigation";
+import Image from "next/image";
 import { placeOrder, type CartItem } from "@/actions/placeOrder";
+import {
+  toPlaceOrderCartItems,
+  type CheckoutDisplayItem,
+} from "@/lib/checkout-cart";
 import { validatePromoCode } from "@/actions/promo";
 import { useAuth } from "@clerk/nextjs";
 import { useCart } from "@/context/CartContext";
@@ -23,7 +28,7 @@ import { toast } from "sonner";
 const DEFAULT_SHIPPING_FEE = 5;
 
 interface CheckoutFormProps {
-  cart: CartItem[];
+  displayItems: CheckoutDisplayItem[];
 }
 
 function placeOrderAction(
@@ -60,10 +65,11 @@ function placeOrderAction(
     .catch((err) => ({ error: err instanceof Error ? err.message : "Order failed" }));
 }
 
-export function CheckoutForm({ cart }: CheckoutFormProps) {
+export function CheckoutForm({ displayItems }: CheckoutFormProps) {
   const router = useRouter();
   const { userId: clerkUserId } = useAuth();
   const { clearOrderedItems } = useCart();
+  const cartForOrder = useMemo(() => toPlaceOrderCartItems(displayItems), [displayItems]);
   const [state, formAction, isPending] = useActionState(placeOrderAction, null);
   const [promoInput, setPromoInput] = useState("");
   const [appliedPromo, setAppliedPromo] = useState<{
@@ -75,7 +81,7 @@ export function CheckoutForm({ cart }: CheckoutFormProps) {
   useEffect(() => {
     if (state?.orderId) {
       clearOrderedItems(
-        cart.map((i) => ({
+        displayItems.map((i) => ({
           productId: i.productId,
           size: i.size,
           quantity: i.quantity,
@@ -83,15 +89,15 @@ export function CheckoutForm({ cart }: CheckoutFormProps) {
       );
       router.push("/checkout/success");
     }
-  }, [state?.orderId, cart, clearOrderedItems, router]);
+  }, [state?.orderId, displayItems, clearOrderedItems, router]);
 
   if (state?.orderId) {
     return null;
   }
 
-  const subtotal = cart.reduce(
+  const subtotal = displayItems.reduce(
     (sum, item) => sum + item.quantity * parseFloat(item.priceAtPurchase),
-    0
+    0,
   );
   const discountAmount = appliedPromo?.discountAmount ?? 0;
   const shippingFee = DEFAULT_SHIPPING_FEE;
@@ -126,7 +132,7 @@ export function CheckoutForm({ cart }: CheckoutFormProps) {
 
   return (
     <form action={formAction} className="space-y-8">
-      <input type="hidden" name="items" value={JSON.stringify(cart)} />
+      <input type="hidden" name="items" value={JSON.stringify(cartForOrder)} />
       <input type="hidden" name="promoCode" value={appliedPromo?.code ?? ""} />
       {clerkUserId ? <input type="hidden" name="clerkUserId" value={clerkUserId} /> : null}
       <div className="grid gap-8 lg:grid-cols-2">
@@ -199,26 +205,54 @@ export function CheckoutForm({ cart }: CheckoutFormProps) {
         <Card>
           <CardHeader>
             <CardTitle>Order summary</CardTitle>
-            <CardDescription>{cart.length} item(s) in your cart</CardDescription>
+            <CardDescription>{displayItems.length} item(s) in your cart</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
-            <ul className="space-y-3">
-              {cart.map((item, i) => (
-                <li
-                  key={i}
-                  className="flex justify-between text-sm"
-                >
-                  <span>
-                    Product #{item.productId} · {item.size} × {item.quantity}
-                  </span>
-                  <span>
-                    $
-                    {(
-                      item.quantity * parseFloat(item.priceAtPurchase)
-                    ).toFixed(2)}
-                  </span>
-                </li>
-              ))}
+            <ul className="space-y-4">
+              {displayItems.map((item, i) => {
+                const lineTotal = item.quantity * parseFloat(item.priceAtPurchase);
+                const variantParts = [
+                  `Size: ${item.size}`,
+                  item.productColor ? `Color: ${item.productColor}` : null,
+                ].filter(Boolean);
+                const src = item.productImageUrl?.trim();
+                return (
+                  <li
+                    key={`${item.productId}-${item.size}-${i}`}
+                    className="flex gap-3 border-b border-border/80 pb-4 last:border-0 last:pb-0"
+                  >
+                    <div className="relative h-12 w-12 shrink-0 overflow-hidden rounded-md border border-border bg-muted">
+                      {src ? (
+                        <Image
+                          src={src}
+                          alt={item.productName}
+                          fill
+                          className="object-cover"
+                          sizes="48px"
+                        />
+                      ) : (
+                        <span className="flex h-full w-full items-center justify-center text-[0.65rem] text-muted-foreground">
+                          —
+                        </span>
+                      )}
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <p className="text-sm font-medium leading-snug text-foreground">
+                        {item.productName || "Unknown item"}
+                      </p>
+                      <p className="mt-0.5 text-xs text-muted-foreground">
+                        {variantParts.join(" | ")}
+                      </p>
+                      <p className="mt-1 text-xs text-muted-foreground">Qty: {item.quantity}</p>
+                    </div>
+                    <div className="shrink-0 text-right">
+                      <span className="text-sm font-semibold tabular-nums text-foreground">
+                        ${lineTotal.toFixed(2)}
+                      </span>
+                    </div>
+                  </li>
+                );
+              })}
             </ul>
 
             <div className="space-y-2 pt-2 border-t border-border">
@@ -283,7 +317,7 @@ export function CheckoutForm({ cart }: CheckoutFormProps) {
             {state?.error && (
               <p className="text-sm text-destructive">{state.error}</p>
             )}
-            <Button type="submit" disabled={isPending || cart.length === 0}>
+            <Button type="submit" disabled={isPending || displayItems.length === 0}>
               {isPending ? "Placing order…" : "Place order"}
             </Button>
           </CardFooter>
