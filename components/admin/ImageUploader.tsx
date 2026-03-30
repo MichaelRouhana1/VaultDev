@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useRef, useState } from "react";
+import Image from "next/image";
 import { useDropzone } from "react-dropzone";
 import { ImageCropModal } from "@/components/ImageCropModal";
 import { Label } from "@/components/ui/label";
@@ -11,10 +12,12 @@ import { ensureBrowserDisplayableImage } from "@/lib/ensureBrowserDisplayableIma
 import { toast } from "sonner";
 
 export interface ColorEntry {
-    id: string;
+    id: string | number;
     name: string;
     hexCode: string;
     imageFiles: File[];
+    /** Persisted URLs (edit flow); new uploads go through `imageFiles`. */
+    imageUrls?: string[];
     stockBySize: Record<string, number>;
 }
 
@@ -24,6 +27,7 @@ interface ImageUploaderProps {
     onRemove: () => void;
     onAddFiles: (files: File[]) => void;
     onRemoveFile: (index: number) => void;
+    onRemoveExistingImage?: (index: number) => void;
     canRemove: boolean;
 }
 
@@ -33,6 +37,7 @@ export function ImageUploader({
     onRemove,
     onAddFiles,
     onRemoveFile,
+    onRemoveExistingImage,
     canRemove,
 }: ImageUploaderProps) {
     const [cropPending, setCropPending] = useState<{ file: File; objectUrl: string } | null>(null);
@@ -98,9 +103,9 @@ export function ImageUploader({
             <div className="flex items-start justify-between gap-4">
                 <div className="flex-1 grid gap-4 sm:grid-cols-2">
                     <div className="space-y-1.5">
-                        <Label htmlFor={`color-name-${color.id}`}>Color name</Label>
+                        <Label htmlFor={`color-name-${String(color.id)}`}>Color name</Label>
                         <Input
-                            id={`color-name-${color.id}`}
+                            id={`color-name-${String(color.id)}`}
                             placeholder="e.g. Midnight Black"
                             value={color.name}
                             onChange={(e) => onUpdate({ name: e.target.value })}
@@ -118,7 +123,7 @@ export function ImageUploader({
                                 className="h-10 w-14 cursor-pointer rounded border border-input bg-transparent p-1"
                             />
                             <Input
-                                id={`color-hex-${color.id}`}
+                                id={`color-hex-${String(color.id)}`}
                                 value={color.hexCode}
                                 onChange={(e) => onUpdate({ hexCode: e.target.value })}
                                 placeholder="#000000"
@@ -134,7 +139,26 @@ export function ImageUploader({
                 )}
             </div>
             <div className="space-y-1.5">
-                <Label id={`images-label-${color.id}`}>Images (this color only)</Label>
+                <Label id={`images-label-${String(color.id)}`}>Images (this color only)</Label>
+                {(color.imageUrls?.length ?? 0) > 0 && onRemoveExistingImage && (
+                    <div className="flex flex-wrap gap-2 mb-2">
+                        {color.imageUrls!.map((url, i) => (
+                            <div
+                                key={url + i}
+                                className="relative w-20 h-20 rounded overflow-hidden bg-muted shrink-0 group"
+                            >
+                                <Image src={url} alt="" fill className="object-cover" sizes="80px" />
+                                <button
+                                    type="button"
+                                    onClick={() => onRemoveExistingImage(i)}
+                                    className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 flex items-center justify-center text-white text-xs transition-opacity"
+                                >
+                                    Remove
+                                </button>
+                            </div>
+                        ))}
+                    </div>
+                )}
                 <div
                     {...getRootProps()}
                     className={cn(
@@ -142,7 +166,7 @@ export function ImageUploader({
                         isDragActive ? "border-primary bg-primary/5" : "hover:bg-muted/50"
                     )}
                 >
-                    <input {...getInputProps()} aria-labelledby={`images-label-${color.id}`} />
+                    <input {...getInputProps()} aria-labelledby={`images-label-${String(color.id)}`} />
                     <p className="text-center text-sm text-muted-foreground">
                         {isDragActive ? "Drop images here…" : "Drag & drop or click to add images"}
                     </p>

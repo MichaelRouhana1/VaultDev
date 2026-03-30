@@ -1,8 +1,9 @@
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import { db } from "@/db";
-import { products, productVariants, productColors, productCollections } from "@/db/schema";
+import { products, productColors, productCollections } from "@/db/schema";
 import { eq } from "drizzle-orm";
+import { getProductVariantFormState } from "@/actions/product-admin-detail";
 import { EditProductForm } from "@/components/EditProductForm";
 import { getProductFormCategoryTree } from "@/actions/categories";
 import { getCollectionsForProductForm } from "@/actions/collections";
@@ -25,9 +26,9 @@ export default async function EditProductPage({
 
   if (!product) notFound();
 
-  const [variants, colors] = await Promise.all([
-    db.select().from(productVariants).where(eq(productVariants.productId, productId)),
+  const [colors, variantFormInitial] = await Promise.all([
     db.select().from(productColors).where(eq(productColors.productId, productId)),
+    getProductVariantFormState(productId),
   ]);
 
   const firstColorImages = colors[0]?.imageUrls ?? [];
@@ -66,13 +67,13 @@ export default async function EditProductPage({
       <h1 className="text-2xl font-bold mb-8">Edit Product</h1>
       <EditProductForm
         product={productWithImages}
-        variants={variants}
         colors={colors}
         categoryTrees={categoryTrees}
         collectionsByStore={collectionsByStore}
         initialCollectionIds={initialCollectionIds}
         attributesWithValues={attributesWithValues}
         initialAttributeValueIds={initialAttributeValueIds}
+        variantFormInitial={variantFormInitial}
       />
     </div>
   );

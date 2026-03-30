@@ -20,7 +20,12 @@ import {
   productCreateVariantMatrixRowSchema,
 } from "@/lib/schemas";
 import { buildOptionCombos, comboKey } from "@/lib/product-variant-matrix";
-import { slugifyOptionValue } from "@/lib/utils";
+import {
+  allocateUniqueOptionValueSlug,
+  productColorIdForOptionValue,
+  resolveLegacyVariantColorId,
+  resolveLegacyVariantSize,
+} from "@/lib/product-helpers";
 import { logger } from "@/lib/logger";
 import { requireAdminAction } from "@/lib/security";
 import { validateProductCategoryAssignment } from "@/lib/product-category-assign";
@@ -52,52 +57,6 @@ type ProductCreateVariantMatrixInput = {
   price_override?: number | null;
   optionValues: Record<string, string>;
 };
-
-/** Color / Colour option — used to set `product_option_values.product_color_id` from `product_colors`. */
-function isColorOptionName(name: string): boolean {
-  const n = name.trim().toLowerCase();
-  return n === "color" || n === "colour";
-}
-
-function allocateUniqueSlug(base: string, used: Set<string>): string {
-  let candidate = slugifyOptionValue(base);
-  let n = 0;
-  while (used.has(candidate)) {
-    n += 1;
-    candidate = `${slugifyOptionValue(base)}-${n}`;
-  }
-  used.add(candidate);
-  return candidate;
-}
-
-function resolveLegacyColorId(
-  row: ProductCreateVariantMatrixInput,
-  options: ProductCreateOptionInput[],
-  colorNameToId: Map<string, number>,
-  fallbackColorId: number,
-): number {
-  const colorOpt = options.find((o) => isColorOptionName(o.name));
-  if (!colorOpt) return fallbackColorId;
-  const raw = row.optionValues[colorOpt.name];
-  if (raw == null) return fallbackColorId;
-  const id = colorNameToId.get(raw.trim().toLowerCase());
-  return id ?? fallbackColorId;
-}
-
-function resolveLegacySize(row: ProductCreateVariantMatrixInput, options: ProductCreateOptionInput[]): string {
-  const sizeOpt = options.find((o) => o.name.trim().toLowerCase() === "size");
-  if (sizeOpt) {
-    const s = row.optionValues[sizeOpt.name];
-    if (s != null && s.trim() !== "") return s.trim();
-  }
-  const parts: string[] = [];
-  for (const o of options) {
-    if (isColorOptionName(o.name)) continue;
-    const v = row.optionValues[o.name];
-    if (v != null && v.trim() !== "") parts.push(v.trim());
-  }
-  return parts.length > 0 ? parts.join(" / ") : "DEFAULT";
-}
 
 export async function createProduct(formData: FormData): Promise<{ success?: boolean; error?: string; productId?: number }> {
   const hasVariants = formData.get("hasVariants") === "true";
@@ -329,12 +288,8 @@ export async function createProduct(formData: FormData): Promise<{ success?: boo
         let sortOrder = 0;
         for (const val of o.values) {
           const trimmed = val.trim();
-          const slug = allocateUniqueSlug(trimmed, slugUsed);
-          let productColorId: number | null = null;
-          if (isColorOptionName(o.name)) {
-            const cid = colorNameToId.get(trimmed.toLowerCase());
-            if (cid != null) productColorId = cid;
-          }
+          const slug = allocateUniqueOptionValueSlug(trimmed, slugUsed);
+          const productColorId = productColorIdForOptionValue(o.name, trimmed, colorNameToId);
           const [ins] = await tx
             .insert(productOptionValues)
             .values({
@@ -352,8 +307,8 @@ export async function createProduct(formData: FormData): Promise<{ success?: boo
       }
 
       for (const vrow of variantsPayload) {
-        const colorId = resolveLegacyColorId(vrow, optionsPayload, colorNameToId, fallbackColorId);
-        const size = resolveLegacySize(vrow, optionsPayload);
+        const colorId = resolveLegacyVariantColorId(vrow, optionsPayload, colorNameToId, fallbackColorId);
+        const size = resolveLegacyVariantSize(vrow, optionsPayload);
         const priceOverride =
           vrow.price_override != null && vrow.price_override > 0
             ? vrow.price_override.toFixed(2)

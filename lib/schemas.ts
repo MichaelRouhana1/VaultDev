@@ -59,12 +59,5 @@ export const productSchema = z.object({
     color_count: z.number().int().min(1, "Add at least one color"),
 });
 
-export const updateProductSchema = z.object({
-    name: z.string().min(1, "Name is required").trim(),
-    description: z.string().trim().nullable().optional(),
-    price: z.string().min(1).regex(/^\d+(\.\d{1,2})?$/, "Valid price is required"),
-    storeType: productListingStoreTypeSchema,
-    mainCategoryId: z.coerce.number().int().positive(),
-    isVisible: z.boolean(),
-    color_count: z.number().int().min(1, "Add at least one color"),
-});
+/** Admin product update: same base fields as create (variants come from FormData JSON). */
+export const updateProductSchema = productCreateBaseSchema;

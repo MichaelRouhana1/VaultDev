@@ -143,7 +143,7 @@ export function CreateProductForm({
     ]);
   };
 
-  const removeColor = (id: string) => {
+  const removeColor = (id: string | number) => {
     setColors((prev) => prev.filter((c) => c.id !== id));
   };
 
@@ -151,13 +151,13 @@ export function CreateProductForm({
     setColors((prev) => prev.map((c) => (c.id === id ? { ...c, ...updates } : c)));
   };
 
-  const addFilesToColor = (id: string, files: File[]) => {
+  const addFilesToColor = (id: string | number, files: File[]) => {
     setColors((prev) =>
       prev.map((c) => (c.id === id ? { ...c, imageFiles: [...c.imageFiles, ...files] } : c)),
     );
   };
 
-  const removeFileFromColor = (colorId: string, fileIndex: number) => {
+  const removeFileFromColor = (colorId: string | number, fileIndex: number) => {
     setColors((prev) =>
       prev.map((c) =>
         c.id === colorId

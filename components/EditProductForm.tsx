@@ -1,10 +1,9 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
-import { useDropzone } from "react-dropzone";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import Image from "next/image";
 import { updateProduct } from "@/actions/updateProduct";
+import type { ProductVariantFormInitial } from "@/actions/product-admin-detail";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -15,72 +14,147 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { ImageCropModal } from "@/components/ImageCropModal";
-import { ensureBrowserDisplayableImage } from "@/lib/ensureBrowserDisplayableImage";
-import { cn } from "@/lib/utils";
-import { toast } from "sonner";
-import type { Product, ProductVariant, ProductColor } from "@/db/schema";
-import type { ProductFormCategoryTree } from "@/actions/categories";
-import type { AttributeWithValues } from "@/actions/attributes";
+import { PriceInput } from "@/components/admin/PriceInput";
 import { ProductTaxonomyFields } from "@/components/admin/ProductTaxonomyFields";
 import { ProductAttributeFields } from "@/components/admin/ProductAttributeFields";
 import {
   ProductCollectionsFields,
   type CollectionOption,
 } from "@/components/admin/ProductCollectionsFields";
-import { InventoryManager } from "@/components/admin/InventoryManager";
+import { ImageUploader, type ColorEntry } from "@/components/admin/ImageUploader";
+import {
+  VariantMatrixEditor,
+  type VariantMatrixCell,
+} from "@/components/admin/VariantMatrixEditor";
+import { buildOptionCombos, comboKey } from "@/lib/product-variant-matrix";
+import type { Product, ProductColor } from "@/db/schema";
+import type { ProductFormCategoryTree } from "@/actions/categories";
+import type { AttributeWithValues } from "@/actions/attributes";
 
 const SIZES = ["XS", "S", "M", "L", "XL"] as const;
 
-interface ColorEntry {
-  id: string | number;
-  name: string;
-  hexCode: string;
-  imageUrls: string[];
-  imageFiles: File[];
-  stockBySize: Record<string, number>;
+const emptyStockBySize = (): Record<string, number> =>
+  Object.fromEntries(SIZES.map((s) => [s, 0])) as Record<string, number>;
+
+type OptionDraft = { id: string; name: string; valuesText: string };
+
+function parseValuesFromText(text: string): string[] {
+  const raw = text
+    .split(/[,，]/)
+    .map((t) => t.trim())
+    .filter(Boolean);
+  const seen = new Set<string>();
+  const out: string[] = [];
+  for (const v of raw) {
+    if (seen.has(v)) continue;
+    seen.add(v);
+    out.push(v);
+  }
+  return out;
 }
 
-function toColorEntry(c: ProductColor, variants: ProductVariant[]): ColorEntry {
-  const stockBySize: Record<string, number> = {};
-  for (const s of SIZES) {
-    const v = variants.find((x) => x.colorId === c.id && x.size === s);
-    stockBySize[s] = v?.stock ?? 0;
+function buildEditVariantBootstrap(vs: ProductVariantFormInitial) {
+  if (!vs.hasVariants) {
+    return {
+      hasVariants: false,
+      optionDrafts: [] as OptionDraft[],
+      matrix: {} as Record<string, VariantMatrixCell>,
+      defaultSku: vs.defaultSku,
+      defaultStock: String(vs.defaultStockQuantity),
+    };
+  }
+  const optionDrafts: OptionDraft[] = vs.options.map((o) => ({
+    id: crypto.randomUUID(),
+    name: o.name,
+    valuesText: o.values.join(", "),
+  }));
+  const parsedOptionsForCombos = optionDrafts
+    .map((o) => ({
+      name: o.name.trim(),
+      values: parseValuesFromText(o.valuesText),
+    }))
+    .filter((o) => o.name.length > 0 && o.values.length > 0);
+  const combos = buildOptionCombos(parsedOptionsForCombos);
+  const optionNames = parsedOptionsForCombos.map((o) => o.name);
+  const matrix: Record<string, VariantMatrixCell> = {};
+  for (const combo of combos) {
+    const k = comboKey(optionNames, combo);
+    const match = vs.variantRows.find((r) => comboKey(optionNames, r.optionValues) === k);
+    const po = match?.price_override;
+    matrix[k] = {
+      sku: match?.sku ?? "",
+      stockQuantity: String(match?.stock_quantity ?? 0),
+      priceOverride: po != null && po > 0 ? String(po) : "",
+    };
   }
   return {
-    id: c.id,
-    name: c.name,
-    hexCode: c.hexCode ?? "#000000",
-    imageUrls: c.imageUrls ?? [],
-    imageFiles: [],
-    stockBySize,
+    hasVariants: true,
+    optionDrafts,
+    matrix,
+    defaultSku: "",
+    defaultStock: "0",
   };
+}
+
+function buildInitialColors(
+  colors: ProductColor[],
+  product: Product & { images?: string[] },
+): ColorEntry[] {
+  if (colors.length > 0) {
+    return colors.map((c) => ({
+      id: c.id,
+      name: c.name,
+      hexCode: c.hexCode ?? "#000000",
+      imageUrls: c.imageUrls ?? [],
+      imageFiles: [],
+      stockBySize: emptyStockBySize(),
+    }));
+  }
+  return [
+    {
+      id: crypto.randomUUID(),
+      name: product.color ?? "Default",
+      hexCode: "#000000",
+      imageUrls: product.images ?? [],
+      imageFiles: [],
+      stockBySize: emptyStockBySize(),
+    },
+  ];
 }
 
 type ListingStore = "streetwear" | "formal";
 
 export function EditProductForm({
   product,
-  variants = [],
   colors = [],
   categoryTrees,
   collectionsByStore,
   initialCollectionIds,
   attributesWithValues,
   initialAttributeValueIds,
+  variantFormInitial,
 }: {
   product: Product & { images?: string[] };
-  variants?: ProductVariant[];
   colors?: ProductColor[];
   categoryTrees: Record<ListingStore, ProductFormCategoryTree>;
   collectionsByStore: Record<ListingStore, CollectionOption[]>;
   initialCollectionIds: number[];
   attributesWithValues: AttributeWithValues[];
   initialAttributeValueIds: number[];
+  variantFormInitial: ProductVariantFormInitial;
 }) {
   const router = useRouter();
   const formRef = useRef<HTMLFormElement>(null);
   const initialListing: ListingStore = product.storeType === "formal" ? "formal" : "streetwear";
+
+  const [init] = useState(() => buildEditVariantBootstrap(variantFormInitial));
+  const [hasVariants, setHasVariants] = useState(init.hasVariants);
+  const [options, setOptions] = useState<OptionDraft[]>(init.optionDrafts);
+  const [matrix, setMatrix] = useState<Record<string, VariantMatrixCell>>(init.matrix);
+  const [defaultSku, setDefaultSku] = useState(init.defaultSku);
+  const [defaultStock, setDefaultStock] = useState(init.defaultStock);
+  const [productNameDraft, setProductNameDraft] = useState(product.name);
+
   const [listingStore, setListingStore] = useState<ListingStore>(initialListing);
   const [collectionIds, setCollectionIds] = useState<number[]>(() => [...initialCollectionIds]);
   const skipClearCollectionsRef = useRef(true);
@@ -91,26 +165,54 @@ export function EditProductForm({
     }
     setCollectionIds([]);
   }, [listingStore]);
-  const [colorsState, setColorsState] = useState<ColorEntry[]>(() =>
-    colors.length > 0
-      ? colors.map((c) => toColorEntry(c, variants))
-      : [
-        {
-          id: crypto.randomUUID(),
-          name: (product as { color?: string | null }).color ?? "Default",
-          hexCode: "#000000",
-          imageUrls: (product.images ?? []) as string[],
-          imageFiles: [],
-          stockBySize: SIZES.reduce<Record<string, number>>((acc, s) => {
-            const v = variants.find((x) => x.size === s);
-            acc[s] = v?.stock ?? 0;
-            return acc;
-          }, {}),
-        },
-      ]
-  );
+
+  const [colorsState, setColorsState] = useState<ColorEntry[]>(() => buildInitialColors(colors, product));
   const [state, setState] = useState<{ error?: string } | null>(null);
   const [isPending, setIsPending] = useState(false);
+
+  const parsedOptionsForCombos = useMemo(() => {
+    return options
+      .map((o) => ({
+        name: o.name.trim(),
+        values: parseValuesFromText(o.valuesText),
+      }))
+      .filter((o) => o.name.length > 0 && o.values.length > 0);
+  }, [options]);
+
+  const combos = useMemo(
+    () => buildOptionCombos(parsedOptionsForCombos),
+    [parsedOptionsForCombos],
+  );
+
+  const optionNamesForKeys = useMemo(
+    () => parsedOptionsForCombos.map((o) => o.name),
+    [parsedOptionsForCombos],
+  );
+
+  useEffect(() => {
+    if (!hasVariants || combos.length === 0) {
+      return;
+    }
+    setMatrix((prev) => {
+      const next: Record<string, VariantMatrixCell> = {};
+      for (const c of combos) {
+        const k = comboKey(optionNamesForKeys, c);
+        const existing = prev[k];
+        next[k] = existing ?? { sku: "", stockQuantity: "0", priceOverride: "" };
+      }
+      return next;
+    });
+  }, [hasVariants, combos, optionNamesForKeys]);
+
+  const updateMatrixCell = useCallback((key: string, patch: Partial<VariantMatrixCell>) => {
+    setMatrix((prev) => ({
+      ...prev,
+      [key]: {
+        ...(prev[key] ?? { sku: "", stockQuantity: "0", priceOverride: "" }),
+        ...patch,
+      },
+    }));
+  }, []);
 
   const addColor = () => {
     setColorsState((prev) => [
@@ -121,7 +223,7 @@ export function EditProductForm({
         hexCode: "#000000",
         imageUrls: [],
         imageFiles: [],
-        stockBySize: Object.fromEntries(SIZES.map((s) => [s, 0])),
+        stockBySize: emptyStockBySize(),
       },
     ]);
   };
@@ -131,16 +233,12 @@ export function EditProductForm({
   };
 
   const updateColor = (id: string | number, updates: Partial<Omit<ColorEntry, "id">>) => {
-    setColorsState((prev) =>
-      prev.map((c) => (c.id === id ? { ...c, ...updates } : c))
-    );
+    setColorsState((prev) => prev.map((c) => (c.id === id ? { ...c, ...updates } : c)));
   };
 
   const addFilesToColor = (id: string | number, files: File[]) => {
     setColorsState((prev) =>
-      prev.map((c) =>
-        c.id === id ? { ...c, imageFiles: [...c.imageFiles, ...files] } : c
-      )
+      prev.map((c) => (c.id === id ? { ...c, imageFiles: [...c.imageFiles, ...files] } : c)),
     );
   };
 
@@ -149,8 +247,8 @@ export function EditProductForm({
       prev.map((c) =>
         c.id === colorId
           ? { ...c, imageFiles: c.imageFiles.filter((_, i) => i !== fileIndex) }
-          : c
-      )
+          : c,
+      ),
     );
   };
 
@@ -158,10 +256,22 @@ export function EditProductForm({
     setColorsState((prev) =>
       prev.map((c) =>
         c.id === colorId
-          ? { ...c, imageUrls: c.imageUrls.filter((_, i) => i !== urlIndex) }
-          : c
-      )
+          ? { ...c, imageUrls: (c.imageUrls ?? []).filter((_, i) => i !== urlIndex) }
+          : c,
+      ),
     );
+  };
+
+  const addOption = () => {
+    setOptions((prev) => [...prev, { id: crypto.randomUUID(), name: "", valuesText: "" }]);
+  };
+
+  const removeOption = (id: string) => {
+    setOptions((prev) => prev.filter((o) => o.id !== id));
+  };
+
+  const updateOption = (id: string, patch: Partial<Omit<OptionDraft, "id">>) => {
+    setOptions((prev) => prev.map((o) => (o.id === id ? { ...o, ...patch } : o)));
   };
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
@@ -169,7 +279,7 @@ export function EditProductForm({
     if (!formRef.current) return;
 
     if (colorsState.length === 0) {
-      setState({ error: "Add at least one color" });
+      setState({ error: "Add at least one color (for product images)" });
       return;
     }
 
@@ -179,24 +289,110 @@ export function EditProductForm({
       return;
     }
 
+    if (!hasVariants) {
+      if (colorsState.length !== 1) {
+        setState({
+          error:
+            "Single-variant mode allows exactly one color (for images). Turn on options for multiple colors, or remove extra colors.",
+        });
+        return;
+      }
+      if (!defaultSku.trim()) {
+        setState({ error: "SKU is required" });
+        return;
+      }
+      const st = parseInt(defaultStock, 10);
+      if (!Number.isFinite(st) || st < 0) {
+        setState({ error: "Stock quantity must be a non-negative number" });
+        return;
+      }
+    } else {
+      if (parsedOptionsForCombos.length === 0) {
+        setState({ error: "Add at least one option with a name and values" });
+        return;
+      }
+      const incomplete = options.some(
+        (o) => o.name.trim() && parseValuesFromText(o.valuesText).length === 0,
+      );
+      if (incomplete) {
+        setState({ error: "Each option with a name must list at least one value" });
+        return;
+      }
+      const unnamed = options.some((o) => !o.name.trim() && parseValuesFromText(o.valuesText).length > 0);
+      if (unnamed) {
+        setState({ error: "Each option with values must have a name" });
+        return;
+      }
+
+      if (combos.length === 0) {
+        setState({ error: "Could not build variant combinations from options" });
+        return;
+      }
+
+      for (const c of combos) {
+        const k = comboKey(optionNamesForKeys, c);
+        const cell = matrix[k];
+        if (!cell?.sku?.trim()) {
+          setState({ error: "Every variant row needs a SKU" });
+          return;
+        }
+        const sq = parseInt(cell.stockQuantity, 10);
+        if (!Number.isFinite(sq) || sq < 0) {
+          setState({ error: "Every variant row needs a valid stock quantity" });
+          return;
+        }
+        const po = cell.priceOverride.trim();
+        if (po !== "") {
+          const n = parseFloat(po);
+          if (!Number.isFinite(n) || n <= 0) {
+            setState({ error: "Price override must be empty or a positive number" });
+            return;
+          }
+        }
+      }
+    }
+
     setIsPending(true);
     setState(null);
 
     const formData = new FormData(formRef.current);
     collectionIds.forEach((id) => formData.append("collectionIds", String(id)));
+    formData.set("hasVariants", hasVariants ? "true" : "false");
     formData.set("color_count", String(colorsState.length));
     colorsState.forEach((color, i) => {
-      formData.set(`color_${i}_id`, String(color.id));
+      if (typeof color.id === "number") {
+        formData.set(`color_${i}_id`, String(color.id));
+      }
       formData.set(`color_${i}_name`, color.name.trim());
       formData.set(`color_${i}_hex`, color.hexCode || "#000000");
-      formData.set(`color_${i}_existing_urls`, JSON.stringify(color.imageUrls));
+      formData.set(`color_${i}_existing_urls`, JSON.stringify(color.imageUrls ?? []));
       color.imageFiles.forEach((file) => {
         formData.append(`color_${i}_images`, file);
       });
-      SIZES.forEach((size) => {
-        formData.set(`color_${i}_stock_${size}`, String(color.stockBySize[size] ?? 0));
-      });
     });
+
+    if (hasVariants) {
+      formData.set("optionsJson", JSON.stringify(parsedOptionsForCombos));
+      const variantsPayload = combos.map((combo) => {
+        const k = comboKey(optionNamesForKeys, combo);
+        const cell = matrix[k]!;
+        const po = cell.priceOverride.trim();
+        let price_override: number | null = null;
+        if (po !== "") {
+          price_override = parseFloat(po);
+        }
+        return {
+          sku: cell.sku.trim(),
+          stock_quantity: parseInt(cell.stockQuantity, 10) || 0,
+          price_override,
+          optionValues: combo,
+        };
+      });
+      formData.set("variantsJson", JSON.stringify(variantsPayload));
+    } else {
+      formData.set("defaultSku", defaultSku.trim());
+      formData.set("defaultStockQuantity", String(parseInt(defaultStock, 10) || 0));
+    }
 
     const result = await updateProduct(product.id, formData);
     setState(result);
@@ -208,10 +404,14 @@ export function EditProductForm({
   }
 
   const price = typeof product.price === "string" ? product.price : String(product.price);
+  const canAddAnotherColor = hasVariants || colorsState.length === 0;
+  const showVariantMatrix = hasVariants && combos.length > 0;
 
   return (
     <form ref={formRef} onSubmit={handleSubmit}>
-      <Card className="max-w-2xl">
+      <input type="hidden" name="hasVariants" value={hasVariants ? "true" : "false"} />
+
+      <Card className="w-full max-w-7xl">
         <CardHeader>
           <CardTitle>Edit product</CardTitle>
           <CardDescription>Update product details</CardDescription>
@@ -224,7 +424,8 @@ export function EditProductForm({
               name="name"
               required
               placeholder="Product name"
-              defaultValue={product.name}
+              value={productNameDraft}
+              onChange={(e) => setProductNameDraft(e.target.value)}
             />
           </div>
           <div className="space-y-2">
@@ -238,20 +439,9 @@ export function EditProductForm({
               defaultValue={product.description ?? ""}
             />
           </div>
+
           <div className="grid gap-4 sm:grid-cols-2">
-            <div className="space-y-2">
-              <Label htmlFor="price">Price</Label>
-              <Input
-                id="price"
-                name="price"
-                type="number"
-                step="0.01"
-                min="0"
-                required
-                placeholder="0.00"
-                defaultValue={price}
-              />
-            </div>
+            <PriceInput defaultValue={price} />
             <ProductTaxonomyFields
               categoryTrees={categoryTrees}
               initialStoreType={initialListing}
@@ -266,10 +456,58 @@ export function EditProductForm({
               onChange={setCollectionIds}
             />
           </div>
+
+          <div className="rounded-md border border-border bg-muted/20 p-4 space-y-3">
+            <div className="flex items-start gap-3">
+              <input
+                type="checkbox"
+                id="hasVariantsToggle"
+                checked={hasVariants}
+                onChange={(e) => setHasVariants(e.target.checked)}
+                className="mt-1 h-4 w-4 rounded border-input"
+              />
+              <div>
+                <Label htmlFor="hasVariantsToggle" className="font-medium cursor-pointer">
+                  This product has options, like size or color
+                </Label>
+                <p className="text-xs text-muted-foreground mt-1">
+                  When off, you set one SKU and stock. When on, build options and a variant matrix (each row is a sellable SKU).
+                </p>
+              </div>
+            </div>
+
+            {!hasVariants ? (
+              <div className="grid gap-4 sm:grid-cols-2 pt-2 border-t border-border">
+                <div className="space-y-2">
+                  <Label htmlFor="defaultSku">SKU</Label>
+                  <Input
+                    id="defaultSku"
+                    value={defaultSku}
+                    onChange={(e) => setDefaultSku(e.target.value)}
+                    placeholder="e.g. VAULT-SHIRT-001"
+                    autoComplete="off"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="defaultStock">Stock quantity</Label>
+                  <Input
+                    id="defaultStock"
+                    type="number"
+                    min={0}
+                    inputMode="numeric"
+                    value={defaultStock}
+                    onChange={(e) => setDefaultStock(e.target.value)}
+                  />
+                </div>
+              </div>
+            ) : null}
+          </div>
+
           <ProductAttributeFields
             attributesWithValues={attributesWithValues}
             initialSelectedIds={initialAttributeValueIds}
           />
+
           <div className="flex items-center gap-2">
             <input
               type="checkbox"
@@ -284,39 +522,39 @@ export function EditProductForm({
             </Label>
           </div>
 
-          {/* Color Management Section */}
           <div className="space-y-4">
-            <div className="flex items-center justify-between">
+            <div className="flex items-center justify-between gap-4">
               <div>
-                <h3 className="text-sm font-medium">Colors</h3>
+                <h3 className="text-sm font-medium">Colors &amp; images</h3>
                 <p className="text-xs text-muted-foreground">
-                  Add colors with their own images and stock levels
+                  {hasVariants
+                    ? "Add a color for each swatch. If you use a “Color” option, values should match these names."
+                    : "Exactly one color (used for gallery images on the product page)."}
                 </p>
               </div>
-              <Button type="button" variant="outline" size="sm" onClick={addColor}>
-                Add color
-              </Button>
+              {canAddAnotherColor ? (
+                <Button type="button" variant="outline" size="sm" onClick={addColor}>
+                  Add color
+                </Button>
+              ) : null}
             </div>
 
             {colorsState.map((color) => (
-              <EditColorRow
+              <ImageUploader
                 key={String(color.id)}
                 color={color}
-                sizes={SIZES}
                 onUpdate={(updates) => updateColor(color.id, updates)}
                 onRemove={() => removeColor(color.id)}
                 onAddFiles={(files) => addFilesToColor(color.id, files)}
                 onRemoveFile={(idx) => removeFileFromColor(color.id, idx)}
                 onRemoveExistingImage={(idx) => removeExistingImageFromColor(color.id, idx)}
-                canRemove={colorsState.length > 1}
+                canRemove={hasVariants && colorsState.length > 1}
               />
             ))}
 
             {colorsState.length === 0 && (
               <div className="border-2 border-dashed border-border rounded-lg p-8 text-center">
-                <p className="text-sm text-muted-foreground mb-4">
-                  No colors added yet. Add at least one color to continue.
-                </p>
+                <p className="text-sm text-muted-foreground mb-4">Add at least one color with images.</p>
                 <Button type="button" variant="outline" onClick={addColor}>
                   Add first color
                 </Button>
@@ -324,232 +562,84 @@ export function EditProductForm({
             )}
           </div>
 
-          {/* Legacy fixed-size inventory grid (edit flow; dynamic options matrix is on create for now) */}
-          {colorsState.length > 0 && (
-            <section className="rounded-xl border border-border bg-card text-card-foreground shadow-sm overflow-hidden">
-              <header className="border-b border-border bg-muted/40 px-4 py-3 sm:px-5">
-                <h3 className="text-sm font-semibold tracking-tight text-foreground">Inventory matrix</h3>
-                <p className="text-xs text-muted-foreground mt-1">
-                  Stock per color and fixed sizes (XS–XL). Bulk quantity applies to every cell.
-                </p>
-              </header>
-              <div className="p-4 sm:p-5">
-                <InventoryManager
-                  embedded
-                  colors={colorsState}
-                  sizes={SIZES}
-                  updateColor={updateColor}
-                />
+          {hasVariants ? (
+            <div className="space-y-4 border-t border-border pt-6">
+              <div className="flex items-center justify-between gap-4">
+                <div>
+                  <h3 className="text-sm font-medium">Options</h3>
+                  <p className="text-xs text-muted-foreground">
+                    Name each option (e.g. Size) and list values separated by commas (e.g. 32, 34, 36).
+                  </p>
+                </div>
+                <Button type="button" variant="outline" size="sm" onClick={addOption}>
+                  Add option
+                </Button>
               </div>
-            </section>
-          )}
 
-          {state?.error && (
-            <p className="text-sm text-destructive">{state.error}</p>
-          )}
+              {options.length === 0 ? (
+                <p className="text-sm text-muted-foreground">No options yet. Click “Add option” to build variants.</p>
+              ) : (
+                <div className="space-y-3">
+                  {options.map((opt) => (
+                    <div
+                      key={opt.id}
+                      className="grid gap-3 sm:grid-cols-[1fr_2fr_auto] sm:items-end border border-border rounded-md p-3"
+                    >
+                      <div className="space-y-2">
+                        <Label className="text-xs">Option name</Label>
+                        <Input
+                          value={opt.name}
+                          onChange={(e) => updateOption(opt.id, { name: e.target.value })}
+                          placeholder="e.g. Size, Color"
+                        />
+                      </div>
+                      <div className="space-y-2 sm:col-span-1">
+                        <Label className="text-xs">Values (comma-separated)</Label>
+                        <Input
+                          value={opt.valuesText}
+                          onChange={(e) => updateOption(opt.id, { valuesText: e.target.value })}
+                          placeholder="e.g. 32, 34, 36 or Red, Blue"
+                        />
+                      </div>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        className="text-destructive"
+                        onClick={() => removeOption(opt.id)}
+                      >
+                        Remove
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {showVariantMatrix ? (
+                <VariantMatrixEditor
+                  productName={productNameDraft}
+                  optionNamesForKeys={optionNamesForKeys}
+                  combos={combos}
+                  matrix={matrix}
+                  setMatrix={setMatrix}
+                  updateMatrixCell={updateMatrixCell}
+                />
+              ) : null}
+            </div>
+          ) : null}
+
+          {state?.error && <p className="text-sm text-destructive">{state.error}</p>}
+
           <div className="flex gap-4">
             <Button type="submit" disabled={isPending || colorsState.length === 0}>
               {isPending ? "Saving…" : "Save changes"}
             </Button>
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => router.push("/admin/products")}
-            >
+            <Button type="button" variant="outline" onClick={() => router.push("/admin/products")}>
               Cancel
             </Button>
           </div>
         </CardContent>
       </Card>
     </form>
-  );
-}
-
-interface EditColorRowProps {
-  color: ColorEntry;
-  sizes: readonly string[];
-  onUpdate: (updates: Partial<Omit<ColorEntry, "id">>) => void;
-  onRemove: () => void;
-  onAddFiles: (files: File[]) => void;
-  onRemoveFile: (index: number) => void;
-  onRemoveExistingImage: (index: number) => void;
-  canRemove: boolean;
-}
-
-function EditColorRow({
-  color,
-  onUpdate,
-  onRemove,
-  onAddFiles,
-  onRemoveFile,
-  onRemoveExistingImage,
-  canRemove,
-}: EditColorRowProps) {
-  const [cropPending, setCropPending] = useState<{ file: File; objectUrl: string } | null>(null);
-  const cropQueueRef = useRef<File[]>([]);
-
-  const processNextInQueue = useCallback(() => {
-    void (async () => {
-      const next = cropQueueRef.current.shift();
-      if (!next) {
-        setCropPending(null);
-        return;
-      }
-      try {
-        const file = await ensureBrowserDisplayableImage(next);
-        setCropPending({ file, objectUrl: URL.createObjectURL(file) });
-      } catch {
-        toast.error("Could not load image. For HEIC/HEIF, try again or use JPEG or PNG.");
-        processNextInQueue();
-      }
-    })();
-  }, []);
-
-  const handleCropComplete = useCallback(
-    (blob: Blob) => {
-      const current = cropPending;
-      if (!current) return;
-      URL.revokeObjectURL(current.objectUrl);
-      setCropPending(null);
-      const file = new File([blob], current.file.name.replace(/\.[^.]+$/, ".jpg"), {
-        type: "image/jpeg",
-      });
-      onAddFiles([file]);
-      processNextInQueue();
-    },
-    [cropPending, onAddFiles, processNextInQueue]
-  );
-
-  const handleCropCancel = useCallback(() => {
-    if (cropPending) {
-      URL.revokeObjectURL(cropPending.objectUrl);
-      setCropPending(null);
-    }
-    processNextInQueue();
-  }, [cropPending, processNextInQueue]);
-
-  const onDrop = useCallback(
-    (acceptedFiles: File[]) => {
-      if (acceptedFiles.length === 0) return;
-      cropQueueRef.current.push(...acceptedFiles);
-      if (!cropPending) processNextInQueue();
-    },
-    [cropPending, processNextInQueue]
-  );
-
-  const { getRootProps, getInputProps, isDragActive } = useDropzone({
-    onDrop,
-    accept: { "image/*": [".png", ".jpg", ".jpeg", ".webp", ".gif", ".heic", ".heif"] },
-    maxSize: 5 * 1024 * 1024,
-  });
-
-  return (
-    <div className="border border-border rounded-lg p-4 space-y-4">
-      <div className="flex items-start justify-between gap-4">
-        <div className="flex-1 grid gap-4 sm:grid-cols-2">
-          <div className="space-y-1.5">
-            <Label>Color name</Label>
-            <Input
-              placeholder="e.g. Midnight Black"
-              value={color.name}
-              onChange={(e) => onUpdate({ name: e.target.value })}
-              required
-            />
-          </div>
-          <div className="space-y-1.5">
-            <Label>Hex code</Label>
-            <div className="flex gap-2 items-center">
-              <input
-                type="color"
-                value={color.hexCode}
-                onChange={(e) => onUpdate({ hexCode: e.target.value })}
-                className="h-10 w-14 cursor-pointer rounded border border-input bg-transparent p-1"
-              />
-              <Input
-                value={color.hexCode}
-                onChange={(e) => onUpdate({ hexCode: e.target.value })}
-                placeholder="#000000"
-                className="font-mono"
-              />
-            </div>
-          </div>
-        </div>
-        {canRemove && (
-          <Button type="button" variant="ghost" size="sm" onClick={onRemove} className="text-destructive hover:text-destructive">
-            Remove
-          </Button>
-        )}
-      </div>
-      <div className="space-y-1.5">
-        <Label>Images (this color only)</Label>
-        {color.imageUrls.length > 0 && (
-          <div className="flex flex-wrap gap-2 mb-2">
-            {color.imageUrls.map((url, i) => (
-              <div
-                key={i}
-                className="relative w-20 h-20 rounded overflow-hidden bg-muted shrink-0 group"
-              >
-                <Image
-                  src={url}
-                  alt=""
-                  fill
-                  className="object-cover"
-                  sizes="80px"
-
-                />
-                <button
-                  type="button"
-                  onClick={() => onRemoveExistingImage(i)}
-                  className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 flex items-center justify-center text-white text-xs transition-opacity"
-                >
-                  Remove
-                </button>
-              </div>
-            ))}
-          </div>
-        )}
-        <div
-          {...getRootProps()}
-          className={cn(
-            "border-input flex min-h-[100px] cursor-pointer flex-col items-center justify-center rounded-md border-2 border-dashed p-4 transition-colors",
-            isDragActive ? "border-primary bg-primary/5" : "hover:bg-muted/50"
-          )}
-        >
-          <input {...getInputProps()} />
-          <p className="text-center text-sm text-muted-foreground">
-            {isDragActive ? "Drop images here…" : "Drag & drop or click to add images"}
-          </p>
-          <p className="mt-1 text-xs text-muted-foreground">PNG, JPG, WebP, GIF up to 5MB (crop 2:3)</p>
-        </div>
-        {color.imageFiles.length > 0 && (
-          <ul className="mt-2 flex flex-wrap gap-2">
-            {color.imageFiles.map((file, i) => (
-              <li
-                key={i}
-                className="flex items-center gap-2 rounded bg-muted px-2 py-1 text-xs"
-              >
-                {file.name}
-                <button
-                  type="button"
-                  onClick={() => onRemoveFile(i)}
-                  className="text-destructive hover:underline"
-                >
-                  ×
-                </button>
-              </li>
-            ))}
-          </ul>
-        )}
-      </div>
-      {cropPending && (
-        <ImageCropModal
-          imageSrc={cropPending.objectUrl}
-          onComplete={handleCropComplete}
-          onCancel={handleCropCancel}
-          aspect={2 / 3}
-          title="Crop image (2:3 product ratio)"
-        />
-      )}
-    </div>
   );
 }
