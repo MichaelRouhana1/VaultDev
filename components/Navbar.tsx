@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, type MouseEvent } from "react";
 import { useLocale, useTranslations } from "next-intl";
 import { Link, usePathname } from "@/i18n/navigation";
 import { useParams } from "next/navigation";
@@ -18,6 +18,7 @@ import {
 } from "@/lib/clerk-auth-appearance";
 import type { ProductCategory } from "@/actions/categories";
 import type { StoreTypeSlug } from "@/lib/preferred-store";
+import { isInStoreSection } from "@/lib/store-nav";
 import { cn } from "@/lib/utils";
 
 function activeStoreFromRoute(
@@ -86,6 +87,20 @@ export function Navbar() {
     setShopDrawerOpen(false);
   };
 
+  const handleStreetwearHeaderClick = (e: MouseEvent<HTMLAnchorElement>) => {
+    if (isInStoreSection(pathname, "streetwear")) {
+      e.preventDefault();
+    }
+    openShopDrawer("streetwear");
+  };
+
+  const handleFormalHeaderClick = (e: MouseEvent<HTMLAnchorElement>) => {
+    if (isInStoreSection(pathname, "formal")) {
+      e.preventDefault();
+    }
+    openShopDrawer("formal");
+  };
+
   const storeType = pathname?.split("/").filter(Boolean)[0];
   const isStoreType = storeType === "streetwear" || storeType === "formal";
   const activeStore = activeStoreFromRoute(params.storeType, pathname);
@@ -98,6 +113,8 @@ export function Navbar() {
 
   const streetwearHref = "/streetwear";
   const formalHref = "/formal";
+  const vaultHref =
+    activeStore === "streetwear" ? "/streetwear" : activeStore === "formal" ? "/formal" : "/";
 
   const storeLinkClass = (slug: StoreTypeSlug) =>
     cn(
@@ -142,7 +159,7 @@ export function Navbar() {
             >
               <Link
                 href={streetwearHref}
-                onClick={() => openShopDrawer("streetwear")}
+                onClick={handleStreetwearHeaderClick}
                 className={storeLinkClass("streetwear")}
               >
                 {t("streetwear")}
@@ -150,18 +167,14 @@ export function Navbar() {
               <span className="text-foreground/25 text-[10px] select-none" aria-hidden>
                 |
               </span>
-              <Link
-                href={formalHref}
-                onClick={() => openShopDrawer("formal")}
-                className={storeLinkClass("formal")}
-              >
+              <Link href={formalHref} onClick={handleFormalHeaderClick} className={storeLinkClass("formal")}>
                 {t("formal")}
               </Link>
             </div>
           </div>
 
           <Link
-            href={isStoreType ? `/${storeType}` : "/"}
+            href={vaultHref}
             className="absolute start-1/2 -translate-x-1/2 text-xl font-light text-foreground tracking-[0.25em] uppercase hover:opacity-70 transition-opacity shrink-0"
           >
             {tCommon("brand")}
@@ -264,7 +277,10 @@ export function Navbar() {
               >
                 <Link
                   href={streetwearHref}
-                  onClick={() => {
+                  onClick={(e) => {
+                    if (isInStoreSection(pathname, "streetwear")) {
+                      e.preventDefault();
+                    }
                     openShopDrawer("streetwear");
                     setBurgerOpen(false);
                   }}
@@ -278,7 +294,10 @@ export function Navbar() {
                 </Link>
                 <Link
                   href={formalHref}
-                  onClick={() => {
+                  onClick={(e) => {
+                    if (isInStoreSection(pathname, "formal")) {
+                      e.preventDefault();
+                    }
                     openShopDrawer("formal");
                     setBurgerOpen(false);
                   }}
@@ -363,6 +382,7 @@ export function Navbar() {
         onClose={closeShopDrawer}
         categories={drawerCategories}
         storeType={shopDrawerStore ?? "streetwear"}
+        onActiveStoreChange={setShopDrawerStore}
       />
       <CartDrawer isOpen={cartOpen} onClose={() => setCartOpen(false)} />
     </nav>
