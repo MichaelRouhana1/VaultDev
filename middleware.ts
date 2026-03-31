@@ -316,13 +316,17 @@ export default clerkMiddleware(async (auth, req) => {
   return response;
 });
 
+/**
+ * Skip middleware for mistaken `/{locale}/_next/...` URLs so `next.config` `beforeFiles` rewrites can map them to `/_next/...`.
+ * Locales in `(?:en|fr|ar)` must match `MOSAIK_LOCALES` (static string required for Next compile-time `config` parsing).
+ */
 export const config = {
   matcher: [
     "/_next/static/:path*",
     "/_next/image",
     "/_next/font/:path*",
     "/_next/data/:path*",
-    "/((?!_next|[^?]*\\.(?:html?|css|js(?!on)|jpe?g|webp|png|gif|svg|ttf|woff2?|ico|csv|docx?|xlsx?|zip|webmanifest)).*)",
+    "/((?!(?:en|fr|ar)/_next|_next|[^?]*\\.(?:html?|css|js(?!on)|jpe?g|webp|png|gif|svg|ttf|woff2?|ico|csv|docx?|xlsx?|zip|webmanifest)).*)",
     "/(api|trpc)(.*)",
   ],
 };

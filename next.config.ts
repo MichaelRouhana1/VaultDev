@@ -1,6 +1,7 @@
 import type { NextConfig } from "next";
 import createNextIntlPlugin from "next-intl/plugin";
 import { getImageRemotePatterns } from "./lib/constants/security-hosts";
+import { MOSAIK_LOCALES } from "./lib/i18n-locales";
 
 const withNextIntl = createNextIntlPlugin("./i18n.ts");
 
@@ -12,6 +13,14 @@ const nextConfig: NextConfig = {
   },
   images: {
     remotePatterns: getImageRemotePatterns(),
+  },
+  async rewrites() {
+    return {
+      beforeFiles: MOSAIK_LOCALES.map((locale) => ({
+        source: `/${locale}/_next/:path*`,
+        destination: "/_next/:path*",
+      })),
+    };
   },
   async headers() {
     return [
