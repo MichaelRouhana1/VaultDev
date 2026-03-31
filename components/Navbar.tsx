@@ -382,7 +382,6 @@ export function Navbar() {
         onClose={closeShopDrawer}
         categories={drawerCategories}
         storeType={shopDrawerStore ?? "streetwear"}
-        onActiveStoreChange={setShopDrawerStore}
       />
       <CartDrawer isOpen={cartOpen} onClose={() => setCartOpen(false)} />
     </nav>
