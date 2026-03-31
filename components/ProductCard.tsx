@@ -2,8 +2,8 @@
 
 import { useState } from "react";
 import Image from "next/image";
-import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { useTranslations } from "next-intl";
+import { Link, usePathname } from "@/i18n/navigation";
 import { useCart } from "@/context/CartContext";
 import { useWishlist } from "@/context/WishlistContext";
 import {
@@ -12,7 +12,7 @@ import {
   getProductDiscountPercent,
   sortSizes,
 } from "@/lib/utils";
-import type { Product, StorefrontProduct } from "@/db/schema";
+import type { Product, StorefrontProduct, StorefrontProductResolved } from "@/db/schema";
 import type { ProductVariant, ProductColor } from "@/db/schema";
 import { WishlistBookmarkIcon } from "@/components/WishlistBookmarkIcon";
 
@@ -26,7 +26,7 @@ function storeTypeForProductUrl(product: Pick<Product, "storeType">): "streetwea
 
 interface ProductCardProps {
   /** Listing rows omit generated `searchVector` for RSC safety; PDP passes full `Product`. */
-  product: StorefrontProduct | Product;
+  product: StorefrontProduct | StorefrontProductResolved | Product;
   variants?: ProductVariant[];
   colors?: ProductColor[] | null;
   inWishlist?: boolean;
@@ -40,6 +40,7 @@ export function ProductCard({
   inWishlist = false,
   compact = false,
 }: ProductCardProps) {
+  const t = useTranslations("ProductCard");
   const pathname = usePathname();
   const { addToCart, openCart } = useCart();
   const { isInWishlist, hasHydrated, toggleItem } = useWishlist();
@@ -131,13 +132,17 @@ export function ProductCard({
     <article
       className={`group overflow-hidden ${compact ? "text-[0.85em]" : ""}`}
     >
-      <Link href={productUrl} className="block">
+      <Link
+        href={productUrl}
+        className="block"
+        aria-label={t("viewDetailsAria", { name: product.name })}
+      >
         <div
           className={`relative aspect-[2/3] overflow-hidden bg-muted ${compact ? "" : ""
             }`}
         >
           {onSale && percentOff > 0 && (
-            <span className="absolute top-2 left-2 z-10 px-2 py-0.5 text-xs font-semibold uppercase tracking-wider bg-destructive text-destructive-foreground">
+            <span className="absolute top-2 start-2 z-10 px-2 py-0.5 text-xs font-semibold uppercase tracking-wider bg-destructive text-destructive-foreground">
               -{percentOff}%
             </span>
           )}
@@ -153,7 +158,7 @@ export function ProductCard({
             />
           ) : (
             <div className="flex h-full w-full items-center justify-center text-muted-foreground">
-              <span className="text-sm">No image</span>
+              <span className="text-sm">{t("noImage")}</span>
             </div>
           )}
 
@@ -161,9 +166,9 @@ export function ProductCard({
           <button
             type="button"
             onClick={handleWishlistClick}
-            className={`absolute top-2 right-2 z-10 flex items-center justify-center bg-card/90 dark:bg-card/90 text-foreground hover:opacity-90 transition-colors ${compact ? "w-8 h-8" : "w-10 h-10"
+            className={`absolute top-2 end-2 z-10 flex items-center justify-center bg-card/90 dark:bg-card/90 text-foreground hover:opacity-90 transition-colors ${compact ? "w-8 h-8" : "w-10 h-10"
               }`}
-            aria-label={wishlistState ? "Remove from wishlist" : "Add to wishlist"}
+            aria-label={wishlistState ? t("removeFromWishlistAria") : t("addToWishlistAria")}
           >
             <WishlistBookmarkIcon active={wishlistState} className={compact ? "w-4 h-4" : "w-5 h-5"} />
           </button>
@@ -171,7 +176,7 @@ export function ProductCard({
           {isOutOfStock && (
             <div className="absolute inset-0 flex items-center justify-center bg-black/20">
               <span className="px-4 py-2 text-xs font-semibold uppercase tracking-[0.2em] text-primary-foreground bg-primary/90 backdrop-blur-sm">
-                Out of stock
+                {t("outOfStock")}
               </span>
             </div>
           )}
@@ -182,9 +187,9 @@ export function ProductCard({
               <button
                 type="button"
                 onClick={goToPrevImage}
-                className={`absolute left-0 top-1/2 -translate-y-1/2 z-10 flex items-center justify-center bg-card/80 dark:bg-card/80 text-foreground opacity-0 group-hover:opacity-100 transition-opacity duration-200 hover:opacity-100 ${compact ? "w-8 h-8" : "w-10 h-10"
+                className={`absolute start-0 top-1/2 -translate-y-1/2 z-10 flex items-center justify-center bg-card/80 dark:bg-card/80 text-foreground opacity-0 group-hover:opacity-100 transition-opacity duration-200 hover:opacity-100 ${compact ? "w-8 h-8" : "w-10 h-10"
                   }`}
-                aria-label="Previous image"
+                aria-label={t("prevImageAria")}
               >
                 <svg
                   className={compact ? "w-4 h-4" : "w-5 h-5"}
@@ -203,9 +208,9 @@ export function ProductCard({
               <button
                 type="button"
                 onClick={goToNextImage}
-                className={`absolute right-0 top-1/2 -translate-y-1/2 z-10 flex items-center justify-center bg-card/80 dark:bg-card/80 text-foreground opacity-0 group-hover:opacity-100 transition-opacity duration-200 hover:opacity-100 ${compact ? "w-8 h-8" : "w-10 h-10"
+                className={`absolute end-0 top-1/2 -translate-y-1/2 z-10 flex items-center justify-center bg-card/80 dark:bg-card/80 text-foreground opacity-0 group-hover:opacity-100 transition-opacity duration-200 hover:opacity-100 ${compact ? "w-8 h-8" : "w-10 h-10"
                   }`}
-                aria-label="Next image"
+                aria-label={t("nextImageAria")}
               >
                 <svg
                   className={compact ? "w-4 h-4" : "w-5 h-5"}
@@ -231,7 +236,7 @@ export function ProductCard({
                 }`}
             >
               <p className="text-xs font-medium uppercase tracking-widest text-foreground mb-2">
-                Select size
+                {t("selectSize")}
               </p>
               <div className="flex flex-wrap gap-2">
                 {sizes.map((size) => {
@@ -242,6 +247,7 @@ export function ProductCard({
                       type="button"
                       onClick={(e) => handleSizeClick(e, size)}
                       disabled={!inStock}
+                      aria-label={inStock ? t("addToCartSizeAria", { size }) : undefined}
                       className={`px-3 py-1.5 text-xs font-medium uppercase tracking-widest transition-colors ${inStock
                         ? "border border-foreground text-foreground hover:bg-foreground hover:text-primary-foreground"
                         : "border border-muted-foreground/40 text-muted-foreground/60 opacity-60 cursor-not-allowed line-through"
@@ -265,8 +271,8 @@ export function ProductCard({
             <p className="text-xs font-light text-muted-foreground shrink-0">
               {colorLabel}
               {hasMultipleColors && colors && (
-                <span className="ml-1 text-muted-foreground">
-                  +{colors.length - 1} {colors.length - 1 === 1 ? "Colour" : "Colours"}
+                <span className="ms-1 text-muted-foreground">
+                  {t("moreColours", { count: colors.length - 1 })}
                 </span>
               )}
             </p>
@@ -282,7 +288,7 @@ export function ProductCard({
                     style={
                       color.hexCode ? { backgroundColor: color.hexCode } : undefined
                     }
-                    aria-label={`Color: ${color.name}`}
+                    aria-label={t("colorAria", { name: color.name })}
                     aria-pressed={i === selectedColorIndex}
                   >
                     {!color.hexCode && color.imageUrls?.[0] && (

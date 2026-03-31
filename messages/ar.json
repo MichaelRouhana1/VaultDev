@@ -1,0 +1,60 @@
+{
+  "Navbar": {
+    "home": "الرئيسية",
+    "shop": "المتجر",
+    "about": "من نحن",
+    "account": "الحساب",
+    "admin": "الإدارة",
+    "cart": "السلة",
+    "signIn": "تسجيل الدخول",
+    "signUp": "إنشاء حساب",
+    "dashboard": "لوحة التحكم",
+    "streetwear": "ستريت وير",
+    "formal": "رسمي",
+    "search": "بحث",
+    "bag": "الحقيبة",
+    "bagWithCount": "الحقيبة ({count})",
+    "lightMode": "الوضع الفاتح",
+    "darkMode": "الوضع الداكن",
+    "storeSelectionAria": "اختيار المتجر",
+    "openShopMenu": "فتح قائمة المتجر",
+    "closeMenu": "إغلاق القائمة",
+    "openMenu": "فتح القائمة",
+    "themeLightAria": "التبديل إلى الوضع الفاتح",
+    "themeDarkAria": "التبديل إلى الوضع الداكن",
+    "viewAccountAria": "عرض الملف الشخصي",
+    "viewShoppingBagAria": "عرض حقيبة التسوق"
+  },
+  "ProductCard": {
+    "noImage": "لا توجد صورة",
+    "outOfStock": "غير متوفر",
+    "selectSize": "اختر المقاس",
+    "moreColours": "+{count} {count, plural, one {لون} other {ألوان}}",
+    "prevImageAria": "الصورة السابقة",
+    "nextImageAria": "الصورة التالية",
+    "addToWishlistAria": "إضافة إلى المفضلة",
+    "removeFromWishlistAria": "إزالة من المفضلة",
+    "colorAria": "اللون: {name}",
+    "viewDetailsAria": "عرض {name} — تفاصيل المنتج",
+    "addToCartSizeAria": "إضافة إلى السلة، المقاس {size}"
+  },
+  "UtilityBar": {
+    "filters": "عوامل التصفية",
+    "sortPrefix": "ترتيب",
+    "sortRecommended": "موصى به",
+    "sortNewest": "الأحدث",
+    "sortPriceLow": "السعر: من الأقل للأعلى",
+    "sortPriceHigh": "السعر: من الأعلى للأقل",
+    "sortNameAsc": "الاسم: أ-ي",
+    "sortNameDesc": "الاسم: ي-أ",
+    "language": "اللغة",
+    "localeEn": "English",
+    "localeFr": "Français",
+    "localeAr": "العربية"
+  },
+  "Common": {
+    "brand": "VAULT",
+    "continue": "متابعة",
+    "loading": "جارٍ التحميل…"
+  }
+}

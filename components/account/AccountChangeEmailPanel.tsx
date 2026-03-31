@@ -1,7 +1,7 @@
 "use client";
 
 import { useRef, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter } from "@/i18n/navigation";
 import { useReverification, useSession, useUser } from "@clerk/nextjs";
 import { isClerkAPIResponseError, isReverificationCancelledError } from "@clerk/nextjs/errors";
 import { toast } from "sonner";

@@ -18,6 +18,11 @@ import {
   products,
   productVariants,
 } from "@/db/schema";
+import type { MosaikLocale } from "@/lib/i18n-locales";
+import {
+  localizedProductName,
+  withLocalizedProductCopy,
+} from "@/lib/storefront-product-locale";
 import { buildProductSearchWhere } from "@/lib/product-search";
 import { conditionProductsMatchCategorySlug } from "@/lib/shop-category-filter";
 export type StoreTypeFilter = "streetwear" | "formal";
@@ -148,107 +153,109 @@ function rethrowDbWithPgMessage(e: unknown): never {
   throw e;
 }
 
+const listingProductColumns = {
+  id: products.id,
+  name: products.name,
+  nameEn: products.nameEn,
+  nameFr: products.nameFr,
+  nameAr: products.nameAr,
+  description: products.description,
+  descriptionEn: products.descriptionEn,
+  descriptionFr: products.descriptionFr,
+  descriptionAr: products.descriptionAr,
+  price: products.price,
+  salePrice: products.salePrice,
+  saleStartsAt: products.saleStartsAt,
+  saleEndsAt: products.saleEndsAt,
+  isSaleActive: products.isSaleActive,
+  color: products.color,
+  isVisible: products.isVisible,
+  storeType: products.storeType,
+  mainCategoryId: products.mainCategoryId,
+} as const;
+
 /** Home “discover” strip: visible products for store + first color image + main category slug. */
-export const getHomeDiscoverProductsWithFirstImage = cache(async (storeType: StoreTypeFilter) => {
-  const productRows = await db
-    .select({
-      id: products.id,
-      name: products.name,
-      description: products.description,
-      price: products.price,
-      salePrice: products.salePrice,
-      saleStartsAt: products.saleStartsAt,
-      saleEndsAt: products.saleEndsAt,
-      isSaleActive: products.isSaleActive,
-      color: products.color,
-      isVisible: products.isVisible,
-      storeType: products.storeType,
-      mainCategoryId: products.mainCategoryId,
-    })
-    .from(products)
-    .where(
-      and(eq(products.isVisible, true), eq(products.isArchived, false), eq(products.storeType, storeType)),
-    )
-    .orderBy(desc(products.id))
-    .limit(8)
-    .catch((e: unknown) => {
-      rethrowDbWithPgMessage(e);
-    });
-
-  const ids = productRows.map((r) => r.id);
-  if (ids.length === 0) return [];
-
-  const categoryIds = [...new Set(productRows.map((r) => r.mainCategoryId))];
-  const slugByCategoryId = new Map<number, string>();
-  if (categoryIds.length > 0) {
-    const catRows = await db
-      .select({ id: categories.id, slug: categories.slug })
-      .from(categories)
-      .where(inArray(categories.id, categoryIds))
+export const getHomeDiscoverProductsWithFirstImage = cache(
+  async (storeType: StoreTypeFilter, locale: MosaikLocale) => {
+    const productRows = await db
+      .select(listingProductColumns)
+      .from(products)
+      .where(
+        and(eq(products.isVisible, true), eq(products.isArchived, false), eq(products.storeType, storeType)),
+      )
+      .orderBy(desc(products.id))
+      .limit(8)
       .catch((e: unknown) => {
         rethrowDbWithPgMessage(e);
       });
-    for (const c of catRows) {
-      if (c.slug != null) slugByCategoryId.set(c.id, c.slug);
+
+    const localizedRows = productRows.map((row) => withLocalizedProductCopy(row, locale));
+
+    const ids = localizedRows.map((r) => r.id);
+    if (ids.length === 0) return [];
+
+    const categoryIds = [...new Set(localizedRows.map((r) => r.mainCategoryId))];
+    const slugByCategoryId = new Map<number, string>();
+    if (categoryIds.length > 0) {
+      const catRows = await db
+        .select({ id: categories.id, slug: categories.slug })
+        .from(categories)
+        .where(inArray(categories.id, categoryIds))
+        .catch((e: unknown) => {
+          rethrowDbWithPgMessage(e);
+        });
+      for (const c of catRows) {
+        if (c.slug != null) slugByCategoryId.set(c.id, c.slug);
+      }
     }
-  }
 
-  const colorRows = await db
-    .select({
-      productId: productColors.productId,
-      imageUrls: productColors.imageUrls,
-    })
-    .from(productColors)
-    .where(inArray(productColors.productId, ids))
-    .orderBy(asc(productColors.productId), asc(productColors.id))
-    .catch((e: unknown) => {
-      rethrowDbWithPgMessage(e);
-    });
+    const colorRows = await db
+      .select({
+        productId: productColors.productId,
+        imageUrls: productColors.imageUrls,
+      })
+      .from(productColors)
+      .where(inArray(productColors.productId, ids))
+      .orderBy(asc(productColors.productId), asc(productColors.id))
+      .catch((e: unknown) => {
+        rethrowDbWithPgMessage(e);
+      });
 
-  const firstImageByProductId = new Map<number, string | null>();
-  for (const row of colorRows) {
-    if (firstImageByProductId.has(row.productId)) continue;
-    const urls = row.imageUrls;
-    const first = Array.isArray(urls) && urls.length > 0 ? (urls[0] ?? null) : null;
-    firstImageByProductId.set(row.productId, first);
-  }
+    const firstImageByProductId = new Map<number, string | null>();
+    for (const row of colorRows) {
+      if (firstImageByProductId.has(row.productId)) continue;
+      const urls = row.imageUrls;
+      const first = Array.isArray(urls) && urls.length > 0 ? (urls[0] ?? null) : null;
+      firstImageByProductId.set(row.productId, first);
+    }
 
-  return productRows.map(({ mainCategoryId, ...rest }) => ({
-    ...rest,
-    categorySlug: slugByCategoryId.get(mainCategoryId) ?? null,
-    firstImageUrl: firstImageByProductId.get(rest.id) ?? null,
-  }));
-});
+    return localizedRows.map(({ mainCategoryId, ...rest }) => ({
+      ...rest,
+      categorySlug: slugByCategoryId.get(mainCategoryId) ?? null,
+      firstImageUrl: firstImageByProductId.get(rest.id) ?? null,
+    }));
+  },
+);
 
 /** Shop grid: store + optional category + optional search. Attribute facets filter on the client. */
 export const getShopProductsForStore = cache(
   async (
     storeType: StoreTypeFilter,
     filters: { categorySlug?: string; searchQuery?: string },
+    locale: MosaikLocale,
   ) => {
     const baseFilters = await shopListingFilterSql(storeType, {
       categorySlug: filters.categorySlug,
       searchQuery: filters.searchQuery,
     });
-    // Omit `searchVector` (tsvector): not JSON-safe for RSC props; can break Flight parsing on navigation (e.g. `?sort=`).
-    return db
+    const rows = await db
       .select({
-        id: products.id,
-        name: products.name,
-        description: products.description,
-        price: products.price,
-        salePrice: products.salePrice,
-        saleStartsAt: products.saleStartsAt,
-        saleEndsAt: products.saleEndsAt,
-        isSaleActive: products.isSaleActive,
-        color: products.color,
-        isVisible: products.isVisible,
+        ...listingProductColumns,
         isArchived: products.isArchived,
-        storeType: products.storeType,
-        mainCategoryId: products.mainCategoryId,
       })
       .from(products)
       .where(and(...baseFilters));
+    return rows.map((row) => withLocalizedProductCopy(row, locale));
   },
 );
 
@@ -344,17 +351,25 @@ export const getProductColorsByProductIds = cache(async (productIds: number[]) =
   return db.select().from(productColors).where(inArray(productColors.productId, ids));
 });
 
-export const getPublicProductTitleForMetadata = cache(async (productId: number) => {
-  return db
-    .select({ name: products.name })
+export const getPublicProductTitleForMetadata = cache(async (productId: number, locale: MosaikLocale) => {
+  const rows = await db
+    .select({
+      name: products.name,
+      nameEn: products.nameEn,
+      nameFr: products.nameFr,
+      nameAr: products.nameAr,
+    })
     .from(products)
     .where(and(eq(products.id, productId), eq(products.isArchived, false)))
     .limit(1);
+  const row = rows[0];
+  if (!row) return [];
+  return [{ name: localizedProductName(locale, row) }];
 });
 
 export const getPublicProductDetailForStore = cache(
-  async (productId: number, storeType: StoreTypeFilter) => {
-    return db
+  async (productId: number, storeType: StoreTypeFilter, locale: MosaikLocale) => {
+    const rows = await db
       .select()
       .from(products)
       .where(
@@ -365,12 +380,15 @@ export const getPublicProductDetailForStore = cache(
         ),
       )
       .limit(1);
+    const row = rows[0];
+    if (!row) return [];
+    return [withLocalizedProductCopy(row, locale)];
   },
 );
 
 /** Similar products: same main shop category (ignores attribute tags so e.g. different fits still match). */
 export const getSimilarVisibleProductsExcept = cache(
-  async (forProductId: number, storeType: StoreTypeFilter, limit = 10) => {
+  async (forProductId: number, storeType: StoreTypeFilter, locale: MosaikLocale, limit = 10) => {
     const [p] = await db
       .select({ mainCategoryId: products.mainCategoryId })
       .from(products)
@@ -384,7 +402,7 @@ export const getSimilarVisibleProductsExcept = cache(
       .limit(1);
     if (!p) return [];
 
-    return db
+    const rows = await db
       .select()
       .from(products)
       .where(
@@ -398,5 +416,6 @@ export const getSimilarVisibleProductsExcept = cache(
       )
       .orderBy(desc(products.id))
       .limit(limit);
+    return rows.map((row) => withLocalizedProductCopy(row, locale));
   },
 );

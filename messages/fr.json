@@ -1,0 +1,60 @@
+{
+  "Navbar": {
+    "home": "Accueil",
+    "shop": "Boutique",
+    "about": "À propos",
+    "account": "Compte",
+    "admin": "Administration",
+    "cart": "Panier",
+    "signIn": "Connexion",
+    "signUp": "Inscription",
+    "dashboard": "Tableau de bord",
+    "streetwear": "Streetwear",
+    "formal": "Formel",
+    "search": "Recherche",
+    "bag": "Sac",
+    "bagWithCount": "Sac ({count})",
+    "lightMode": "Mode clair",
+    "darkMode": "Mode sombre",
+    "storeSelectionAria": "Choix de la boutique",
+    "openShopMenu": "Ouvrir le menu boutique",
+    "closeMenu": "Fermer le menu",
+    "openMenu": "Ouvrir le menu",
+    "themeLightAria": "Passer en mode clair",
+    "themeDarkAria": "Passer en mode sombre",
+    "viewAccountAria": "Voir le profil du compte",
+    "viewShoppingBagAria": "Voir le panier"
+  },
+  "ProductCard": {
+    "noImage": "Pas d’image",
+    "outOfStock": "Rupture de stock",
+    "selectSize": "Choisir la taille",
+    "moreColours": "+{count} {count, plural, one {couleur} other {couleurs}}",
+    "prevImageAria": "Image précédente",
+    "nextImageAria": "Image suivante",
+    "addToWishlistAria": "Ajouter à la liste d’envies",
+    "removeFromWishlistAria": "Retirer de la liste d’envies",
+    "colorAria": "Couleur : {name}",
+    "viewDetailsAria": "Voir {name} — fiche produit",
+    "addToCartSizeAria": "Ajouter au panier, taille {size}"
+  },
+  "UtilityBar": {
+    "filters": "Filtres",
+    "sortPrefix": "Trier",
+    "sortRecommended": "Recommandé",
+    "sortNewest": "Plus récent",
+    "sortPriceLow": "Prix : croissant",
+    "sortPriceHigh": "Prix : décroissant",
+    "sortNameAsc": "Nom : A à Z",
+    "sortNameDesc": "Nom : Z à A",
+    "language": "Langue",
+    "localeEn": "English",
+    "localeFr": "Français",
+    "localeAr": "العربية"
+  },
+  "Common": {
+    "brand": "VAULT",
+    "continue": "Continuer",
+    "loading": "Chargement…"
+  }
+}

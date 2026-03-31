@@ -2,8 +2,8 @@
 
 import { useState, useTransition, useEffect, useRef } from "react";
 import Image from "next/image";
-import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { Link } from "@/i18n/navigation";
+import { useRouter } from "@/i18n/navigation";
 import { SignOutButton } from "@clerk/nextjs";
 import { toast } from "sonner";
 import { updateVaultProfile } from "@/actions/updateVaultProfile";

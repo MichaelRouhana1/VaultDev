@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter } from "@/i18n/navigation";
 import { updateProduct } from "@/actions/updateProduct";
 import type { ProductVariantFormInitial } from "@/actions/product-admin-detail";
 import { Button } from "@/components/ui/button";

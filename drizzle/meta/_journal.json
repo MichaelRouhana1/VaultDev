@@ -141,6 +141,13 @@
       "when": 1774872029542,
       "tag": "0019_product_options_variants",
       "breakpoints": true
+    },
+    {
+      "idx": 20,
+      "version": "7",
+      "when": 1774984547463,
+      "tag": "0020_product_localized_columns",
+      "breakpoints": true
     }
   ]
 }

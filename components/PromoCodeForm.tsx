@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter } from "@/i18n/navigation";
 import { createPromoCode } from "@/actions/promo";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";

@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useMemo } from "react";
 import { useActionState } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter } from "@/i18n/navigation";
 import Image from "next/image";
 import { Loader2 } from "lucide-react";
 import { placeOrder, type CartItem } from "@/actions/placeOrder";

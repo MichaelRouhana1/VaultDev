@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useMemo, useRef, useCallback } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter } from "@/i18n/navigation";
 import { createProduct } from "@/actions/createProduct";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";

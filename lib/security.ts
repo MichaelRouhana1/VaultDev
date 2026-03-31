@@ -4,7 +4,8 @@
  */
 
 import { auth } from "@clerk/nextjs/server";
-import { redirect } from "next/navigation";
+import { getLocale } from "next-intl/server";
+import { redirect } from "@/i18n/navigation";
 import { auditLog } from "@/lib/audit";
 
 /** Allowed image extensions and MIME types for product/hero/lookbook uploads */
@@ -145,7 +146,7 @@ export async function checkAdminSession(): Promise<AdminSessionCheck> {
 export async function requireAdmin(): Promise<{ userId: string }> {
   const s = await checkAdminSession();
   if (!s.ok) {
-    redirect("/");
+    return redirect({ href: "/", locale: await getLocale() });
   }
   return { userId: s.userId };
 }

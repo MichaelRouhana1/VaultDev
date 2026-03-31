@@ -2,7 +2,7 @@
 
 import { useCallback, useRef, useState } from "react";
 import Image from "next/image";
-import { useRouter } from "next/navigation";
+import { useRouter } from "@/i18n/navigation";
 import { ImageCropModal } from "@/components/ImageCropModal";
 import { updateLandingImage, type LandingImageRow } from "@/actions/landing";
 import { ensureBrowserDisplayableImage } from "@/lib/ensureBrowserDisplayableImage";

@@ -2,7 +2,8 @@
 
 import { useState, useCallback, useRef, useEffect, useMemo } from "react";
 import Image from "next/image";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useRouter } from "@/i18n/navigation";
+import { useSearchParams } from "next/navigation";
 import { useCart } from "@/context/CartContext";
 import { useWishlist } from "@/context/WishlistContext";
 import { ProductCard } from "@/components/ProductCard";
@@ -16,17 +17,17 @@ import {
 import { cn, getProductDisplayPrice, isProductOnSale, sortSizes } from "@/lib/utils";
 import { ProductDetailAccordion } from "@/components/ProductDetailAccordion";
 import type { ProductPageAccordionResolved } from "@/actions/product-page-copy";
-import type { Product, ProductVariant, ProductColor } from "@/db/schema";
+import type { ProductVariant, ProductColor, StorefrontProductResolved } from "@/db/schema";
 import { WishlistBookmarkIcon } from "@/components/WishlistBookmarkIcon";
 
 const DEFAULT_SIZES = ["XS", "S", "M", "L", "XL"];
 
 interface ProductDetailClientProps {
-  product: Product & { images?: string[] };
+  product: StorefrontProductResolved & { images?: string[] };
   variants: ProductVariant[];
   colors?: ProductColor[];
   inWishlist: boolean;
-  similarProducts: Product[];
+  similarProducts: StorefrontProductResolved[];
   variantsByProductId: Record<number, ProductVariant[]>;
   wishlistProductIds: number[];
   /** From URL — used for bag / product links */

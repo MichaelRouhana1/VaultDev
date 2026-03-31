@@ -1,7 +1,8 @@
 "use client";
 
 import { useState, useMemo, useEffect, useRef, useCallback } from "react";
-import { useSearchParams, useRouter } from "next/navigation";
+import { useRouter } from "@/i18n/navigation";
+import { useSearchParams } from "next/navigation";
 import { ProductCard } from "@/components/ProductCard";
 import { CategoryHeader } from "@/components/CategoryHeader";
 import { UtilityBar, type SortOption } from "@/components/UtilityBar";
@@ -14,7 +15,7 @@ import {
   type AttributeFilterSection,
 } from "@/components/FilterPanel";
 import { cn } from "@/lib/utils";
-import type { StorefrontProduct, ProductVariant, ProductColor } from "@/db/schema";
+import type { StorefrontProductResolved, ProductVariant, ProductColor } from "@/db/schema";
 import type { ProductCategory } from "@/actions/categories";
 import type { ProductCategoryFilterTags } from "@/actions/storefront-products";
 
@@ -22,7 +23,7 @@ const PRODUCTS_PER_PAGE = 12;
 const VALID_LEGACY_CATEGORIES = ["CLOTHING", "SHOES", "ACCESSORIES", "BAGS", "OTHER"] as const;
 
 interface ShopClientProps {
-  products: (StorefrontProduct & { categorySlug?: string | null; images?: string[] })[];
+  products: (StorefrontProductResolved & { categorySlug?: string | null; images?: string[] })[];
   variantsByProductId: Record<number, ProductVariant[]>;
   colorsByProductId?: Record<number, ProductColor[]>;
   /** Attribute value slugs per product (for client-side facet filtering). */

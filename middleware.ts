@@ -1,4 +1,5 @@
 import { clerkMiddleware, createRouteMatcher } from "@clerk/nextjs/server";
+import createMiddleware from "next-intl/middleware";
 import { type NextRequest, NextResponse } from "next/server";
 import { Ratelimit } from "@upstash/ratelimit";
 import { Redis } from "@upstash/redis";
@@ -8,6 +9,8 @@ import {
   submitInternalSecurityAuditAsync,
 } from "@/lib/internal-security-audit-ingest";
 import { getInternalApiSecret, MOSAIK_INTERNAL_SECRET_HEADER } from "@/lib/internal-api-secret";
+import { localeSegmentFromPathname } from "@/lib/i18n-locales";
+import { routing } from "@/lib/i18n-routing";
 import { MemorySlidingWindow } from "@/lib/memory-sliding-window";
 import { loggerWarnStructured } from "@/lib/logger-structured";
 import {
@@ -16,7 +19,7 @@ import {
   storeSlugFromPathname,
 } from "@/lib/preferred-store";
 
-/** Hostname substrings for organic search referrers — show store picker at `/` instead of cookie redirect. */
+/** Hostname substrings for organic search referrers — show store picker at locale home instead of cookie redirect. */
 const SEARCH_ENGINE_HOST_MARKERS = [
   "google.",
   "bing.",
@@ -41,6 +44,11 @@ function refererIsFromSearchEngine(refererHeader: string | null): boolean {
   } catch {
     return false;
   }
+}
+
+/** `/en`, `/fr`, `/ar` (optional trailing slash) — localized store picker entry. */
+function isLocaleOnlyHome(pathname: string): boolean {
+  return /^\/(en|fr|ar)\/?$/.test(pathname);
 }
 
 function isSitePasswordRequired(): boolean {
@@ -124,8 +132,18 @@ const globalAdminLimiter = redis ? new Ratelimit({
   prefix: "@upstash/ratelimit:globalAdmin",
 }) : null;
 
-const isProtectedRoute = createRouteMatcher(["/account(.*)"]);
-const isAdminRoute = createRouteMatcher(["/admin(.*)"]);
+const intlMiddleware = createMiddleware(routing);
+
+const isProtectedRoute = createRouteMatcher([
+  "/en/account(.*)",
+  "/fr/account(.*)",
+  "/ar/account(.*)",
+]);
+const isAdminRoute = createRouteMatcher([
+  "/en/admin(.*)",
+  "/fr/admin(.*)",
+  "/ar/admin(.*)",
+]);
 
 export default clerkMiddleware(async (auth, req) => {
   if (isSitePasswordRequired() && !shouldSkipSiteBasicAuth(req)) {
@@ -138,26 +156,14 @@ export default clerkMiddleware(async (auth, req) => {
   }
 
   const pathname = req.nextUrl.pathname;
-  if (
-    pathname === "/" &&
-    (req.method === "GET" || req.method === "HEAD")
-  ) {
+  if (isLocaleOnlyHome(pathname) && (req.method === "GET" || req.method === "HEAD")) {
     const pref = req.cookies.get(PREFERRED_STORE_COOKIE)?.value;
     const fromSearch = refererIsFromSearchEngine(req.headers.get("referer"));
     if (isValidPreferredStore(pref) && !fromSearch) {
-      return NextResponse.redirect(new URL(`/${pref}`, req.url));
+      const localeSeg = pathname.split("/").filter(Boolean)[0] ?? "en";
+      return NextResponse.redirect(new URL(`/${localeSeg}/${pref}`, req.url));
     }
   }
-
-  const nonce = Buffer.from(crypto.randomUUID()).toString("base64");
-
-  // CSP: see `buildContentSecurityPolicy` in `lib/constants/security-hosts.ts` (nonce, directives, comments).
-  const cspHeader = buildContentSecurityPolicy(nonce);
-
-  // Forward nonce for App Router + ClerkProvider (`app/layout.tsx` reads `x-nonce`).
-  const requestHeaders = new Headers(req.headers);
-  requestHeaders.set("x-nonce", nonce);
-  requestHeaders.set("Content-Security-Policy", cspHeader);
 
   if (isProtectedRoute(req)) await auth.protect();
 
@@ -189,7 +195,8 @@ export default clerkMiddleware(async (auth, req) => {
           }),
         }).catch(() => {});
       }
-      return NextResponse.redirect(new URL("/", req.url));
+      const homeLocale = localeSegmentFromPathname(pathname);
+      return NextResponse.redirect(new URL(`/${homeLocale}`, req.url));
     }
   }
 
@@ -246,7 +253,7 @@ export default clerkMiddleware(async (auth, req) => {
       if (!warnedMiddlewareAdminMemoryOnly) {
         warnedMiddlewareAdminMemoryOnly = true;
         loggerWarnStructured("middleware_admin_rate_limit_no_upstash_memory_only", {
-          note: "UPSTASH_REDIS_* unset; admin routes use in-memory limiter (10 req / 10s per IP per Edge isolate).",
+          note: "UPSTASH_REDIS_* unset; admin routes use in-memory limiter (10 req / 10s per IP per isolate).",
         });
       }
       adminAllowed = adminMemoryLimiter.consume(ip).allowed;
@@ -272,12 +279,28 @@ export default clerkMiddleware(async (auth, req) => {
     }
   }
 
+  const intlResponse = intlMiddleware(req);
+
+  const nonce = Buffer.from(crypto.randomUUID()).toString("base64");
+  const cspHeader = buildContentSecurityPolicy(nonce);
+  intlResponse.headers.set("Content-Security-Policy", cspHeader);
+
+  if (intlResponse.status === 307 || intlResponse.status === 308) {
+    return intlResponse;
+  }
+
+  const requestHeaders = new Headers(req.headers);
+  requestHeaders.set("x-nonce", nonce);
+  requestHeaders.set("Content-Security-Policy", cspHeader);
+
   const response = NextResponse.next({
     request: {
       headers: requestHeaders,
     },
   });
-
+  intlResponse.headers.forEach((value, key) => {
+    response.headers.set(key, value);
+  });
   response.headers.set("Content-Security-Policy", cspHeader);
 
   const storeFromPath = storeSlugFromPathname(pathname);
@@ -295,7 +318,6 @@ export default clerkMiddleware(async (auth, req) => {
 
 export const config = {
   matcher: [
-    // `/_next/*` is excluded by the catch-all below; include these so JS/CSS/fonts/RSC are gated when using site-wide Basic Auth.
     "/_next/static/:path*",
     "/_next/image",
     "/_next/font/:path*",

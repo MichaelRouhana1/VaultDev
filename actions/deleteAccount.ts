@@ -4,7 +4,8 @@ import { auth, clerkClient } from "@clerk/nextjs/server";
 import { eq, sql } from "drizzle-orm";
 import { db } from "@/db";
 import { wishlists, orders, auditLogs } from "@/db/schema";
-import { redirect } from "next/navigation";
+import { getLocale } from "next-intl/server";
+import { redirect } from "@/i18n/navigation";
 import { auditLog } from "@/lib/audit";
 
 export async function deleteAccount() {
@@ -67,5 +68,5 @@ export async function deleteAccount() {
 
   auditLog({ userId: null, action: "account.delete", target: userId });
 
-  redirect("/");
+  redirect({ href: "/", locale: await getLocale() });
 }

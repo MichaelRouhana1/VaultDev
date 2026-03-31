@@ -116,8 +116,15 @@ export const productAttributeValues = pgTable(
 // Products — `storeType` is streetwear | formal only; main category + many attribute value tags.
 export const products = pgTable("products", {
   id: serial("id").primaryKey(),
+  /** Default / legacy display + FTS source; use `nameEn`…`nameAr` for localized overrides. */
   name: text("name").notNull(),
   description: text("description"),
+  nameEn: text("name_en"),
+  nameFr: text("name_fr"),
+  nameAr: text("name_ar"),
+  descriptionEn: text("description_en"),
+  descriptionFr: text("description_fr"),
+  descriptionAr: text("description_ar"),
   /** Generated STORED column for FTS — do not insert/update from app code. */
   searchVector: tsvector("search_vector").generatedAlwaysAs(
     sql.raw(
@@ -539,6 +546,11 @@ export type NewProductCategory = NewCategory;
 export type Product = typeof products.$inferSelect;
 /** Row without generated `searchVector` — safe for RSC / JSON (shop listings, cards). */
 export type StorefrontProduct = Omit<Product, "searchVector">;
+/** After resolving `name` / `description` for the active locale; raw `nameEn`…`descriptionAr` omitted. */
+export type StorefrontProductResolved = Omit<
+  StorefrontProduct,
+  "nameEn" | "nameFr" | "nameAr" | "descriptionEn" | "descriptionFr" | "descriptionAr"
+>;
 export type NewProduct = typeof products.$inferInsert;
 
 export type ProductColor = typeof productColors.$inferSelect;

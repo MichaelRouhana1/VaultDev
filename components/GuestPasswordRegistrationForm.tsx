@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter } from "@/i18n/navigation";
 import { useSignIn } from "@clerk/nextjs";
 import { registerFromOrder } from "@/actions/registerFromOrder";
 import { Button } from "@/components/ui/button";

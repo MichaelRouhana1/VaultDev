@@ -1,10 +1,10 @@
 "use client";
 
-import Link from "next/link";
+import { Link } from "@/i18n/navigation";
 import { useUser } from "@clerk/nextjs";
 import { useTheme } from "next-themes";
 import { setAdminStoreType } from "@/actions/admin-store";
-import { useRouter } from "next/navigation";
+import { useRouter } from "@/i18n/navigation";
 import { useState, useTransition } from "react";
 import { toast } from "sonner";
 
