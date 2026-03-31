@@ -1,19 +1,15 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useState, useTransition, useEffect } from "react";
+import { createPortal } from "react-dom";
 import { useLocale, useTranslations } from "next-intl";
 import { Globe } from "lucide-react";
 import { Link, usePathname, useRouter } from "@/i18n/navigation";
 import type { MosaikLocale } from "@/lib/i18n-locales";
 import { MOSAIK_LOCALES } from "@/lib/i18n-locales";
 import { cn } from "@/lib/utils";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
+import { PRODUCT_STICKY_BUYBAR_CSS_VAR } from "@/lib/product-sticky-buybar";
 
 const LOCALE_LABEL_KEYS: Record<MosaikLocale, "localeEn" | "localeFr" | "localeAr"> = {
   en: "localeEn",
@@ -29,11 +25,97 @@ export function SiteFooter() {
   const pathname = usePathname();
   const [sheetOpen, setSheetOpen] = useState(false);
   const [localePending, startTransition] = useTransition();
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  useEffect(() => {
+    if (!sheetOpen) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setSheetOpen(false);
+    };
+    document.addEventListener("keydown", onKey);
+    const prevOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.removeEventListener("keydown", onKey);
+      document.body.style.overflow = prevOverflow;
+    };
+  }, [sheetOpen]);
 
   const currentLabel = tLocales(LOCALE_LABEL_KEYS[locale]);
 
+  const languageSheet =
+    mounted && typeof document !== "undefined" ? (
+      <>
+        <div
+          role="button"
+          tabIndex={0}
+          onClick={() => setSheetOpen(false)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter" || e.key === " ") {
+              e.preventDefault();
+              setSheetOpen(false);
+            }
+          }}
+          className={cn(
+            "fixed inset-0 z-[9998] bg-black/60 transition-opacity duration-300",
+            sheetOpen ? "opacity-100" : "opacity-0 pointer-events-none",
+          )}
+          aria-hidden={!sheetOpen}
+        />
+        <div
+          role="dialog"
+          aria-modal={sheetOpen}
+          aria-labelledby="site-footer-language-title"
+          className={cn(
+            "fixed inset-x-0 bottom-0 z-[9999] flex max-h-[min(85vh,32rem)] flex-col rounded-t-xl border border-border border-b-0 bg-background transition-transform duration-300 ease-out sm:left-1/2 sm:max-w-md sm:w-full sm:-translate-x-1/2",
+            sheetOpen ? "translate-y-0" : "translate-y-full pointer-events-none",
+          )}
+          style={{ boxShadow: "0 -4px 24px rgba(0,0,0,0.15)" }}
+        >
+          <div className="border-b border-border px-6 py-4 text-start">
+            <h2 id="site-footer-language-title" className="text-lg font-semibold leading-none tracking-tight">
+              {t("languageTitle")}
+            </h2>
+          </div>
+          <div className="flex flex-col gap-1 overflow-y-auto p-3 pb-[max(0.75rem,env(safe-area-inset-bottom,0px))]" dir="auto">
+            {MOSAIK_LOCALES.map((loc) => {
+              const active = loc === locale;
+              return (
+                <button
+                  key={loc}
+                  type="button"
+                  disabled={localePending}
+                  onClick={() => {
+                    startTransition(() => {
+                      router.replace(pathname, { locale: loc });
+                      setSheetOpen(false);
+                    });
+                  }}
+                  className={cn(
+                    "rounded-md px-4 py-3 text-start text-base font-medium transition-colors",
+                    active ? "bg-foreground text-background" : "hover:bg-muted text-foreground",
+                  )}
+                >
+                  {tLocales(LOCALE_LABEL_KEYS[loc])}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      </>
+    ) : null;
+
   return (
-    <footer className="border-t border-border bg-muted/80 backdrop-blur-sm">
+    <footer
+      className="border-t border-border bg-muted/80 backdrop-blur-sm"
+      style={{
+        marginBottom: `var(${PRODUCT_STICKY_BUYBAR_CSS_VAR}, 0px)`,
+      }}
+    >
       <div className="mx-auto max-w-[1400px] px-6 py-12">
         <div className="grid grid-cols-1 gap-10 sm:grid-cols-2 md:grid-cols-4 md:gap-12">
           <div className="text-start">
@@ -109,46 +191,7 @@ export function SiteFooter() {
         </div>
       </div>
 
-      <Dialog open={sheetOpen} onOpenChange={setSheetOpen}>
-        <DialogContent
-          className={cn(
-            "fixed bottom-0 left-0 right-0 top-auto z-50 flex max-h-[min(85vh,32rem)] w-full max-w-none translate-x-0 translate-y-0 flex-col gap-0 rounded-t-xl border-x-0 border-b-0 p-0 sm:left-1/2 sm:max-w-md sm:-translate-x-1/2",
-            "data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0",
-            "data-[state=closed]:slide-out-to-bottom data-[state=open]:slide-in-from-bottom",
-            "data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95",
-          )}
-        >
-          <DialogHeader className="border-b border-border px-6 py-4 text-start">
-            <DialogTitle>{t("languageTitle")}</DialogTitle>
-          </DialogHeader>
-          <div className="flex flex-col gap-1 p-3" dir="auto">
-            {MOSAIK_LOCALES.map((loc) => {
-              const active = loc === locale;
-              return (
-                <button
-                  key={loc}
-                  type="button"
-                  disabled={localePending}
-                  onClick={() => {
-                    startTransition(() => {
-                      router.replace(pathname, { locale: loc });
-                      setSheetOpen(false);
-                    });
-                  }}
-                  className={cn(
-                    "rounded-md px-4 py-3 text-start text-base font-medium transition-colors",
-                    active
-                      ? "bg-foreground text-background"
-                      : "hover:bg-muted text-foreground",
-                  )}
-                >
-                  {tLocales(LOCALE_LABEL_KEYS[loc])}
-                </button>
-              );
-            })}
-          </div>
-        </DialogContent>
-      </Dialog>
+      {languageSheet != null ? createPortal(languageSheet, document.body) : null}
     </footer>
   );
 }

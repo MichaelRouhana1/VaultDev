@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, useRef, useEffect, useMemo } from "react";
+import { useState, useCallback, useRef, useEffect, useLayoutEffect, useMemo } from "react";
 import Image from "next/image";
 import { useTranslations } from "next-intl";
 import { useRouter } from "@/i18n/navigation";
@@ -20,6 +20,7 @@ import { ProductDetailAccordion } from "@/components/ProductDetailAccordion";
 import type { ProductPageAccordionResolved } from "@/actions/product-page-copy";
 import type { ProductVariant, ProductColor, StorefrontProductResolved } from "@/db/schema";
 import { WishlistBookmarkIcon } from "@/components/WishlistBookmarkIcon";
+import { PRODUCT_STICKY_BUYBAR_CSS_VAR } from "@/lib/product-sticky-buybar";
 
 const DEFAULT_SIZES = ["XS", "S", "M", "L", "XL"];
 
@@ -64,6 +65,7 @@ export function ProductDetailClient({
   const lightboxScrollRef = useRef<HTMLDivElement>(null);
   const dragRef = useRef<{ x: number; y: number; scrollLeft: number; scrollTop: number } | null>(null);
   const similarSectionRef = useRef<HTMLElement | null>(null);
+  const stickyBuyBarRef = useRef<HTMLDivElement | null>(null);
   const [similarSectionInView, setSimilarSectionInView] = useState(false);
   const [stickyBuyPhase, setStickyBuyPhase] = useState<"summary" | "pickSize">("summary");
 
@@ -298,6 +300,25 @@ export function ProductDetailClient({
 
   const stickyThumbSrc = imageUrls[0] && !imageErrors[0] ? imageUrls[0] : null;
   const showStickyBuyBar = similarProducts.length > 0 && similarSectionInView && !lightboxOpen;
+
+  useLayoutEffect(() => {
+    const root = document.documentElement;
+    const el = stickyBuyBarRef.current;
+    if (!showStickyBuyBar || !el) {
+      root.style.removeProperty(PRODUCT_STICKY_BUYBAR_CSS_VAR);
+      return;
+    }
+    const apply = () => {
+      root.style.setProperty(PRODUCT_STICKY_BUYBAR_CSS_VAR, `${el.offsetHeight}px`);
+    };
+    apply();
+    const ro = new ResizeObserver(apply);
+    ro.observe(el);
+    return () => {
+      ro.disconnect();
+      root.style.removeProperty(PRODUCT_STICKY_BUYBAR_CSS_VAR);
+    };
+  }, [showStickyBuyBar, stickyBuyPhase]);
 
   const priceBlock = onSale ? (
     <span className="inline-flex flex-wrap items-baseline gap-2">
@@ -803,6 +824,7 @@ export function ProductDetailClient({
 
       {/* Sticky buy bar — appears when Similar Items section is in view (Bershka-style) */}
       <div
+        ref={stickyBuyBarRef}
         className={cn(
           // Match Navbar glass: frosted strip when backdrop-filter is supported
           "fixed inset-x-0 bottom-0 z-40 border-t border-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 transition-transform duration-300 ease-out",

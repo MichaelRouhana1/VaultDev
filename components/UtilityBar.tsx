@@ -1,8 +1,6 @@
 "use client";
 
-import { useTransition } from "react";
-import { useLocale, useTranslations } from "next-intl";
-import { usePathname, useRouter } from "@/i18n/navigation";
+import { useTranslations } from "next-intl";
 import {
   Select,
   SelectContent,
@@ -10,8 +8,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import type { MosaikLocale } from "@/lib/i18n-locales";
-import { MOSAIK_LOCALES } from "@/lib/i18n-locales";
 
 export type SortOption =
   | "recommended"
@@ -30,14 +26,6 @@ const SORT_OPTION_KEYS: Record<SortOption, string> = {
   "name-desc": "sortNameDesc",
 };
 
-const LOCALE_ORDER: MosaikLocale[] = [...MOSAIK_LOCALES];
-
-const LOCALE_LABEL_KEYS: Record<MosaikLocale, string> = {
-  en: "localeEn",
-  fr: "localeFr",
-  ar: "localeAr",
-};
-
 interface UtilityBarProps {
   /** Opens the mobile filter overlay (`md` and below). */
   onMobileFiltersOpen: () => void;
@@ -54,10 +42,6 @@ export function UtilityBar({
   onSortChange,
 }: UtilityBarProps) {
   const t = useTranslations("UtilityBar");
-  const locale = useLocale() as MosaikLocale;
-  const router = useRouter();
-  const pathname = usePathname();
-  const [localePending, startLocaleTransition] = useTransition();
 
   const sortLabel = (opt: SortOption) => t(SORT_OPTION_KEYS[opt]);
 
@@ -80,30 +64,6 @@ export function UtilityBar({
         </button>
       </div>
       <div className="flex flex-wrap items-center justify-end gap-3 shrink-0">
-        <Select
-          value={locale}
-          disabled={localePending}
-          onValueChange={(next) => {
-            const loc = next as MosaikLocale;
-            startLocaleTransition(() => {
-              router.replace(pathname, { locale: loc });
-            });
-          }}
-        >
-          <SelectTrigger
-            aria-label={t("language")}
-            className="min-w-0 w-auto sm:min-w-[140px] border-0 shadow-none text-xs font-medium uppercase tracking-[0.2em] h-auto py-1"
-          >
-            <SelectValue placeholder={t("language")} />
-          </SelectTrigger>
-          <SelectContent>
-            {LOCALE_ORDER.map((loc) => (
-              <SelectItem key={loc} value={loc}>
-                {t(LOCALE_LABEL_KEYS[loc])}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
         <Select
           value={sort}
           onValueChange={(v) => onSortChange(v as SortOption)}

@@ -54,10 +54,9 @@ export default async function LocaleLayout({
   const tLayout = await getTranslations("Layout");
   const headersList = await headers();
   const nonce = headersList.get("x-nonce") || undefined;
-  const dir = locale === "ar" ? "rtl" : "ltr";
-
+  /** Storefront stays LTR for every locale; Arabic only swaps strings, not layout/mirroring. */
   return (
-    <html lang={locale} dir={dir} suppressHydrationWarning>
+    <html lang={locale} dir="ltr" suppressHydrationWarning>
       <body className={`${geistSans.variable} ${geistMono.variable} antialiased`}>
         <NextIntlClientProvider messages={messages}>
           <ClerkProvider
