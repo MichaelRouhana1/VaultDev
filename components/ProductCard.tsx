@@ -144,8 +144,10 @@ export function ProductCard({
         aria-label={t("viewDetailsAria", { name: product.name })}
       >
         <div
-          className={`relative aspect-[2/3] overflow-hidden bg-muted ${compact ? "" : ""
-            }`}
+          className={cn(
+            "relative aspect-[2/3] overflow-hidden bg-muted",
+            isCompactView && "max-md:aspect-[20/31]",
+          )}
         >
           {onSale && percentOff > 0 && (
             <span className="absolute top-2 start-2 z-10 px-2 py-0.5 text-xs font-semibold uppercase tracking-wider bg-destructive text-destructive-foreground">
@@ -157,9 +159,16 @@ export function ProductCard({
               src={currentImage}
               alt={product.description ? `${product.name} - ${product.description}` : product.name}
               fill
-              className={`object-cover transition-opacity duration-200 ${isOutOfStock ? "opacity-70" : ""
-                }`}
-              sizes="(max-width: 768px) 50vw, (max-width: 1200px) 33vw, 25vw"
+              className={cn(
+                "object-cover transition-opacity duration-200",
+                isOutOfStock && "opacity-70",
+                isCompactView && "max-md:scale-[1.035] max-md:origin-top",
+              )}
+              sizes={
+                isCompactView
+                  ? "(max-width: 768px) 34vw, (max-width: 1200px) 20vw, 17vw"
+                  : "(max-width: 768px) 50vw, (max-width: 1200px) 33vw, 25vw"
+              }
 
             />
           ) : (

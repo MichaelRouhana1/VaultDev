@@ -24,8 +24,8 @@ export function UtilityBar({
 
   const toggleBtnClass = (active: boolean) =>
     cn(
-      "min-w-[2rem] px-2 py-1 text-sm font-medium tabular-nums transition-colors",
-      active ? "text-foreground font-semibold" : "text-muted-foreground opacity-50 hover:opacity-80",
+      "inline-flex min-h-10 min-w-10 items-center justify-center px-3 py-2 text-2xl font-semibold leading-none tabular-nums transition-colors",
+      active ? "text-foreground" : "text-muted-foreground opacity-50 hover:opacity-80",
     );
 
   return (

@@ -252,7 +252,7 @@ export function ShopClient({
         selectedAttributes={selectedAttributes}
         onToggleAttribute={toggleAttribute}
       />
-      <div className="flex relative w-full items-start gap-x-6 px-6 py-8">
+      <div className="flex relative w-full items-start gap-x-4 px-4 py-5 sm:px-5 sm:py-6 md:gap-x-6 md:px-6 md:py-8">
         <aside
           className={cn(
             "hidden md:block shrink-0 self-start transition-[width,opacity] duration-300 ease-in-out",
@@ -289,9 +289,13 @@ export function ShopClient({
                 className={cn(
                   "grid transition-all duration-300 ease-in-out",
                   viewMode === "compact" ? "grid-cols-3 md:grid-cols-6" : "grid-cols-2 md:grid-cols-4",
-                  desktopFilterOpen
-                    ? "gap-2 sm:gap-4 lg:gap-3"
-                    : "gap-4 sm:gap-6 lg:gap-8",
+                  viewMode === "compact"
+                    ? desktopFilterOpen
+                      ? "gap-2 md:gap-3 lg:gap-4"
+                      : "gap-2 md:gap-5 lg:gap-8"
+                    : desktopFilterOpen
+                      ? "gap-2 sm:gap-4 lg:gap-3"
+                      : "gap-4 sm:gap-6 lg:gap-8",
                 )}
               >
                 {visibleProducts.map((product) => (
