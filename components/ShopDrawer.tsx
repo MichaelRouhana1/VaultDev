@@ -2,22 +2,23 @@
 
 import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
+import { useTranslations } from "next-intl";
 import { Link } from "@/i18n/navigation";
-import { usePathname } from "@/i18n/navigation";
 import type { ProductCategory } from "@/actions/categories";
+import type { StoreTypeSlug } from "@/lib/preferred-store";
 
 interface ShopDrawerProps {
   isOpen: boolean;
   onClose: () => void;
   categories: ProductCategory[];
+  /** Store whose categories and shop links this drawer shows */
+  storeType: StoreTypeSlug;
 }
 
-export function ShopDrawer({ isOpen, onClose, categories }: ShopDrawerProps) {
+export function ShopDrawer({ isOpen, onClose, categories, storeType }: ShopDrawerProps) {
   const [mounted, setMounted] = useState(false);
-  const pathname = usePathname();
-  const storeTypeMatch = pathname?.match(/^\/(streetwear|formal)/);
-  const storeType = storeTypeMatch ? storeTypeMatch[1] : null;
-  const baseUrl = storeType ? `/${storeType}/shop` : "/shop";
+  const t = useTranslations("Navbar");
+  const baseUrl = `/${storeType}/shop`;
 
   useEffect(() => {
     setMounted(true);
@@ -53,12 +54,14 @@ export function ShopDrawer({ isOpen, onClose, categories }: ShopDrawerProps) {
         style={{ boxShadow: "4px 0 24px rgba(0,0,0,0.15)" }}
       >
         <div className="flex items-center justify-between p-6 border-b border-border">
-          <h2 className="text-xl font-bold text-foreground">Shop</h2>
+          <h2 className="text-xl font-bold text-foreground">
+            {storeType === "streetwear" ? t("streetwear") : t("formal")}
+          </h2>
           <button
             type="button"
             onClick={onClose}
             className="p-2 rounded-none text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
-            aria-label="Close shop menu"
+            aria-label={t("closeCategoryMenu")}
           >
             <svg
               className="w-5 h-5"
@@ -77,13 +80,19 @@ export function ShopDrawer({ isOpen, onClose, categories }: ShopDrawerProps) {
         </div>
 
         <div className="flex-1 overflow-y-auto p-6">
-          <nav className="space-y-1" role="navigation" aria-label="Shop categories">
+          <nav
+            className="space-y-1"
+            role="navigation"
+            aria-label={t("categoryMenuAria", {
+              store: storeType === "streetwear" ? t("streetwear") : t("formal"),
+            })}
+          >
             <Link
               href={baseUrl}
               onClick={onClose}
               className="block px-4 py-3 text-sm font-medium text-foreground hover:bg-muted/50 rounded-none"
             >
-              View all
+              {t("viewAllShop")}
             </Link>
             {categories.map((cat) => (
               <Link

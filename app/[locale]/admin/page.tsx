@@ -3,9 +3,12 @@ import { db } from "@/db";
 import { products, orders } from "@/db/schema";
 import { sql, desc, gte, eq } from "drizzle-orm";
 import { getAdminStoreType } from "@/actions/admin-store";
+import { getStorefrontExchangeRatesFromDb } from "@/lib/storefront-exchange-rates-db";
+import { AdminExchangeRatesForm } from "@/components/admin/AdminExchangeRatesForm";
 
 export default async function AdminDashboardPage() {
   const storeType = await getAdminStoreType();
+  const exchangeRates = await getStorefrontExchangeRatesFromDb();
   const now = new Date();
   const thirtyDaysAgo = new Date(now);
   thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
@@ -61,6 +64,19 @@ export default async function AdminDashboardPage() {
         <StatCard title="Global Revenue (30D)" value={`$${revenue30dValue.toFixed(2)}`} />
         <StatCard title="Global Orders (7D)" value={orders7dCount} />
       </div>
+
+      <section className="mb-12 rounded-md border border-border bg-background p-6">
+        <h2 className="mb-2 text-sm font-medium uppercase tracking-wider text-muted-foreground">
+          Storefront exchange rates (USD base)
+        </h2>
+        <p className="mb-6 text-xs text-muted-foreground">
+          USD is fixed at 1. Adjust how many euros or Lebanese pounds equal one US dollar for product display.
+        </p>
+        <AdminExchangeRatesForm
+          initialEurPerUsd={exchangeRates.eurPerUsd}
+          initialLbpPerUsd={exchangeRates.lbpPerUsd}
+        />
+      </section>
 
       <section>
         <h2 className="text-sm font-medium uppercase tracking-wider text-muted-foreground mb-4">

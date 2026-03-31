@@ -14,6 +14,10 @@ import {
   STOREFRONT_CURRENCY_STORAGE_KEY,
   isStorefrontCurrency,
   formatPriceFromUsd,
+  buildUsdToTargetMap,
+  DEFAULT_EUR_PER_USD,
+  DEFAULT_LBP_PER_USD,
+  type ExchangeRatesPayload,
 } from "@/lib/storefront-currency";
 
 interface CurrencyContextValue {
@@ -27,6 +31,10 @@ const CurrencyContext = createContext<CurrencyContextValue | null>(null);
 
 export function CurrencyProvider({ children }: { children: ReactNode }) {
   const [currency, setCurrencyState] = useState<StorefrontCurrency>("USD");
+  const [rates, setRates] = useState<ExchangeRatesPayload>({
+    eurPerUsd: DEFAULT_EUR_PER_USD,
+    lbpPerUsd: DEFAULT_LBP_PER_USD,
+  });
 
   useEffect(() => {
     try {
@@ -39,6 +47,24 @@ export function CurrencyProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
+  useEffect(() => {
+    let cancelled = false;
+    void fetch("/api/storefront/exchange-rates", { cache: "no-store" })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d: ExchangeRatesPayload | null) => {
+        if (cancelled || !d) return;
+        const e = typeof d.eurPerUsd === "number" ? d.eurPerUsd : DEFAULT_EUR_PER_USD;
+        const l = typeof d.lbpPerUsd === "number" ? d.lbpPerUsd : DEFAULT_LBP_PER_USD;
+        if (e > 0 && l > 0) {
+          setRates({ eurPerUsd: e, lbpPerUsd: l });
+        }
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
   const setCurrency = useCallback((c: StorefrontCurrency) => {
     setCurrencyState(c);
     try {
@@ -48,9 +74,11 @@ export function CurrencyProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
+  const ratesMap = useMemo(() => buildUsdToTargetMap(rates), [rates]);
+
   const formatPrice = useCallback(
-    (basePriceUsd: string | number) => formatPriceFromUsd(basePriceUsd, currency),
-    [currency],
+    (basePriceUsd: string | number) => formatPriceFromUsd(basePriceUsd, currency, ratesMap),
+    [currency, ratesMap],
   );
 
   const value = useMemo(

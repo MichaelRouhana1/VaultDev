@@ -9,7 +9,7 @@ import { useTheme } from "next-themes";
 import { useCart } from "@/context/CartContext";
 import { CartDrawer } from "@/components/CartDrawer";
 import { ShopDrawer } from "@/components/ShopDrawer";
-import { getCategories, getStoreCategories } from "@/actions/categories";
+import { getStoreCategories } from "@/actions/categories";
 import {
   mosaikClerkUserButtonPopoverElementsDark,
   mosaikClerkUserButtonPopoverElementsLight,
@@ -60,8 +60,9 @@ export function Navbar() {
   }, [userButtonThemeReady, resolvedTheme]);
   const [cartOpen, setCartOpen] = useState(false);
   const [shopDrawerOpen, setShopDrawerOpen] = useState(false);
+  const [shopDrawerStore, setShopDrawerStore] = useState<StoreTypeSlug | null>(null);
+  const [drawerCategories, setDrawerCategories] = useState<ProductCategory[]>([]);
   const [burgerOpen, setBurgerOpen] = useState(false);
-  const [categories, setCategories] = useState<ProductCategory[]>([]);
 
   const toggleTheme = () => {
     setTheme(theme === "dark" ? "light" : "dark");
@@ -72,13 +73,18 @@ export function Navbar() {
   }, [setOpenCart]);
 
   useEffect(() => {
-    const first = pathname?.split("/").filter(Boolean)[0];
-    if (first === "streetwear" || first === "formal") {
-      getStoreCategories(first).then(setCategories);
-    } else {
-      getCategories().then(setCategories);
-    }
-  }, [pathname]);
+    if (!shopDrawerOpen || !shopDrawerStore) return;
+    void getStoreCategories(shopDrawerStore).then(setDrawerCategories);
+  }, [shopDrawerOpen, shopDrawerStore]);
+
+  const openShopDrawer = (store: StoreTypeSlug) => {
+    setShopDrawerStore(store);
+    setShopDrawerOpen(true);
+  };
+
+  const closeShopDrawer = () => {
+    setShopDrawerOpen(false);
+  };
 
   const storeType = pathname?.split("/").filter(Boolean)[0];
   const isStoreType = storeType === "streetwear" || storeType === "formal";
@@ -129,26 +135,26 @@ export function Navbar() {
                 {t("dashboard")}
               </Link>
             )}
-            <button
-              type="button"
-              onClick={() => setShopDrawerOpen(true)}
-              className="hidden lg:inline text-sm font-normal text-foreground hover:opacity-70 transition-opacity shrink-0"
-              aria-label={t("openShopMenu")}
-            >
-              {t("shop")}
-            </button>
             <div
-              className="hidden lg:flex items-center gap-2 sm:gap-3 ps-4 ms-1 border-s border-border/60 shrink-0"
+              className="hidden lg:flex items-center gap-2 sm:gap-3 shrink-0"
               role="navigation"
               aria-label={t("storeSelectionAria")}
             >
-              <Link href={streetwearHref} className={storeLinkClass("streetwear")}>
+              <Link
+                href={streetwearHref}
+                onClick={() => openShopDrawer("streetwear")}
+                className={storeLinkClass("streetwear")}
+              >
                 {t("streetwear")}
               </Link>
               <span className="text-foreground/25 text-[10px] select-none" aria-hidden>
                 |
               </span>
-              <Link href={formalHref} className={storeLinkClass("formal")}>
+              <Link
+                href={formalHref}
+                onClick={() => openShopDrawer("formal")}
+                className={storeLinkClass("formal")}
+              >
                 {t("formal")}
               </Link>
             </div>
@@ -251,40 +257,35 @@ export function Navbar() {
             role="menu"
           >
             <div className="py-4 px-4 space-y-1">
-              <button
-                type="button"
-                onClick={() => {
-                  setShopDrawerOpen(true);
-                  setBurgerOpen(false);
-                }}
-                className="flex items-center gap-3 w-full px-4 py-3 text-sm font-medium text-foreground hover:bg-muted/50 text-start"
-                role="menuitem"
-              >
-                <svg className="w-5 h-5 shrink-0" fill="none" stroke="currentColor" strokeWidth={1.5} viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z" />
-                </svg>
-                {t("shop")}
-              </button>
               <div
-                className="flex items-center gap-3 px-4 py-2 border-b border-border mb-1"
+                className="flex flex-col gap-1 border-b border-border pb-3 mb-1"
                 role="navigation"
                 aria-label={t("storeSelectionAria")}
               >
                 <Link
                   href={streetwearHref}
-                  onClick={() => setBurgerOpen(false)}
-                  className={cn(storeLinkClass("streetwear"), "py-1")}
+                  onClick={() => {
+                    openShopDrawer("streetwear");
+                    setBurgerOpen(false);
+                  }}
+                  className={cn(
+                    "flex items-center gap-3 px-4 py-3 text-sm font-medium text-foreground hover:bg-muted/50 rounded-none",
+                    activeStore === "streetwear" && "bg-muted/30",
+                  )}
                   role="menuitem"
                 >
                   {t("streetwear")}
                 </Link>
-                <span className="text-foreground/25 text-xs select-none" aria-hidden>
-                  |
-                </span>
                 <Link
                   href={formalHref}
-                  onClick={() => setBurgerOpen(false)}
-                  className={cn(storeLinkClass("formal"), "py-1")}
+                  onClick={() => {
+                    openShopDrawer("formal");
+                    setBurgerOpen(false);
+                  }}
+                  className={cn(
+                    "flex items-center gap-3 px-4 py-3 text-sm font-medium text-foreground hover:bg-muted/50 rounded-none",
+                    activeStore === "formal" && "bg-muted/30",
+                  )}
                   role="menuitem"
                 >
                   {t("formal")}
@@ -359,8 +360,9 @@ export function Navbar() {
 
       <ShopDrawer
         isOpen={shopDrawerOpen}
-        onClose={() => setShopDrawerOpen(false)}
-        categories={categories}
+        onClose={closeShopDrawer}
+        categories={drawerCategories}
+        storeType={shopDrawerStore ?? "streetwear"}
       />
       <CartDrawer isOpen={cartOpen} onClose={() => setCartOpen(false)} />
     </nav>

@@ -152,18 +152,18 @@ export function SiteFooter() {
       <Sheet open={sheetOpen} onOpenChange={handleOpenChange}>
         <SheetContent
           side="bottom"
-          className="mx-auto w-full max-h-[min(90vh,36rem)] gap-0 overflow-hidden rounded-t-3xl p-0 sm:max-w-md"
+          className="h-auto w-full max-w-none max-h-[min(72vh,23.5rem)] gap-0 overflow-hidden rounded-t-2xl border-x-0 p-0 sm:rounded-t-3xl"
         >
-          <SheetHeader className="border-b border-border px-6 py-5 text-start">
-            <SheetTitle>{t("preferencesTitle")}</SheetTitle>
+          <SheetHeader className="border-b border-border px-4 py-3 text-start sm:px-8 lg:px-12">
+            <SheetTitle className="text-base">{t("preferencesTitle")}</SheetTitle>
           </SheetHeader>
 
-          <div className="flex max-h-[calc(min(90vh,36rem)-8.5rem)] flex-col gap-6 overflow-y-auto px-4 py-5 sm:px-6">
-            <section className="space-y-3">
-              <h3 className="text-xs font-medium uppercase tracking-[0.2em] text-muted-foreground">
+          <div className="grid grid-cols-2 gap-3 overflow-y-auto px-4 py-3 sm:gap-6 sm:px-8 lg:gap-10 lg:px-12">
+            <section className="min-w-0 space-y-2">
+              <h3 className="text-[0.65rem] font-medium uppercase tracking-[0.18em] text-muted-foreground">
                 {t("selectLanguage")}
               </h3>
-              <div className="grid grid-cols-1 gap-2">
+              <div className="flex flex-col gap-1.5">
                 {MOSAIK_LOCALES.map((loc) => {
                   const active = draftLocale === loc;
                   return (
@@ -173,7 +173,7 @@ export function SiteFooter() {
                       disabled={localePending}
                       onClick={() => setDraftLocale(loc)}
                       className={cn(
-                        "rounded-xl border-2 px-4 py-4 text-start text-base font-medium transition-colors",
+                        "rounded-lg border-2 px-3 py-2.5 text-start text-sm font-medium transition-colors",
                         active
                           ? "border-foreground bg-foreground text-background"
                           : "border-border bg-card text-foreground hover:bg-muted/80",
@@ -186,11 +186,11 @@ export function SiteFooter() {
               </div>
             </section>
 
-            <section className="space-y-3">
-              <h3 className="text-xs font-medium uppercase tracking-[0.2em] text-muted-foreground">
+            <section className="min-w-0 space-y-2">
+              <h3 className="text-[0.65rem] font-medium uppercase tracking-[0.18em] text-muted-foreground">
                 {t("selectCurrency")}
               </h3>
-              <div className="grid grid-cols-1 gap-2">
+              <div className="flex flex-col gap-1.5">
                 {STOREFRONT_CURRENCIES.map((code) => {
                   const active = draftCurrency === code;
                   return (
@@ -199,7 +199,7 @@ export function SiteFooter() {
                       type="button"
                       onClick={() => setDraftCurrency(code)}
                       className={cn(
-                        "rounded-xl border-2 px-4 py-4 text-start text-base font-medium transition-colors",
+                        "rounded-lg border-2 px-3 py-2.5 text-start text-sm font-medium transition-colors",
                         active
                           ? "border-foreground bg-foreground text-background"
                           : "border-border bg-card text-foreground hover:bg-muted/80",
@@ -213,10 +213,10 @@ export function SiteFooter() {
             </section>
           </div>
 
-          <div className="border-t border-border px-4 py-4 pb-[max(1rem,env(safe-area-inset-bottom,0px))] sm:px-6">
+          <div className="border-t border-border px-4 py-2.5 pb-[max(0.75rem,env(safe-area-inset-bottom,0px))] sm:px-8 lg:px-12">
             <Button
               type="button"
-              className="w-full rounded-xl py-6 text-sm font-semibold uppercase tracking-widest"
+              className="w-full rounded-lg py-3 text-xs font-semibold uppercase tracking-widest sm:text-sm"
               disabled={localePending}
               onClick={handleSavePreferences}
             >

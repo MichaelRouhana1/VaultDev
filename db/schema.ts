@@ -439,6 +439,14 @@ export const sectionSettings = pgTable("section_settings", {
   isVisible: boolean("is_visible").notNull().default(true),
 });
 
+/** Singleton row `id = 1`: units of EUR / LBP per 1 USD (storefront display only). */
+export const storefrontExchangeRates = pgTable("storefront_exchange_rates", {
+  id: integer("id").primaryKey().default(1),
+  eurPerUsd: decimal("eur_per_usd", { precision: 16, scale: 8 }).notNull(),
+  lbpPerUsd: decimal("lbp_per_usd", { precision: 20, scale: 4 }).notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
 /** Store-specific copy for PDP accordion (additional description + shipping + returns). */
 export const productPageCopy = pgTable("product_page_copy", {
   id: serial("id").primaryKey(),
@@ -580,6 +588,9 @@ export type NewWishlist = typeof wishlists.$inferInsert;
 
 export type SectionSetting = typeof sectionSettings.$inferSelect;
 export type NewSectionSetting = typeof sectionSettings.$inferInsert;
+
+export type StorefrontExchangeRatesRow = typeof storefrontExchangeRates.$inferSelect;
+export type NewStorefrontExchangeRatesRow = typeof storefrontExchangeRates.$inferInsert;
 
 export type ProductPageCopyRow = typeof productPageCopy.$inferSelect;
 export type NewProductPageCopyRow = typeof productPageCopy.$inferInsert;
