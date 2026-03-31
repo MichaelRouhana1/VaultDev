@@ -4,11 +4,13 @@ import { useEffect, useState, useMemo } from "react";
 import { useActionState } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
+import { Loader2 } from "lucide-react";
 import { placeOrder, type CartItem } from "@/actions/placeOrder";
 import {
   toPlaceOrderCartItems,
   type CheckoutDisplayItem,
 } from "@/lib/checkout-cart";
+import type { CartItemDisplay } from "@/context/CartContext";
 import { validatePromoCode } from "@/actions/promo";
 import { useAuth } from "@clerk/nextjs";
 import { useCart } from "@/context/CartContext";
@@ -27,8 +29,16 @@ import { toast } from "sonner";
 
 const DEFAULT_SHIPPING_FEE = 5;
 
-interface CheckoutFormProps {
-  displayItems: CheckoutDisplayItem[];
+function cartItemsToDisplay(items: CartItemDisplay[]): CheckoutDisplayItem[] {
+  return items.map((i) => ({
+    productId: i.productId,
+    size: i.size,
+    quantity: i.quantity,
+    priceAtPurchase: i.priceAtPurchase,
+    productName: i.productName?.trim() || "Unknown item",
+    productImageUrl: i.productImage?.trim() ? i.productImage.trim() : null,
+    productColor: i.productColor?.trim() ? i.productColor.trim() : null,
+  }));
 }
 
 function placeOrderAction(
@@ -39,7 +49,15 @@ function placeOrderAction(
   if (!itemsJson) {
     return Promise.resolve({ error: "Cart is empty" });
   }
-  const items = JSON.parse(itemsJson) as CartItem[];
+  let items: CartItem[];
+  try {
+    items = JSON.parse(itemsJson) as CartItem[];
+  } catch {
+    return Promise.resolve({ error: "Invalid cart data" });
+  }
+  if (!Array.isArray(items) || items.length === 0) {
+    return Promise.resolve({ error: "Cart is empty" });
+  }
   const promoCode = (formData.get("promoCode") as string)?.trim() || undefined;
   const clerkUserId = (formData.get("clerkUserId") as string)?.trim() || undefined;
   return placeOrder({
@@ -65,10 +83,11 @@ function placeOrderAction(
     .catch((err) => ({ error: err instanceof Error ? err.message : "Order failed" }));
 }
 
-export function CheckoutForm({ displayItems }: CheckoutFormProps) {
+export function CheckoutForm() {
   const router = useRouter();
   const { userId: clerkUserId } = useAuth();
-  const { clearCart } = useCart();
+  const { items, cartHydrated, clearCart } = useCart();
+  const displayItems = useMemo(() => cartItemsToDisplay(items), [items]);
   const cartForOrder = useMemo(() => toPlaceOrderCartItems(displayItems), [displayItems]);
   const [state, formAction, isPending] = useActionState(placeOrderAction, null);
   const [promoInput, setPromoInput] = useState("");
@@ -85,7 +104,27 @@ export function CheckoutForm({ displayItems }: CheckoutFormProps) {
     }
   }, [state?.orderId, clearCart, router]);
 
+  useEffect(() => {
+    if (!cartHydrated || state?.orderId) return;
+    if (items.length === 0) {
+      router.replace("/cart");
+    }
+  }, [cartHydrated, items.length, state?.orderId, router]);
+
   if (state?.orderId) {
+    return null;
+  }
+
+  if (!cartHydrated) {
+    return (
+      <div className="flex min-h-[240px] items-center justify-center text-muted-foreground">
+        <Loader2 className="size-8 animate-spin" aria-hidden />
+        <span className="sr-only">Loading cart…</span>
+      </div>
+    );
+  }
+
+  if (items.length === 0) {
     return null;
   }
 

@@ -156,7 +156,8 @@ export async function placeOrder(
         throw new Error(`Variant not found: product ${productId}, size ${size}`);
       }
 
-      if (variant.stock < quantity) {
+      const available = Math.min(variant.stock, variant.stockQuantity);
+      if (available < quantity) {
         const productResults = await tx
           .select({ name: products.name })
           .from(products)
@@ -164,15 +165,18 @@ export async function placeOrder(
         const product = productResults[0];
         const productName = product?.name ?? `Product #${productId}`;
         throw new Error(
-          `Insufficient stock for "${productName}" size ${size}. Available: ${variant.stock}, requested: ${quantity}`
+          `Insufficient stock for "${productName}" size ${size}. Available: ${available}, requested: ${quantity}`
         );
       }
 
-      const newStock = variant.stock - quantity;
+      const newStock = available - quantity;
 
       await tx
         .update(productVariants)
-        .set({ stock: sql`${productVariants.stock} - ${quantity}` })
+        .set({
+          stock: sql`${productVariants.stock} - ${quantity}`,
+          stockQuantity: sql`${productVariants.stockQuantity} - ${quantity}`,
+        })
         .where(eq(productVariants.id, variant.id));
 
       if (newStock < 5) {

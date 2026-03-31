@@ -46,6 +46,8 @@ export interface CartItemToClear {
 
 interface CartContextValue {
   items: CartItemDisplay[];
+  /** True after the initial load from localStorage for the current cart key (avoids treating an empty pre-hydration cart as “no items”). */
+  cartHydrated: boolean;
   addToCart: (item: Omit<CartItemDisplay, "sku"> & { sku?: string }) => void;
   removeFromCart: (sku: string) => void;
   updateQuantity: (sku: string, quantity: number) => void;
@@ -84,12 +86,15 @@ function saveCart(key: string, items: CartItemDisplay[]) {
 export function CartProvider({ children }: { children: ReactNode }) {
   const { userId } = useAuth();
   const [items, setItems] = useState<CartItemDisplay[]>([]);
+  const [cartHydrated, setCartHydrated] = useState(false);
   const [openCartFn, setOpenCartFn] = useState<() => void>(() => () => {});
 
   const cartKey = getCartKey(userId);
 
   useEffect(() => {
+    setCartHydrated(false);
     setItems(loadCart(cartKey));
+    setCartHydrated(true);
   }, [cartKey]);
 
   const addToCart = useCallback(
@@ -186,6 +191,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
 
   const value: CartContextValue = {
     items,
+    cartHydrated,
     addToCart,
     removeFromCart,
     updateQuantity,
