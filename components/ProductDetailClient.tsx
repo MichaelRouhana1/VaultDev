@@ -6,6 +6,7 @@ import { useTranslations } from "next-intl";
 import { useRouter } from "@/i18n/navigation";
 import { useSearchParams } from "next/navigation";
 import { useCart } from "@/context/CartContext";
+import { useCurrency } from "@/context/CurrencyContext";
 import { useWishlist } from "@/context/WishlistContext";
 import { ProductCard } from "@/components/ProductCard";
 import {
@@ -53,6 +54,7 @@ export function ProductDetailClient({
   const tCommon = useTranslations("Common");
   const searchParams = useSearchParams();
   const { addToCart, openCart } = useCart();
+  const { formatPrice } = useCurrency();
   const { isInWishlist, hasHydrated, toggleItem } = useWishlist();
   const wishlistState = hasHydrated ? isInWishlist(product.id) : initialInWishlist;
   const [selectedSize, setSelectedSize] = useState<string | null>(null);
@@ -322,11 +324,11 @@ export function ProductDetailClient({
 
   const priceBlock = onSale ? (
     <span className="inline-flex flex-wrap items-baseline gap-2">
-      <span className="line-through text-muted-foreground text-sm">${price}</span>
-      <span className="text-destructive font-semibold">${displayPrice}</span>
+      <span className="line-through text-muted-foreground text-sm">{formatPrice(price)}</span>
+      <span className="text-destructive font-semibold">{formatPrice(displayPrice)}</span>
     </span>
   ) : (
-    <span className="text-sm font-semibold">${displayPrice}</span>
+    <span className="text-sm font-semibold">{formatPrice(displayPrice)}</span>
   );
 
   return (
@@ -738,11 +740,11 @@ export function ProductDetailClient({
           <p className="mt-6 text-lg font-normal text-foreground">
             {onSale ? (
               <>
-                <span className="line-through text-muted-foreground">${price}</span>{" "}
-                <span className="text-destructive font-medium">${displayPrice}</span>
+                <span className="line-through text-muted-foreground">{formatPrice(price)}</span>{" "}
+                <span className="text-destructive font-medium">{formatPrice(displayPrice)}</span>
               </>
             ) : (
-              `$${displayPrice}`
+              formatPrice(displayPrice)
             )}
           </p>
 

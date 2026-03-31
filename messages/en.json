@@ -89,7 +89,16 @@
     "twitter": "Twitter",
     "copyright": "© {year} VAULT.",
     "openLanguage": "Choose language",
-    "languageTitle": "Language"
+    "languageTitle": "Language",
+    "preferencesTitle": "Region preferences",
+    "preferencesSummary": "{language} ({currency})",
+    "openPreferences": "Open region and currency preferences",
+    "selectLanguage": "Select language",
+    "selectCurrency": "Select currency",
+    "savePreferences": "Save preferences",
+    "currencyOptionUsd": "USD ($)",
+    "currencyOptionEur": "EUR (€)",
+    "currencyOptionLbp": "LBP (L£)"
   },
   "Account": {
     "vaultTitleNamed": "{name}'s Vault",
@@ -304,7 +313,7 @@
     "emptyBag": "Your bag is empty",
     "continueShopping": "Continue shopping",
     "orderSummary": "Order Summary",
-    "addMoreFree": "Add ${amount} more to get free standard delivery",
+    "addMoreFree": "Add {amount} more to get free standard delivery",
     "freeDelivery": "You qualify for free standard delivery",
     "totalVat": "Total (VAT included)",
     "processOrder": "Process Order",

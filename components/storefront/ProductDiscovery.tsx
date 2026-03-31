@@ -1,5 +1,8 @@
+"use client";
+
 import { Link } from "@/i18n/navigation";
 import Image from "next/image";
+import { useCurrency } from "@/context/CurrencyContext";
 
 export interface DiscoverProduct {
     id: number;
@@ -20,6 +23,7 @@ interface ProductDiscoveryProps {
 }
 
 export function ProductDiscovery({ products, currentStoreType, fallbackImage }: ProductDiscoveryProps) {
+    const { formatPrice } = useCurrency();
     return (
         <section className="py-24 px-6 bg-background">
             <h2 className="text-sm font-medium text-foreground tracking-[0.2em] uppercase mb-12 text-center">
@@ -53,11 +57,11 @@ export function ProductDiscovery({ products, currentStoreType, fallbackImage }: 
                                 <p className="text-sm font-light text-muted-foreground mt-1">
                                     {product.onSale ? (
                                         <>
-                                            <span className="line-through">${product.price}</span>{" "}
-                                            <span className="text-destructive font-medium">${product.displayPrice}</span>
+                                            <span className="line-through">{formatPrice(product.price)}</span>{" "}
+                                            <span className="text-destructive font-medium">{formatPrice(product.displayPrice)}</span>
                                         </>
                                     ) : (
-                                        `$${product.displayPrice}`
+                                        formatPrice(product.displayPrice)
                                     )}
                                 </p>
                             </Link>

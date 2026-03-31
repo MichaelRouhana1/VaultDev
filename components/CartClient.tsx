@@ -7,6 +7,7 @@ import Image from "next/image";
 import { useRouter } from "@/i18n/navigation";
 import { useSearchParams } from "next/navigation";
 import { useCart } from "@/context/CartContext";
+import { useCurrency } from "@/context/CurrencyContext";
 import { useAuth } from "@clerk/nextjs";
 import { useWishlist } from "@/context/WishlistContext";
 import { getWishlistProductsData } from "@/actions/getWishlistProductsData";
@@ -34,6 +35,7 @@ export function CartClient({
   const t = useTranslations("Bag");
   const searchParams = useSearchParams();
   const { items, removeFromCart, updateQuantity, totalPrice } = useCart();
+  const { formatPrice } = useCurrency();
   const { isSignedIn } = useAuth();
   const { wishlistIds, hasHydrated } = useWishlist();
   const [activeTab, setActiveTab] = useState<Tab>("bag");
@@ -179,7 +181,7 @@ export function CartClient({
                       {item.productName}
                     </Link>
                     <p className="text-sm font-semibold text-foreground mt-1">
-                      ${parseFloat(item.priceAtPurchase).toFixed(2)}
+                      {formatPrice(item.priceAtPurchase)}
                     </p>
                     {(item.productColor || item.size) && (
                       <p className="text-xs text-muted-foreground mt-0.5">
@@ -247,7 +249,7 @@ export function CartClient({
                         />
                       </svg>
                       <p className="text-xs text-blue-800 dark:text-blue-200">
-                        {t("addMoreFree", { amount: amountToFreeDelivery.toFixed(2) })}
+                        {t("addMoreFree", { amount: formatPrice(amountToFreeDelivery) })}
                       </p>
                     </div>
                   )}
@@ -259,7 +261,7 @@ export function CartClient({
                   <div className="flex items-center justify-between border-b border-t border-border py-4">
                     <span className="text-sm text-muted-foreground">{t("totalVat")}</span>
                     <span className="text-lg font-semibold text-foreground">
-                      ${totalPrice.toFixed(2)}
+                      {formatPrice(totalPrice)}
                     </span>
                   </div>
 

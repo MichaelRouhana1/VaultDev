@@ -15,6 +15,7 @@ import type { CartItemDisplay } from "@/context/CartContext";
 import { validatePromoCode } from "@/actions/promo";
 import { useAuth } from "@clerk/nextjs";
 import { useCart } from "@/context/CartContext";
+import { useCurrency } from "@/context/CurrencyContext";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -106,6 +107,7 @@ export function CheckoutForm() {
   const tCommon = useTranslations("Common");
   const { userId: clerkUserId } = useAuth();
   const { items, cartHydrated, clearCart } = useCart();
+  const { formatPrice } = useCurrency();
   const displayItems = useMemo(() => cartItemsToDisplay(items), [items]);
   const cartForOrder = useMemo(() => toPlaceOrderCartItems(displayItems), [displayItems]);
   const [state, formAction, isPending] = useActionState(placeOrderAction, null);
@@ -172,7 +174,7 @@ export function CheckoutForm() {
       toast.success(
         t("toastPromoApplied", {
           code: result.code,
-          amount: `$${result.discountAmount.toFixed(2)}`,
+          amount: formatPrice(result.discountAmount),
         }),
       );
     } catch (err) {
@@ -298,7 +300,7 @@ export function CheckoutForm() {
                     </div>
                     <div className="shrink-0 text-end">
                       <span className="text-sm font-semibold tabular-nums text-foreground">
-                        ${lineTotal.toFixed(2)}
+                        {formatPrice(lineTotal)}
                       </span>
                     </div>
                   </li>
@@ -315,7 +317,7 @@ export function CheckoutForm() {
                   <span className="text-sm font-medium text-green-600 dark:text-green-400">
                     {t("promoApplied", {
                       code: appliedPromo.code,
-                      amount: `$${appliedPromo.discountAmount.toFixed(2)}`,
+                      amount: formatPrice(appliedPromo.discountAmount),
                     })}
                   </span>
                   <button
@@ -351,24 +353,24 @@ export function CheckoutForm() {
             <div className="space-y-2 border-t border-border pt-2 text-sm">
               <div className="flex justify-between text-muted-foreground">
                 <span>{t("subtotal")}</span>
-                <span>${subtotal.toFixed(2)}</span>
+                <span>{formatPrice(subtotal)}</span>
               </div>
               {discountAmount > 0 && (
                 <div className="flex justify-between text-green-600 dark:text-green-400">
                   <span>{t("discountLine", { code: appliedPromo?.code ?? "" })}</span>
-                  <span>−${discountAmount.toFixed(2)}</span>
+                  <span>−{formatPrice(discountAmount)}</span>
                 </div>
               )}
               <div className="flex justify-between text-muted-foreground">
                 <span>{t("shipping")}</span>
-                <span>${shippingFee.toFixed(2)}</span>
+                <span>{formatPrice(shippingFee)}</span>
               </div>
             </div>
           </CardContent>
           <CardFooter className="flex flex-col items-stretch gap-2">
             <div className="flex justify-between text-base font-semibold">
               <span>{t("total")}</span>
-              <span>${total.toFixed(2)}</span>
+              <span>{formatPrice(total)}</span>
             </div>
             {state?.error && (
               <p className="text-sm text-destructive">{translateCheckoutError(state.error, t)}</p>

@@ -5,6 +5,7 @@ import Image from "next/image";
 import { useTranslations } from "next-intl";
 import { Link, usePathname } from "@/i18n/navigation";
 import { useCart } from "@/context/CartContext";
+import { useCurrency } from "@/context/CurrencyContext";
 import { useWishlist } from "@/context/WishlistContext";
 import {
   getProductDisplayPrice,
@@ -43,6 +44,7 @@ export function ProductCard({
   const t = useTranslations("ProductCard");
   const pathname = usePathname();
   const { addToCart, openCart } = useCart();
+  const { formatPrice } = useCurrency();
   const { isInWishlist, hasHydrated, toggleItem } = useWishlist();
 
   const storeTypeMatch = pathname?.match(/^\/(streetwear|formal)/);
@@ -310,11 +312,11 @@ export function ProductCard({
           <p className="text-sm font-light text-foreground mt-0.5">
             {onSale ? (
               <>
-                <span className="line-through text-muted-foreground">${price}</span>{" "}
-                <span className="text-destructive font-medium">${displayPrice}</span>
+                <span className="line-through text-muted-foreground">{formatPrice(price)}</span>{" "}
+                <span className="text-destructive font-medium">{formatPrice(displayPrice)}</span>
               </>
             ) : (
-              `$${displayPrice}`
+              formatPrice(displayPrice)
             )}
           </p>
         </div>

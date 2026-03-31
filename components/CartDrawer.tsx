@@ -6,6 +6,7 @@ import Image from "next/image";
 import { useTranslations } from "next-intl";
 import { Link, useRouter } from "@/i18n/navigation";
 import { useCart } from "@/context/CartContext";
+import { useCurrency } from "@/context/CurrencyContext";
 
 interface CartDrawerProps {
   isOpen: boolean;
@@ -16,6 +17,7 @@ export function CartDrawer({ isOpen, onClose }: CartDrawerProps) {
   const router = useRouter();
   const t = useTranslations("CartDrawer");
   const { items, removeFromCart, updateQuantity, totalPrice } = useCart();
+  const { formatPrice } = useCurrency();
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
@@ -129,7 +131,7 @@ export function CartDrawer({ isOpen, onClose }: CartDrawerProps) {
                       {item.productName}
                     </h3>
                     <p className="mt-0.5 text-sm text-muted-foreground">
-                      {t("each", { price: `$${item.priceAtPurchase}` })}
+                      {t("each", { price: formatPrice(item.priceAtPurchase) })}
                     </p>
                     {(item.productColor || item.size) && (
                       <p className="mt-0.5 text-xs text-muted-foreground">
@@ -173,10 +175,7 @@ export function CartDrawer({ isOpen, onClose }: CartDrawerProps) {
                   </div>
                   <div className="shrink-0 text-end">
                     <p className="font-semibold text-foreground">
-                      $
-                      {(
-                        parseFloat(item.priceAtPurchase) * item.quantity
-                      ).toFixed(2)}
+                      {formatPrice(parseFloat(item.priceAtPurchase) * item.quantity)}
                     </p>
                   </div>
                 </li>
@@ -208,7 +207,7 @@ export function CartDrawer({ isOpen, onClose }: CartDrawerProps) {
             <>
               <div className="mb-4 flex items-center justify-between">
                 <span className="text-lg font-semibold text-foreground">{t("total")}</span>
-                <span className="text-xl font-bold text-foreground">${totalPrice.toFixed(2)}</span>
+                <span className="text-xl font-bold text-foreground">{formatPrice(totalPrice)}</span>
               </div>
               <button
                 type="button"

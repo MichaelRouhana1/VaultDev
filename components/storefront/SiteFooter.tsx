@@ -1,7 +1,6 @@
 "use client";
 
-import { useState, useTransition, useEffect } from "react";
-import { createPortal } from "react-dom";
+import { useState, useTransition, useCallback } from "react";
 import { useLocale, useTranslations } from "next-intl";
 import { Globe } from "lucide-react";
 import { Link, usePathname, useRouter } from "@/i18n/navigation";
@@ -9,12 +8,24 @@ import type { MosaikLocale } from "@/lib/i18n-locales";
 import { MOSAIK_LOCALES } from "@/lib/i18n-locales";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
+import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { PRODUCT_STICKY_BUYBAR_CSS_VAR } from "@/lib/product-sticky-buybar";
+import { useCurrency } from "@/context/CurrencyContext";
+import {
+  type StorefrontCurrency,
+  STOREFRONT_CURRENCIES,
+} from "@/lib/storefront-currency";
 
 const LOCALE_LABEL_KEYS: Record<MosaikLocale, "localeEn" | "localeFr" | "localeAr"> = {
   en: "localeEn",
   fr: "localeFr",
   ar: "localeAr",
+};
+
+const CURRENCY_LABEL_KEYS: Record<StorefrontCurrency, "currencyOptionUsd" | "currencyOptionEur" | "currencyOptionLbp"> = {
+  USD: "currencyOptionUsd",
+  EUR: "currencyOptionEur",
+  LBP: "currencyOptionLbp",
 };
 
 export function SiteFooter() {
@@ -23,91 +34,38 @@ export function SiteFooter() {
   const locale = useLocale() as MosaikLocale;
   const router = useRouter();
   const pathname = usePathname();
+  const { currency, setCurrency } = useCurrency();
   const [sheetOpen, setSheetOpen] = useState(false);
+  const [draftLocale, setDraftLocale] = useState<MosaikLocale>(locale);
+  const [draftCurrency, setDraftCurrency] = useState<StorefrontCurrency>(currency);
   const [localePending, startTransition] = useTransition();
-  const [mounted, setMounted] = useState(false);
 
-  useEffect(() => {
-    setMounted(true);
-  }, []);
+  const handleOpenChange = useCallback(
+    (open: boolean) => {
+      setSheetOpen(open);
+      if (open) {
+        setDraftLocale(locale);
+        setDraftCurrency(currency);
+      }
+    },
+    [locale, currency],
+  );
 
-  useEffect(() => {
-    if (!sheetOpen) return;
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") setSheetOpen(false);
-    };
-    document.addEventListener("keydown", onKey);
-    const prevOverflow = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
-    return () => {
-      document.removeEventListener("keydown", onKey);
-      document.body.style.overflow = prevOverflow;
-    };
-  }, [sheetOpen]);
+  const handleSavePreferences = () => {
+    startTransition(() => {
+      if (draftLocale !== locale) {
+        router.replace(pathname, { locale: draftLocale });
+      }
+      setCurrency(draftCurrency);
+      setSheetOpen(false);
+    });
+  };
 
-  const currentLabel = tLocales(LOCALE_LABEL_KEYS[locale]);
-
-  const languageSheet =
-    mounted && typeof document !== "undefined" ? (
-      <>
-        <div
-          role="button"
-          tabIndex={0}
-          onClick={() => setSheetOpen(false)}
-          onKeyDown={(e) => {
-            if (e.key === "Enter" || e.key === " ") {
-              e.preventDefault();
-              setSheetOpen(false);
-            }
-          }}
-          className={cn(
-            "fixed inset-0 z-[9998] bg-black/60 transition-opacity duration-300",
-            sheetOpen ? "opacity-100" : "opacity-0 pointer-events-none",
-          )}
-          aria-hidden={!sheetOpen}
-        />
-        <div
-          role="dialog"
-          aria-modal={sheetOpen}
-          aria-labelledby="site-footer-language-title"
-          className={cn(
-            "fixed inset-x-0 bottom-0 z-[9999] flex max-h-[min(85vh,32rem)] flex-col rounded-t-xl border border-border border-b-0 bg-background transition-transform duration-300 ease-out sm:left-1/2 sm:max-w-md sm:w-full sm:-translate-x-1/2",
-            sheetOpen ? "translate-y-0" : "translate-y-full pointer-events-none",
-          )}
-          style={{ boxShadow: "0 -4px 24px rgba(0,0,0,0.15)" }}
-        >
-          <div className="border-b border-border px-6 py-4 text-start">
-            <h2 id="site-footer-language-title" className="text-lg font-semibold leading-none tracking-tight">
-              {t("languageTitle")}
-            </h2>
-          </div>
-          <div className="flex flex-col gap-1 overflow-y-auto p-3 pb-[max(0.75rem,env(safe-area-inset-bottom,0px))]" dir="auto">
-            {MOSAIK_LOCALES.map((loc) => {
-              const active = loc === locale;
-              return (
-                <button
-                  key={loc}
-                  type="button"
-                  disabled={localePending}
-                  onClick={() => {
-                    startTransition(() => {
-                      router.replace(pathname, { locale: loc });
-                      setSheetOpen(false);
-                    });
-                  }}
-                  className={cn(
-                    "rounded-md px-4 py-3 text-start text-base font-medium transition-colors",
-                    active ? "bg-foreground text-background" : "hover:bg-muted text-foreground",
-                  )}
-                >
-                  {tLocales(LOCALE_LABEL_KEYS[loc])}
-                </button>
-              );
-            })}
-          </div>
-        </div>
-      </>
-    ) : null;
+  const currentLanguageLabel = tLocales(LOCALE_LABEL_KEYS[locale]);
+  const buttonSummary = t("preferencesSummary", {
+    language: currentLanguageLabel,
+    currency,
+  });
 
   return (
     <footer
@@ -180,18 +138,93 @@ export function SiteFooter() {
             variant="outline"
             size="sm"
             className="inline-flex items-center justify-center gap-2 self-center sm:self-auto"
-            onClick={() => setSheetOpen(true)}
+            onClick={() => handleOpenChange(true)}
             aria-haspopup="dialog"
             aria-expanded={sheetOpen}
-            aria-label={t("openLanguage")}
+            aria-label={t("openPreferences")}
           >
             <Globe className="size-4 shrink-0" aria-hidden />
-            <span className="text-sm font-medium">{currentLabel}</span>
+            <span className="text-sm font-medium">{buttonSummary}</span>
           </Button>
         </div>
       </div>
 
-      {languageSheet != null ? createPortal(languageSheet, document.body) : null}
+      <Sheet open={sheetOpen} onOpenChange={handleOpenChange}>
+        <SheetContent
+          side="bottom"
+          className="mx-auto w-full max-h-[min(90vh,36rem)] gap-0 overflow-hidden rounded-t-3xl p-0 sm:max-w-md"
+        >
+          <SheetHeader className="border-b border-border px-6 py-5 text-start">
+            <SheetTitle>{t("preferencesTitle")}</SheetTitle>
+          </SheetHeader>
+
+          <div className="flex max-h-[calc(min(90vh,36rem)-8.5rem)] flex-col gap-6 overflow-y-auto px-4 py-5 sm:px-6">
+            <section className="space-y-3">
+              <h3 className="text-xs font-medium uppercase tracking-[0.2em] text-muted-foreground">
+                {t("selectLanguage")}
+              </h3>
+              <div className="grid grid-cols-1 gap-2">
+                {MOSAIK_LOCALES.map((loc) => {
+                  const active = draftLocale === loc;
+                  return (
+                    <button
+                      key={loc}
+                      type="button"
+                      disabled={localePending}
+                      onClick={() => setDraftLocale(loc)}
+                      className={cn(
+                        "rounded-xl border-2 px-4 py-4 text-start text-base font-medium transition-colors",
+                        active
+                          ? "border-foreground bg-foreground text-background"
+                          : "border-border bg-card text-foreground hover:bg-muted/80",
+                      )}
+                    >
+                      {tLocales(LOCALE_LABEL_KEYS[loc])}
+                    </button>
+                  );
+                })}
+              </div>
+            </section>
+
+            <section className="space-y-3">
+              <h3 className="text-xs font-medium uppercase tracking-[0.2em] text-muted-foreground">
+                {t("selectCurrency")}
+              </h3>
+              <div className="grid grid-cols-1 gap-2">
+                {STOREFRONT_CURRENCIES.map((code) => {
+                  const active = draftCurrency === code;
+                  return (
+                    <button
+                      key={code}
+                      type="button"
+                      onClick={() => setDraftCurrency(code)}
+                      className={cn(
+                        "rounded-xl border-2 px-4 py-4 text-start text-base font-medium transition-colors",
+                        active
+                          ? "border-foreground bg-foreground text-background"
+                          : "border-border bg-card text-foreground hover:bg-muted/80",
+                      )}
+                    >
+                      {t(CURRENCY_LABEL_KEYS[code])}
+                    </button>
+                  );
+                })}
+              </div>
+            </section>
+          </div>
+
+          <div className="border-t border-border px-4 py-4 pb-[max(1rem,env(safe-area-inset-bottom,0px))] sm:px-6">
+            <Button
+              type="button"
+              className="w-full rounded-xl py-6 text-sm font-semibold uppercase tracking-widest"
+              disabled={localePending}
+              onClick={handleSavePreferences}
+            >
+              {t("savePreferences")}
+            </Button>
+          </div>
+        </SheetContent>
+      </Sheet>
     </footer>
   );
 }

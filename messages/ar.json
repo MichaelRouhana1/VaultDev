@@ -89,7 +89,16 @@
     "twitter": "تويتر",
     "copyright": "© {year} VAULT.",
     "openLanguage": "اختر اللغة",
-    "languageTitle": "اللغة"
+    "languageTitle": "اللغة",
+    "preferencesTitle": "تفضيلات المنطقة",
+    "preferencesSummary": "{language} ({currency})",
+    "openPreferences": "فتح تفضيلات المنطقة والعملة",
+    "selectLanguage": "اختر اللغة",
+    "selectCurrency": "اختر العملة",
+    "savePreferences": "حفظ التفضيلات",
+    "currencyOptionUsd": "USD ($)",
+    "currencyOptionEur": "EUR (€)",
+    "currencyOptionLbp": "LBP (L£)"
   },
   "Account": {
     "vaultTitleNamed": "خزانة {name}",
@@ -304,7 +313,7 @@
     "emptyBag": "حقيبتك فارغة",
     "continueShopping": "متابعة التسوق",
     "orderSummary": "ملخص الطلب",
-    "addMoreFree": "أضف {amount} $ أخرى للشحن المجاني",
+    "addMoreFree": "أضف {amount} أخرى للشحن المجاني",
     "freeDelivery": "تستحق الشحن المجاني",
     "totalVat": "الإجمالي (شامل الضريبة)",
     "processOrder": "إتمام الطلب",
