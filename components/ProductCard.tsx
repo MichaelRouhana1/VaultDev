@@ -8,6 +8,7 @@ import { useCart } from "@/context/CartContext";
 import { useCurrency } from "@/context/CurrencyContext";
 import { useWishlist } from "@/context/WishlistContext";
 import {
+  cn,
   getProductDisplayPrice,
   isProductOnSale,
   getProductDiscountPercent,
@@ -32,6 +33,8 @@ interface ProductCardProps {
   colors?: ProductColor[] | null;
   inWishlist?: boolean;
   compact?: boolean;
+  /** Shop compact grid: hide title/price/tags below image on small screens only. */
+  isCompactView?: boolean;
 }
 
 export function ProductCard({
@@ -40,6 +43,7 @@ export function ProductCard({
   colors,
   inWishlist = false,
   compact = false,
+  isCompactView = false,
 }: ProductCardProps) {
   const t = useTranslations("ProductCard");
   const pathname = usePathname();
@@ -263,7 +267,13 @@ export function ProductCard({
             </div>
           )}
         </div>
-        <div className={`flex flex-col gap-0.5 ${compact ? "mt-2" : "mt-3"}`}>
+        <div
+          className={cn(
+            "flex flex-col gap-0.5",
+            compact ? "mt-2" : "mt-3",
+            isCompactView && "hidden md:block",
+          )}
+        >
           <h2
             className={`font-light text-foreground truncate ${compact ? "text-xs" : "text-sm"}`}
           >

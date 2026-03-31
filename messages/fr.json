@@ -43,6 +43,10 @@
   },
   "UtilityBar": {
     "filters": "Filtres",
+    "viewLabel": "Vue",
+    "viewGroupAria": "Densité de la grille produits",
+    "viewDefaultAria": "Grille normale — moins de vignettes, plus grandes",
+    "viewCompactAria": "Grille compacte — plus de vignettes par ligne",
     "sortPrefix": "Trier",
     "sortRecommended": "Recommandé",
     "sortNewest": "Plus récent",
@@ -53,6 +57,11 @@
     "localeEn": "English",
     "localeFr": "Français",
     "localeAr": "العربية"
+  },
+  "FilterPanel": {
+    "sortByHeading": "Trier par",
+    "sortPriceLowToHigh": "Prix croissant",
+    "sortPriceHighToLow": "Prix décroissant"
   },
   "Common": {
     "brand": "VAULT",
@@ -348,6 +357,7 @@
     "sortNameDesc": "Nom : Z à A"
   },
   "CategoryHeader": {
+    "viewAllHeading": "Tout voir",
     "shopDefault": "Boutique",
     "defaultSubtitle": "Découvrez nos essentiels modernes",
     "clothingLabel": "Vêtements",

@@ -23,10 +23,26 @@ interface CategoryHeaderProps {
   category: string | null;
   categorySlug?: string | null;
   categoryLabel?: string | null;
+  /** Shop grid with no category filter (`/shop` without `?cat=`). */
+  viewAllListing?: boolean;
 }
 
-export function CategoryHeader({ category, categorySlug, categoryLabel }: CategoryHeaderProps) {
+export function CategoryHeader({
+  category,
+  categorySlug,
+  categoryLabel,
+  viewAllListing,
+}: CategoryHeaderProps) {
   const t = useTranslations("CategoryHeader");
+
+  if (viewAllListing) {
+    return (
+      <header className="border-b border-border px-6 py-12 text-center">
+        <h1 className="text-3xl font-bold text-foreground uppercase tracking-[0.2em]">{t("viewAllHeading")}</h1>
+      </header>
+    );
+  }
+
   const slugConfig = categorySlug && !categoryLabel ? SLUG_KEYS[categorySlug] : null;
   const categoryConfig = category ? CATEGORY_KEYS[category] : null;
   const config = slugConfig ?? categoryConfig;

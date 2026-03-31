@@ -195,7 +195,6 @@ export default async function ShopPage({ params, searchParams }: ShopPageProps) 
           shopFilterContext={shopFilterContext}
           categoryFilterTags={categoryFilterTags}
           storeType={storeType}
-          initialQuery={q ?? undefined}
         />
       </Suspense>
     </div>

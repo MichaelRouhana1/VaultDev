@@ -43,6 +43,10 @@
   },
   "UtilityBar": {
     "filters": "عوامل التصفية",
+    "viewLabel": "عرض",
+    "viewGroupAria": "كثافة شبكة المنتجات",
+    "viewDefaultAria": "شبكة عادية — عدد أقل من البطاقات الأكبر",
+    "viewCompactAria": "شبكة مدمجة — المزيد من البطاقات في الصف",
     "sortPrefix": "ترتيب",
     "sortRecommended": "موصى به",
     "sortNewest": "الأحدث",
@@ -53,6 +57,11 @@
     "localeEn": "English",
     "localeFr": "Français",
     "localeAr": "العربية"
+  },
+  "FilterPanel": {
+    "sortByHeading": "ترتيب حسب",
+    "sortPriceLowToHigh": "السعر من الأقل للأعلى",
+    "sortPriceHighToLow": "السعر من الأعلى للأقل"
   },
   "Common": {
     "brand": "VAULT",
@@ -348,6 +357,7 @@
     "sortNameDesc": "الاسم: ي-أ"
   },
   "CategoryHeader": {
+    "viewAllHeading": "عرض الكل",
     "shopDefault": "المتجر",
     "defaultSubtitle": "استكشف مجموعتنا من الأساسيات العصرية",
     "clothingLabel": "ملابس",

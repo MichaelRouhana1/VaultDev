@@ -1,7 +1,11 @@
 "use client";
 
 import { useEffect, useMemo } from "react";
-import { sortSizes } from "@/lib/utils";
+import { useTranslations } from "next-intl";
+import { sortSizes, cn } from "@/lib/utils";
+
+/** Shop listing sort: only price ascending / descending (URL `?sort=price-low` | `price-high`). */
+export type ShopSortOption = "price-low" | "price-high";
 
 export interface FilterState {
   priceMin: number;
@@ -35,6 +39,8 @@ export interface FilterPanelContentProps {
   filters: FilterState;
   onFiltersChange: (filters: FilterState) => void;
   priceBounds: { min: number; max: number };
+  sort: ShopSortOption;
+  onSortChange: (value: ShopSortOption) => void;
   /** False when the shop is already scoped to one main category (e.g. `?cat=jeans`). */
   showMainCategorySection: boolean;
   mainCategories?: { value: string; label: string }[];
@@ -52,6 +58,40 @@ export interface FilterPanelContentProps {
   className?: string;
   /** Desktop inline sidebar: hide duplicate "Filters" heading (toolbar already shows Filters). */
   hideTitle?: boolean;
+}
+
+function SortBySection({
+  sort,
+  onSortChange,
+}: {
+  sort: ShopSortOption;
+  onSortChange: (value: ShopSortOption) => void;
+}) {
+  const t = useTranslations("FilterPanel");
+  const options: { value: ShopSortOption; msg: "sortPriceLowToHigh" | "sortPriceHighToLow" }[] = [
+    { value: "price-low", msg: "sortPriceLowToHigh" },
+    { value: "price-high", msg: "sortPriceHighToLow" },
+  ];
+  return (
+    <div className="mb-8">
+      <h3 className="text-xs font-bold uppercase tracking-[0.2em] text-foreground mb-4">{t("sortByHeading")}</h3>
+      <div className="flex flex-col gap-3 items-stretch">
+        {options.map(({ value, msg }) => (
+          <button
+            key={value}
+            type="button"
+            onClick={() => onSortChange(value)}
+            className={cn(
+              "text-left text-xs font-normal uppercase tracking-[0.15em] transition-colors py-0.5",
+              sort === value ? "text-foreground font-semibold" : "text-muted-foreground hover:text-foreground/80",
+            )}
+          >
+            {t(msg)}
+          </button>
+        ))}
+      </div>
+    </div>
+  );
 }
 
 function FilterSection({
@@ -151,6 +191,8 @@ export function FilterPanelContent({
   filters,
   onFiltersChange,
   priceBounds,
+  sort,
+  onSortChange,
   showMainCategorySection,
   mainCategories = [],
   attributeSections = [],
@@ -203,6 +245,7 @@ export function FilterPanelContent({
           </svg>
         </button>
       )}
+      <SortBySection sort={sort} onSortChange={onSortChange} />
       {!hideTitle && (
         <h2 className="text-sm font-medium uppercase tracking-[0.2em] text-foreground mb-8 pr-8 md:pr-0">Filters</h2>
       )}
@@ -260,6 +303,8 @@ interface FilterPanelProps {
   filters: FilterState;
   onFiltersChange: (filters: FilterState) => void;
   priceBounds: { min: number; max: number };
+  sort: ShopSortOption;
+  onSortChange: (value: ShopSortOption) => void;
   showMainCategorySection: boolean;
   mainCategories?: { value: string; label: string }[];
   attributeSections?: AttributeFilterSection[];
@@ -276,6 +321,8 @@ export function FilterPanel({
   filters,
   onFiltersChange,
   priceBounds,
+  sort,
+  onSortChange,
   showMainCategorySection,
   mainCategories = [],
   attributeSections = [],
@@ -333,6 +380,8 @@ export function FilterPanel({
             filters={filters}
             onFiltersChange={onFiltersChange}
             priceBounds={priceBounds}
+            sort={sort}
+            onSortChange={onSortChange}
             showMainCategorySection={showMainCategorySection}
             mainCategories={mainCategories}
             attributeSections={attributeSections}

@@ -5,13 +5,13 @@ import { useRouter } from "@/i18n/navigation";
 import { useSearchParams } from "next/navigation";
 import { ProductCard } from "@/components/ProductCard";
 import { CategoryHeader } from "@/components/CategoryHeader";
-import { UtilityBar, type SortOption } from "@/components/UtilityBar";
-import { ShopSearchBar } from "@/components/ShopSearchBar";
+import { UtilityBar } from "@/components/UtilityBar";
 import {
   FilterPanel,
   FilterPanelContent,
   type FilterState,
   type ShopFilterPanelContext,
+  type ShopSortOption,
   type AttributeFilterSection,
 } from "@/components/FilterPanel";
 import { cn } from "@/lib/utils";
@@ -39,7 +39,6 @@ interface ShopClientProps {
   shopFilterContext: ShopFilterPanelContext;
   categoryFilterTags: Record<number, ProductCategoryFilterTags>;
   storeType: string;
-  initialQuery?: string;
 }
 
 export function ShopClient({
@@ -56,21 +55,16 @@ export function ShopClient({
   shopFilterContext,
   categoryFilterTags,
   storeType,
-  initialQuery,
 }: ShopClientProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const category = searchParams.get("category");
   const categorySlug = searchParams.get("cat");
-  const sortParam = searchParams.get("sort") ?? "newest";
+  const sort: ShopSortOption = searchParams.get("sort") === "price-high" ? "price-high" : "price-low";
 
   const [mobileFilterOpen, setMobileFilterOpen] = useState(false);
   const [desktopFilterOpen, setDesktopFilterOpen] = useState(false);
-  const [sort, setSort] = useState<SortOption>(
-    ["recommended", "newest", "price-low", "price-high", "name-asc", "name-desc"].includes(sortParam)
-      ? (sortParam as SortOption)
-      : "newest",
-  );
+  const [viewMode, setViewMode] = useState<"default" | "compact">("default");
   const [filters, setFilters] = useState<FilterState>({
     priceMin: 0,
     priceMax: 500,
@@ -98,7 +92,7 @@ export function ShopClient({
 
   useEffect(() => {
     setSelectedAttributes({});
-  }, [category, categorySlug, initialQuery, storeType]);
+  }, [category, categorySlug, storeType]);
 
   useEffect(() => {
     if (products.length > 0 && priceBounds.max > 0 && !priceInitialized.current) {
@@ -111,14 +105,9 @@ export function ShopClient({
     }
   }, [products.length, priceBounds.min, priceBounds.max]);
 
-  const handleSortChange = (value: SortOption) => {
-    setSort(value);
+  const handleSortChange = (value: ShopSortOption) => {
     const params = new URLSearchParams(searchParams.toString());
-    if (value === "recommended" || value === "newest") {
-      params.delete("sort");
-    } else {
-      params.set("sort", value);
-    }
+    params.set("sort", value);
     const query = params.toString();
     const base = `/${storeType}/shop`;
     router.push(query ? `${base}?${query}` : base);
@@ -186,16 +175,10 @@ export function ShopClient({
       });
     }
 
-    if (sort === "recommended" || sort === "newest") {
-      list.sort((a, b) => b.id - a.id);
-    } else if (sort === "price-low") {
+    if (sort === "price-low") {
       list.sort((a, b) => parseFloat(String(a.price)) - parseFloat(String(b.price)));
-    } else if (sort === "price-high") {
+    } else {
       list.sort((a, b) => parseFloat(String(b.price)) - parseFloat(String(a.price)));
-    } else if (sort === "name-asc") {
-      list.sort((a, b) => a.name.localeCompare(b.name));
-    } else if (sort === "name-desc") {
-      list.sort((a, b) => b.name.localeCompare(a.name));
     }
 
     return list;
@@ -234,19 +217,23 @@ export function ShopClient({
     return shopFilterContext === "all" && storeMainCategories.length > 0 && !browsingMainCategory;
   }, [shopFilterContext, storeMainCategories, categorySlug]);
 
+  const viewAllListing = !categorySlug && !validCategory;
+
   return (
     <div className="w-full min-h-screen bg-background">
-      <CategoryHeader category={validCategory} categorySlug={categorySlug} categoryLabel={categoryLabel} />
+      <CategoryHeader
+        category={validCategory}
+        categorySlug={categorySlug}
+        categoryLabel={categoryLabel}
+        viewAllListing={viewAllListing}
+      />
 
-      <div className="px-6 py-3 border-b border-border">
-        <ShopSearchBar storeType={storeType} initialQuery={initialQuery} />
-      </div>
       <div className="sticky top-14 z-30 bg-background border-b border-border">
         <UtilityBar
           onMobileFiltersOpen={() => setMobileFilterOpen(true)}
           onDesktopFiltersToggle={() => setDesktopFilterOpen((o) => !o)}
-          sort={sort}
-          onSortChange={handleSortChange}
+          viewMode={viewMode}
+          onViewModeChange={setViewMode}
         />
       </div>
       <FilterPanel
@@ -255,6 +242,8 @@ export function ShopClient({
         filters={filters}
         onFiltersChange={setFilters}
         priceBounds={priceBounds}
+        sort={sort}
+        onSortChange={handleSortChange}
         showMainCategorySection={showMainCategorySection}
         mainCategories={mainCategoryOptions}
         attributeSections={attributeSectionsForFilters}
@@ -279,6 +268,8 @@ export function ShopClient({
               filters={filters}
               onFiltersChange={setFilters}
               priceBounds={priceBounds}
+              sort={sort}
+              onSortChange={handleSortChange}
               showMainCategorySection={showMainCategorySection}
               mainCategories={mainCategoryOptions}
               attributeSections={attributeSectionsForFilters}
@@ -296,7 +287,8 @@ export function ShopClient({
             <>
               <div
                 className={cn(
-                  "grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 transition-all duration-300 ease-in-out",
+                  "grid transition-all duration-300 ease-in-out",
+                  viewMode === "compact" ? "grid-cols-3 md:grid-cols-6" : "grid-cols-2 md:grid-cols-4",
                   desktopFilterOpen
                     ? "gap-2 sm:gap-4 lg:gap-3"
                     : "gap-4 sm:gap-6 lg:gap-8",
@@ -312,6 +304,7 @@ export function ShopClient({
                       variants={variantsByProductId[product.id] ?? []}
                       colors={colorsByProductId[product.id]}
                       inWishlist={wishlistProductIds.includes(product.id)}
+                      isCompactView={viewMode === "compact"}
                     />
                   </div>
                 ))}

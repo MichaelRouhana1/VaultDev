@@ -1,52 +1,35 @@
 "use client";
 
 import { useTranslations } from "next-intl";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+import { cn } from "@/lib/utils";
 
-export type SortOption =
-  | "recommended"
-  | "newest"
-  | "price-low"
-  | "price-high"
-  | "name-asc"
-  | "name-desc";
-
-const SORT_OPTION_KEYS: Record<SortOption, string> = {
-  recommended: "sortRecommended",
-  newest: "sortNewest",
-  "price-low": "sortPriceLow",
-  "price-high": "sortPriceHigh",
-  "name-asc": "sortNameAsc",
-  "name-desc": "sortNameDesc",
-};
+export type ShopGridViewMode = "default" | "compact";
 
 interface UtilityBarProps {
   /** Opens the mobile filter overlay (`md` and below). */
   onMobileFiltersOpen: () => void;
   /** Toggles the inline filter sidebar (`md` and above). */
   onDesktopFiltersToggle: () => void;
-  sort: SortOption;
-  onSortChange: (value: SortOption) => void;
+  viewMode: ShopGridViewMode;
+  onViewModeChange: (mode: ShopGridViewMode) => void;
 }
 
 export function UtilityBar({
   onMobileFiltersOpen,
   onDesktopFiltersToggle,
-  sort,
-  onSortChange,
+  viewMode,
+  onViewModeChange,
 }: UtilityBarProps) {
   const t = useTranslations("UtilityBar");
 
-  const sortLabel = (opt: SortOption) => t(SORT_OPTION_KEYS[opt]);
+  const toggleBtnClass = (active: boolean) =>
+    cn(
+      "min-w-[2rem] px-2 py-1 text-sm font-medium tabular-nums transition-colors",
+      active ? "text-foreground font-semibold" : "text-muted-foreground opacity-50 hover:opacity-80",
+    );
 
   return (
-    <div className="flex flex-wrap items-center justify-between gap-3 ps-6 pe-6 py-4">
+    <div className="flex flex-wrap items-center justify-between gap-3 ps-6 pe-6 py-4 w-full">
       <div className="flex items-center gap-3 min-w-0">
         <button
           type="button"
@@ -63,24 +46,26 @@ export function UtilityBar({
           {t("filters")}
         </button>
       </div>
-      <div className="flex flex-wrap items-center justify-end gap-3 shrink-0">
-        <Select
-          value={sort}
-          onValueChange={(v) => onSortChange(v as SortOption)}
+      <div className="flex items-center gap-2 shrink-0" role="group" aria-label={t("viewGroupAria")}>
+        <span className="text-xs font-medium uppercase tracking-[0.2em] text-foreground">{t("viewLabel")}</span>
+        <button
+          type="button"
+          aria-pressed={viewMode === "default"}
+          aria-label={t("viewDefaultAria")}
+          onClick={() => onViewModeChange("default")}
+          className={toggleBtnClass(viewMode === "default")}
         >
-          <SelectTrigger className="min-w-0 w-auto sm:min-w-[200px] border-0 shadow-none text-xs font-medium uppercase tracking-[0.2em] h-auto py-1">
-            <SelectValue>
-              {t("sortPrefix")} {sortLabel(sort)}
-            </SelectValue>
-          </SelectTrigger>
-          <SelectContent>
-            {(Object.keys(SORT_OPTION_KEYS) as SortOption[]).map((opt) => (
-              <SelectItem key={opt} value={opt}>
-                {sortLabel(opt)}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+          -
+        </button>
+        <button
+          type="button"
+          aria-pressed={viewMode === "compact"}
+          aria-label={t("viewCompactAria")}
+          onClick={() => onViewModeChange("compact")}
+          className={toggleBtnClass(viewMode === "compact")}
+        >
+          +
+        </button>
       </div>
     </div>
   );
