@@ -68,7 +68,7 @@ function placeOrderAction(
 export function CheckoutForm({ displayItems }: CheckoutFormProps) {
   const router = useRouter();
   const { userId: clerkUserId } = useAuth();
-  const { clearOrderedItems } = useCart();
+  const { clearCart } = useCart();
   const cartForOrder = useMemo(() => toPlaceOrderCartItems(displayItems), [displayItems]);
   const [state, formAction, isPending] = useActionState(placeOrderAction, null);
   const [promoInput, setPromoInput] = useState("");
@@ -80,16 +80,10 @@ export function CheckoutForm({ displayItems }: CheckoutFormProps) {
 
   useEffect(() => {
     if (state?.orderId) {
-      clearOrderedItems(
-        displayItems.map((i) => ({
-          productId: i.productId,
-          size: i.size,
-          quantity: i.quantity,
-        })),
-      );
+      clearCart();
       router.push("/checkout/success");
     }
-  }, [state?.orderId, displayItems, clearOrderedItems, router]);
+  }, [state?.orderId, clearCart, router]);
 
   if (state?.orderId) {
     return null;

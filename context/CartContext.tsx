@@ -50,6 +50,8 @@ interface CartContextValue {
   removeFromCart: (sku: string) => void;
   updateQuantity: (sku: string, quantity: number) => void;
   clearOrderedItems: (items: CartItemToClear[]) => void;
+  /** Empty the cart and persist to localStorage (e.g. after successful checkout). */
+  clearCart: () => void;
   totalItems: number;
   totalPrice: number;
   openCart: () => void;
@@ -163,6 +165,11 @@ export function CartProvider({ children }: { children: ReactNode }) {
     [cartKey]
   );
 
+  const clearCart = useCallback(() => {
+    setItems([]);
+    saveCart(cartKey, []);
+  }, [cartKey]);
+
   const totalItems = items.reduce((sum, i) => sum + i.quantity, 0);
   const totalPrice = items.reduce(
     (sum, i) => sum + parseFloat(i.priceAtPurchase) * i.quantity,
@@ -183,6 +190,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
     removeFromCart,
     updateQuantity,
     clearOrderedItems,
+    clearCart,
     totalItems,
     totalPrice,
     openCart,
