@@ -3,9 +3,11 @@
 import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import { useTranslations } from "next-intl";
-import { Link } from "@/i18n/navigation";
+import { Link, usePathname, useRouter } from "@/i18n/navigation";
 import type { ProductCategory } from "@/actions/categories";
 import type { StoreTypeSlug } from "@/lib/preferred-store";
+import { isStrictStoreLanding } from "@/lib/store-nav";
+import { cn } from "@/lib/utils";
 
 interface ShopDrawerProps {
   isOpen: boolean;
@@ -13,6 +15,8 @@ interface ShopDrawerProps {
   categories: ProductCategory[];
   /** Store whose categories and shop links this drawer shows */
   storeType: StoreTypeSlug;
+  /** Updates which store’s menu is shown when switching tabs (no navigation when not on a landing page). */
+  onActiveStoreChange: (store: StoreTypeSlug) => void;
 }
 
 export function ShopDrawer({
@@ -20,10 +24,22 @@ export function ShopDrawer({
   onClose,
   categories,
   storeType,
+  onActiveStoreChange,
 }: ShopDrawerProps) {
   const [mounted, setMounted] = useState(false);
   const t = useTranslations("Navbar");
+  const pathname = usePathname();
+  const router = useRouter();
   const baseUrl = `/${storeType}/shop`;
+
+  const handleTabSwitch = (targetTab: StoreTypeSlug) => {
+    if (targetTab === storeType) return;
+    onActiveStoreChange(targetTab);
+    // Strict landing only: `/streetwear` or `/formal` (normalized; not `/streetwear/shop`, PDP, etc.)
+    if (isStrictStoreLanding(pathname)) {
+      router.push(`/${targetTab}`);
+    }
+  };
 
   useEffect(() => {
     setMounted(true);
@@ -59,9 +75,40 @@ export function ShopDrawer({
         style={{ boxShadow: "4px 0 24px rgba(0,0,0,0.15)" }}
       >
         <div className="flex items-center justify-between gap-3 border-b border-border p-4 sm:p-6">
-          <span className="min-w-0 truncate text-sm font-semibold uppercase tracking-wider text-foreground">
-            {storeType === "streetwear" ? t("streetwear") : t("formal")}
-          </span>
+          <div
+            className="flex min-w-0 flex-1 items-center gap-1 rounded-md border border-border bg-muted/30 p-1"
+            role="tablist"
+            aria-label={t("drawerStoreTabsAria")}
+          >
+            <button
+              type="button"
+              role="tab"
+              aria-selected={storeType === "streetwear"}
+              onClick={() => handleTabSwitch("streetwear")}
+              className={cn(
+                "min-w-0 flex-1 rounded-sm px-3 py-2 text-center text-xs font-semibold uppercase tracking-wider transition-colors sm:text-sm",
+                storeType === "streetwear"
+                  ? "bg-background text-foreground shadow-sm"
+                  : "text-muted-foreground hover:text-foreground",
+              )}
+            >
+              {t("streetwear")}
+            </button>
+            <button
+              type="button"
+              role="tab"
+              aria-selected={storeType === "formal"}
+              onClick={() => handleTabSwitch("formal")}
+              className={cn(
+                "min-w-0 flex-1 rounded-sm px-3 py-2 text-center text-xs font-semibold uppercase tracking-wider transition-colors sm:text-sm",
+                storeType === "formal"
+                  ? "bg-background text-foreground shadow-sm"
+                  : "text-muted-foreground hover:text-foreground",
+              )}
+            >
+              {t("formal")}
+            </button>
+          </div>
           <button
             type="button"
             onClick={onClose}
