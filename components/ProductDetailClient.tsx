@@ -29,7 +29,7 @@ interface ProductDetailClientProps {
   similarProducts: Product[];
   variantsByProductId: Record<number, ProductVariant[]>;
   wishlistProductIds: number[];
-  /** From URL — used for cart product links */
+  /** From URL — used for bag / product links */
   listStoreType: "streetwear" | "formal";
   productPageAccordionCopy: ProductPageAccordionResolved;
 }
@@ -278,7 +278,7 @@ export function ProductDetailClient({
       setStickyBuyPhase("summary");
       return;
     }
-    // Expand size chips only; cart opens after a size is chosen (see addLineForSize).
+    // Expand size chips only; bag drawer opens after a size is chosen (see addLineForSize).
     setStickyBuyPhase("pickSize");
   };
 
@@ -863,7 +863,7 @@ export function ProductDetailClient({
                 aria-expanded={stickyBuyPhase === "pickSize"}
                 className="rounded-none bg-foreground px-4 py-2.5 text-xs font-bold uppercase tracking-[0.2em] text-background hover:opacity-90 disabled:opacity-40 disabled:cursor-not-allowed whitespace-nowrap"
               >
-                Add to basket
+                Add to bag
               </button>
               <button
                 type="button"

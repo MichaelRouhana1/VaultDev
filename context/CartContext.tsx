@@ -46,13 +46,13 @@ export interface CartItemToClear {
 
 interface CartContextValue {
   items: CartItemDisplay[];
-  /** True after the initial load from localStorage for the current cart key (avoids treating an empty pre-hydration cart as “no items”). */
+  /** True after the initial load from localStorage for the current storage key (avoids treating an empty pre-hydration bag as “no items”). */
   cartHydrated: boolean;
   addToCart: (item: Omit<CartItemDisplay, "sku"> & { sku?: string }) => void;
   removeFromCart: (sku: string) => void;
   updateQuantity: (sku: string, quantity: number) => void;
   clearOrderedItems: (items: CartItemToClear[]) => void;
-  /** Empty the cart and persist to localStorage (e.g. after successful checkout). */
+  /** Empty the bag and persist to localStorage (e.g. after successful checkout). */
   clearCart: () => void;
   totalItems: number;
   totalPrice: number;

@@ -127,7 +127,7 @@ export function Navbar() {
                 Dashboard
               </Link>
             )}
-            {/* Shop - opens drawer like Cart */}
+            {/* Shop - opens drawer like bag */}
             <button
               type="button"
               onClick={() => setShopDrawerOpen(true)}
@@ -210,14 +210,14 @@ export function Navbar() {
                 <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 6a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0zM4.501 20.118a7.5 7.5 0 0114.998 0A17.933 17.933 0 0112 21.75c-2.676 0-5.216-.584-7.499-1.632z" />
               </svg>
             </Link>
-            {/* Cart button - always visible */}
+            {/* Bag button - always visible */}
             <button
               type="button"
               onClick={() => setCartOpen(true)}
               className="flex items-center gap-2 text-foreground hover:opacity-70 transition-opacity"
-              aria-label="View shopping cart"
+              aria-label="View shopping bag"
             >
-              <span className="hidden lg:inline text-sm font-normal">Cart</span>
+              <span className="hidden lg:inline text-sm font-normal">Bag</span>
               <span className="relative">
                 <svg
                   className="w-5 h-5"
@@ -343,7 +343,7 @@ export function Navbar() {
                 }}
                 className="flex items-center gap-3 w-full px-4 py-3 text-sm font-medium text-foreground hover:bg-muted/50 text-left"
                 role="menuitem"
-                aria-label="View shopping cart"
+                aria-label="View shopping bag"
               >
                 <span className="relative">
                   <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth={1.5} viewBox="0 0 24 24">
@@ -355,7 +355,7 @@ export function Navbar() {
                     </span>
                   )}
                 </span>
-                Cart {totalItems > 0 && `(${totalItems})`}
+                Bag {totalItems > 0 && `(${totalItems})`}
               </button>
             </div>
           </div>

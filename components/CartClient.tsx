@@ -13,7 +13,7 @@ import type { Product, ProductColor, ProductVariant } from "@/db/schema";
 
 const FREE_DELIVERY_THRESHOLD = 100;
 
-type Tab = "basket" | "favorites";
+type Tab = "bag" | "favorites";
 
 interface CartClientProps {
   wishlistProducts: Product[];
@@ -33,7 +33,7 @@ export function CartClient({
   const { items, removeFromCart, updateQuantity, totalPrice } = useCart();
   const { isSignedIn } = useAuth();
   const { wishlistIds, hasHydrated } = useWishlist();
-  const [activeTab, setActiveTab] = useState<Tab>("basket");
+  const [activeTab, setActiveTab] = useState<Tab>("bag");
   const [guestWishlistProducts, setGuestWishlistProducts] = useState<Product[]>([]);
   const [guestVariantsByProductId, setGuestVariantsByProductId] = useState<
     Record<number, ProductVariant[]>
@@ -46,6 +46,8 @@ export function CartClient({
     const tab = searchParams.get("tab");
     if (tab === "favorites" || tab === "favourites") {
       setActiveTab("favorites");
+    } else if (tab === "bag" || tab === "basket") {
+      setActiveTab("bag");
     }
   }, [searchParams]);
 
@@ -99,18 +101,18 @@ export function CartClient({
 
   return (
     <div className="w-full max-w-[1400px] mx-auto px-6 py-12">
-      <h1 className="sr-only">Your Cart</h1>
+      <h1 className="sr-only">Your bag</h1>
       {/* Tabs */}
       <div className="flex gap-8 mb-12 border-b border-border">
         <button
           type="button"
-          onClick={() => setActiveTab("basket")}
-          className={`text-sm font-medium uppercase tracking-widest pb-4 -mb-px transition-colors ${activeTab === "basket"
+          onClick={() => setActiveTab("bag")}
+          className={`text-sm font-medium uppercase tracking-widest pb-4 -mb-px transition-colors ${activeTab === "bag"
             ? "text-foreground border-b-2 border-foreground"
             : "text-muted-foreground hover:text-foreground"
             }`}
         >
-          Basket ({items.length})
+          Bag ({items.length})
         </button>
         <button
           type="button"
@@ -124,11 +126,11 @@ export function CartClient({
         </button>
       </div>
 
-      {activeTab === "basket" && (
+      {activeTab === "bag" && (
         <>
           {items.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-16 border border-border">
-              <p className="text-muted-foreground mb-4">Your basket is empty</p>
+              <p className="text-muted-foreground mb-4">Your bag is empty</p>
               <Link
                 href="/shop"
                 className="text-sm font-normal text-foreground border-b border-foreground pb-1 hover:opacity-60"

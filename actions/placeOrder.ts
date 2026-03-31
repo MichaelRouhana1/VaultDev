@@ -49,7 +49,7 @@ const placeOrderSchema = z.object({
   phoneNumber: z.string().min(1, "Phone number is required"),
   addressLine1: z.string().min(1, "Address is required"),
   city: z.string().min(1, "City is required"),
-  items: z.array(cartItemSchema).min(1, "Cart is empty"),
+  items: z.array(cartItemSchema).min(1, "Your bag is empty"),
   promoCode: z.string().trim().optional(),
 });
 

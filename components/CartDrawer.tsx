@@ -57,12 +57,12 @@ export function CartDrawer({ isOpen, onClose }: CartDrawerProps) {
         style={{ boxShadow: "-4px 0 24px rgba(0,0,0,0.15)" }}
       >
         <div className="flex items-center justify-between p-6 border-b border-border">
-          <h2 className="text-xl font-bold text-foreground">Your Cart</h2>
+          <h2 className="text-xl font-bold text-foreground">Your bag</h2>
           <button
             type="button"
             onClick={onClose}
             className="p-2 rounded-none text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
-            aria-label="Close cart"
+            aria-label="Close bag"
           >
             <svg
               className="w-5 h-5"
@@ -96,7 +96,7 @@ export function CartDrawer({ isOpen, onClose }: CartDrawerProps) {
                   d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z"
                 />
               </svg>
-              <p className="font-medium">Your cart is empty</p>
+              <p className="font-medium">Your bag is empty</p>
               <p className="text-sm mt-1">Add items to get started</p>
             </div>
           ) : (
@@ -190,14 +190,14 @@ export function CartDrawer({ isOpen, onClose }: CartDrawerProps) {
             className={`flex w-full items-center justify-between gap-4 text-sm ${items.length > 0 ? "mb-4" : ""}`}
           >
             <Link
-              href="/cart"
+              href="/bag"
               onClick={onClose}
               className="shrink-0 text-muted-foreground hover:text-foreground"
             >
-              View full cart →
+              View full bag →
             </Link>
             <Link
-              href="/cart?tab=favorites"
+              href="/bag?tab=favorites"
               onClick={onClose}
               className="shrink-0 text-right text-muted-foreground hover:text-foreground"
             >

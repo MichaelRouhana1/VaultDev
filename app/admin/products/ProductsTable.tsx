@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useTransition } from "react";
 import {
   useReactTable,
   getCoreRowModel,
@@ -35,7 +35,11 @@ import {
   DialogTitle,
   DialogFooter,
 } from "@/components/ui/dialog";
+import { MoreHorizontal } from "lucide-react";
 import { deleteProduct } from "@/actions/deleteProduct";
+import { forceDeleteProduct } from "@/actions/forceDeleteProduct";
+import { bulkArchiveProducts } from "@/actions/bulkArchiveProducts";
+import { bulkForceDeleteProducts } from "@/actions/bulkForceDeleteProducts";
 import { applyBulkDiscount, removeBulkDiscount, clearExpiredSales } from "@/actions/bulk-discount";
 import { getProductDisplayPrice, isProductOnSale, getProductDiscountPercent } from "@/lib/utils";
 import { toast } from "sonner";
@@ -92,6 +96,13 @@ export function ProductsTable({
   const [isApplying, setIsApplying] = useState(false);
   const [isRemoving, setIsRemoving] = useState(false);
   const [isClearingExpired, setIsClearingExpired] = useState(false);
+  const [rowActionsProduct, setRowActionsProduct] = useState<ProductWithMeta | null>(null);
+  const [forceDeleteTarget, setForceDeleteTarget] = useState<{
+    ids: number[];
+    summary: string;
+  } | null>(null);
+  const [isBulkArchiving, startBulkArchive] = useTransition();
+  const [isForceDeleting, setIsForceDeleting] = useState(false);
 
   const handleSearch = () => {
     const params = new URLSearchParams(searchParams.toString());
@@ -111,7 +122,11 @@ export function ProductsTable({
   };
 
   const handleArchive = async (id: number, name: string) => {
-    if (!confirm(`Archive "${name}"? It will disappear from the storefront but stay in the admin list and order history.`))
+    if (
+      !confirm(
+        `Archive "${name}"? It will disappear from the storefront but stay in the admin list and order history.`,
+      )
+    )
       return;
     const archived = await deleteProduct(id);
     if (archived.success === false) {
@@ -119,7 +134,68 @@ export function ProductsTable({
       return;
     }
     toast.success("Product archived");
+    setRowSelection((prev) => {
+      const next = { ...prev };
+      delete next[String(id)];
+      return next;
+    });
     router.refresh();
+  };
+
+  const handleBulkArchive = () => {
+    if (selectedCount === 0) return;
+    if (
+      !confirm(
+        `Archive ${selectedCount} product${selectedCount !== 1 ? "s" : ""}? They will be hidden from the storefront.`,
+      )
+    )
+      return;
+    startBulkArchive(async () => {
+      const res = await bulkArchiveProducts(selectedIds);
+      if (res.success === false) {
+        toast.error(res.error);
+        return;
+      }
+      toast.success(`Archived ${res.archived} product(s)`);
+      setRowSelection({});
+      router.refresh();
+    });
+  };
+
+  const openForceDeleteDialog = (ids: number[], summary: string) => {
+    setForceDeleteTarget({ ids, summary });
+  };
+
+  const runForceDelete = async () => {
+    if (!forceDeleteTarget) return;
+    const { ids } = forceDeleteTarget;
+    setForceDeleteTarget(null);
+    setIsForceDeleting(true);
+    try {
+      if (ids.length === 1) {
+        const res = await forceDeleteProduct(ids[0]!);
+        if (res.success === false) {
+          toast.error(res.error);
+          return;
+        }
+        toast.success("Product permanently deleted");
+      } else {
+        const res = await bulkForceDeleteProducts(ids);
+        if (res.success === false) {
+          toast.error(res.error);
+          return;
+        }
+        toast.success(`Permanently deleted ${res.deleted} product(s)`);
+      }
+      setRowSelection((prev) => {
+        const next = { ...prev };
+        for (const id of ids) delete next[String(id)];
+        return next;
+      });
+      router.refresh();
+    } finally {
+      setIsForceDeleting(false);
+    }
   };
 
   const selectedIds = Object.keys(rowSelection)
@@ -333,24 +409,21 @@ export function ProductsTable({
       cell: ({ row }) => {
         const p = row.original;
         return (
-          <div className="text-right">
+          <div className="flex items-center justify-end gap-2">
             <Link
               href={`/admin/products/${p.id}/edit`}
-              className="text-foreground hover:underline mr-4"
+              className="text-foreground hover:underline text-sm"
             >
               Edit
             </Link>
-            {p.isArchived ? (
-              <span className="text-xs text-muted-foreground">Archived</span>
-            ) : (
-              <button
-                type="button"
-                onClick={() => handleArchive(p.id, p.name)}
-                className="text-destructive hover:underline"
-              >
-                Archive
-              </button>
-            )}
+            <button
+              type="button"
+              onClick={() => setRowActionsProduct(p)}
+              className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-border text-foreground hover:bg-muted"
+              aria-label={`More actions for ${p.name}`}
+            >
+              <MoreHorizontal className="h-4 w-4" />
+            </button>
           </div>
         );
       },
@@ -407,18 +480,39 @@ export function ProductsTable({
       </div>
 
       {selectedCount > 0 && (
-        <div className="flex items-center justify-between gap-4 p-4 bg-muted/50 rounded-lg border border-border">
+        <div className="flex flex-col gap-3 p-4 bg-muted/50 rounded-lg border border-border sm:flex-row sm:items-center sm:justify-between">
           <span className="text-sm font-medium">
-            {selectedCount} product{selectedCount !== 1 ? "s" : ""} selected
+            {selectedCount} selected
           </span>
-          <div className="flex gap-2">
+          <div className="flex flex-wrap gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleBulkArchive}
+              disabled={isBulkArchiving}
+            >
+              {isBulkArchiving ? "Archiving…" : "Archive selected"}
+            </Button>
+            <Button
+              variant="destructive"
+              size="sm"
+              onClick={() =>
+                openForceDeleteDialog(
+                  selectedIds,
+                  `${selectedCount} product${selectedCount !== 1 ? "s" : ""}`,
+                )
+              }
+              disabled={isForceDeleting}
+            >
+              Force delete selected
+            </Button>
             <Button
               variant="destructive"
               size="sm"
               onClick={handleRemoveDiscount}
               disabled={isRemoving}
             >
-              {isRemoving ? "Removing…" : "Remove Discount"}
+              {isRemoving ? "Removing…" : "Remove discount"}
             </Button>
             <Button
               variant="default"
@@ -426,7 +520,7 @@ export function ProductsTable({
               onClick={() => setDiscountModalOpen(true)}
               disabled={isApplying}
             >
-              Apply Discount
+              Apply discount
             </Button>
           </div>
         </div>
@@ -480,6 +574,81 @@ export function ProductsTable({
           </tbody>
         </table>
       </div>
+
+      <Dialog
+        open={rowActionsProduct != null}
+        onOpenChange={(open) => !open && setRowActionsProduct(null)}
+      >
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Product actions</DialogTitle>
+          </DialogHeader>
+          {rowActionsProduct && (
+            <div className="flex flex-col gap-2 py-2">
+              <p className="text-sm text-muted-foreground line-clamp-2">{rowActionsProduct.name}</p>
+              {!rowActionsProduct.isArchived ? (
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="w-full justify-center"
+                  onClick={() => {
+                    const p = rowActionsProduct;
+                    setRowActionsProduct(null);
+                    void handleArchive(p.id, p.name);
+                  }}
+                >
+                  Archive
+                </Button>
+              ) : (
+                <p className="text-xs text-muted-foreground">This product is already archived.</p>
+              )}
+              <Button
+                type="button"
+                variant="destructive"
+                className="w-full justify-center"
+                onClick={() => {
+                  const p = rowActionsProduct;
+                  setRowActionsProduct(null);
+                  openForceDeleteDialog([p.id], `"${p.name}"`);
+                }}
+              >
+                Force delete…
+              </Button>
+              <Button type="button" variant="ghost" className="w-full" onClick={() => setRowActionsProduct(null)}>
+                Close
+              </Button>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      <Dialog
+        open={forceDeleteTarget != null}
+        onOpenChange={(open) => !open && setForceDeleteTarget(null)}
+      >
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Permanently delete {forceDeleteTarget?.summary ?? ""}?</DialogTitle>
+          </DialogHeader>
+          <p className="text-sm text-muted-foreground">
+            This cannot be undone. All variants, colours, and linked data that cascade will be removed. Products
+            that appear on past orders cannot be deleted.
+          </p>
+          <DialogFooter className="gap-2 sm:gap-0">
+            <Button type="button" variant="outline" onClick={() => setForceDeleteTarget(null)}>
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              variant="destructive"
+              onClick={() => void runForceDelete()}
+              disabled={isForceDeleting}
+            >
+              {isForceDeleting ? "Deleting…" : "Delete permanently"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <Dialog open={discountModalOpen} onOpenChange={setDiscountModalOpen}>
         <DialogContent>

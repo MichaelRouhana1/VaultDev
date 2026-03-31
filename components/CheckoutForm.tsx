@@ -47,16 +47,16 @@ function placeOrderAction(
 ): Promise<{ error?: string; orderId?: number }> {
   const itemsJson = formData.get("items") as string;
   if (!itemsJson) {
-    return Promise.resolve({ error: "Cart is empty" });
+    return Promise.resolve({ error: "Your bag is empty" });
   }
   let items: CartItem[];
   try {
     items = JSON.parse(itemsJson) as CartItem[];
   } catch {
-    return Promise.resolve({ error: "Invalid cart data" });
+    return Promise.resolve({ error: "Invalid bag data" });
   }
   if (!Array.isArray(items) || items.length === 0) {
-    return Promise.resolve({ error: "Cart is empty" });
+    return Promise.resolve({ error: "Your bag is empty" });
   }
   const promoCode = (formData.get("promoCode") as string)?.trim() || undefined;
   const clerkUserId = (formData.get("clerkUserId") as string)?.trim() || undefined;
@@ -107,7 +107,7 @@ export function CheckoutForm() {
   useEffect(() => {
     if (!cartHydrated || state?.orderId) return;
     if (items.length === 0) {
-      router.replace("/cart");
+      router.replace("/bag");
     }
   }, [cartHydrated, items.length, state?.orderId, router]);
 
@@ -119,7 +119,7 @@ export function CheckoutForm() {
     return (
       <div className="flex min-h-[240px] items-center justify-center text-muted-foreground">
         <Loader2 className="size-8 animate-spin" aria-hidden />
-        <span className="sr-only">Loading cart…</span>
+        <span className="sr-only">Loading your bag…</span>
       </div>
     );
   }
@@ -238,7 +238,7 @@ export function CheckoutForm() {
         <Card>
           <CardHeader>
             <CardTitle>Order summary</CardTitle>
-            <CardDescription>{displayItems.length} item(s) in your cart</CardDescription>
+            <CardDescription>{displayItems.length} item(s) in your bag</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             <ul className="space-y-4">

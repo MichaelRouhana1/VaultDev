@@ -18,7 +18,7 @@ import { WishlistBookmarkIcon } from "@/components/WishlistBookmarkIcon";
 
 const DEFAULT_SIZES = ["XS", "S", "M", "L", "XL"];
 
-/** PDP URL segment when not inferrable from pathname (e.g. /cart). */
+/** PDP URL segment when not inferrable from pathname (e.g. /bag). */
 function storeTypeForProductUrl(product: Pick<Product, "storeType">): "streetwear" | "formal" {
   if (product.storeType === "formal") return "formal";
   return "streetwear";
