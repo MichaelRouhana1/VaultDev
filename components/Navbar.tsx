@@ -1,8 +1,8 @@
 "use client";
 
-import { useState, useEffect, useMemo, type MouseEvent } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useLocale, useTranslations } from "next-intl";
-import { Link, usePathname } from "@/i18n/navigation";
+import { Link, usePathname, useRouter } from "@/i18n/navigation";
 import { useParams } from "next/navigation";
 import { UserButton, useAuth } from "@clerk/nextjs";
 import { useTheme } from "next-themes";
@@ -18,7 +18,7 @@ import {
 } from "@/lib/clerk-auth-appearance";
 import type { ProductCategory } from "@/actions/categories";
 import type { StoreTypeSlug } from "@/lib/preferred-store";
-import { isInStoreSection } from "@/lib/store-nav";
+import { isStrictStoreLanding, storeSectionFromPathname } from "@/lib/store-nav";
 import { cn } from "@/lib/utils";
 
 function activeStoreFromRoute(
@@ -36,6 +36,7 @@ export function Navbar() {
   const t = useTranslations("Navbar");
   const tCommon = useTranslations("Common");
   const pathname = usePathname();
+  const router = useRouter();
   const locale = useLocale();
   const params = useParams<{ storeType?: string }>();
   const { sessionClaims } = useAuth();
@@ -60,10 +61,15 @@ export function Navbar() {
     };
   }, [userButtonThemeReady, resolvedTheme]);
   const [cartOpen, setCartOpen] = useState(false);
-  const [shopDrawerOpen, setShopDrawerOpen] = useState(false);
-  const [shopDrawerStore, setShopDrawerStore] = useState<StoreTypeSlug | null>(null);
+  /** Shared drawer state (Navbar is the single owner; ShopDrawer is controlled). */
+  const [isDrawerOpen, setIsDrawerOpen] = useState(false);
+  const [drawerStoreType, setDrawerStoreType] = useState<StoreTypeSlug | null>(null);
   const [drawerCategories, setDrawerCategories] = useState<ProductCategory[]>([]);
   const [burgerOpen, setBurgerOpen] = useState(false);
+
+  const storeType = pathname?.split("/").filter(Boolean)[0];
+  const isStoreType = storeType === "streetwear" || storeType === "formal";
+  const activeStore = activeStoreFromRoute(params.storeType, pathname);
 
   const toggleTheme = () => {
     setTheme(theme === "dark" ? "light" : "dark");
@@ -74,36 +80,33 @@ export function Navbar() {
   }, [setOpenCart]);
 
   useEffect(() => {
-    if (!shopDrawerOpen || !shopDrawerStore) return;
-    void getStoreCategories(shopDrawerStore).then(setDrawerCategories);
-  }, [shopDrawerOpen, shopDrawerStore]);
+    if (!isDrawerOpen || !drawerStoreType) return;
+    void getStoreCategories(drawerStoreType).then(setDrawerCategories);
+  }, [isDrawerOpen, drawerStoreType]);
 
-  const openShopDrawer = (store: StoreTypeSlug) => {
-    setShopDrawerStore(store);
-    setShopDrawerOpen(true);
-  };
+  useEffect(() => {
+    router.prefetch("/streetwear");
+    router.prefetch("/formal");
+  }, [router]);
 
   const closeShopDrawer = () => {
-    setShopDrawerOpen(false);
+    setIsDrawerOpen(false);
   };
 
-  const handleStreetwearHeaderClick = (e: MouseEvent<HTMLAnchorElement>) => {
-    if (isInStoreSection(pathname, "streetwear")) {
-      e.preventDefault();
+  const handleHeaderSectionClick = (clickedSection: StoreTypeSlug) => {
+    const currentStoreType = activeStore;
+    const isStrictlyOnLandingPage =
+      currentStoreType != null &&
+      isStrictStoreLanding(pathname) &&
+      storeSectionFromPathname(pathname) === currentStoreType;
+
+    setDrawerStoreType(clickedSection);
+    setIsDrawerOpen(true);
+
+    if (isStrictlyOnLandingPage && clickedSection !== currentStoreType) {
+      router.push(`/${clickedSection}`);
     }
-    openShopDrawer("streetwear");
   };
-
-  const handleFormalHeaderClick = (e: MouseEvent<HTMLAnchorElement>) => {
-    if (isInStoreSection(pathname, "formal")) {
-      e.preventDefault();
-    }
-    openShopDrawer("formal");
-  };
-
-  const storeType = pathname?.split("/").filter(Boolean)[0];
-  const isStoreType = storeType === "streetwear" || storeType === "formal";
-  const activeStore = activeStoreFromRoute(params.storeType, pathname);
 
   const isAdmin = (sessionClaims?.metadata as { role?: string })?.role === "admin";
 
@@ -111,8 +114,6 @@ export function Navbar() {
   if (pathname?.startsWith("/sign-in") || pathname?.startsWith("/sign-up")) return null;
   if (pathname === "/") return null;
 
-  const streetwearHref = "/streetwear";
-  const formalHref = "/formal";
   const vaultHref =
     activeStore === "streetwear" ? "/streetwear" : activeStore === "formal" ? "/formal" : "/";
 
@@ -122,6 +123,12 @@ export function Navbar() {
       activeStore === slug
         ? "font-semibold text-foreground underline decoration-1 underline-offset-4"
         : "font-normal text-foreground/45 hover:text-foreground/80",
+    );
+
+  const storeSectionButtonClass = (slug: StoreTypeSlug) =>
+    cn(
+      storeLinkClass(slug),
+      "cursor-pointer bg-transparent border-0 p-0 font-inherit text-start hover:opacity-100",
     );
 
   return (
@@ -157,19 +164,23 @@ export function Navbar() {
               role="navigation"
               aria-label={t("storeSelectionAria")}
             >
-              <Link
-                href={streetwearHref}
-                onClick={handleStreetwearHeaderClick}
-                className={storeLinkClass("streetwear")}
+              <button
+                type="button"
+                onClick={() => handleHeaderSectionClick("streetwear")}
+                className={storeSectionButtonClass("streetwear")}
               >
                 {t("streetwear")}
-              </Link>
+              </button>
               <span className="text-foreground/25 text-[10px] select-none" aria-hidden>
                 |
               </span>
-              <Link href={formalHref} onClick={handleFormalHeaderClick} className={storeLinkClass("formal")}>
+              <button
+                type="button"
+                onClick={() => handleHeaderSectionClick("formal")}
+                className={storeSectionButtonClass("formal")}
+              >
                 {t("formal")}
-              </Link>
+              </button>
             </div>
           </div>
 
@@ -275,40 +286,34 @@ export function Navbar() {
                 role="navigation"
                 aria-label={t("storeSelectionAria")}
               >
-                <Link
-                  href={streetwearHref}
-                  onClick={(e) => {
-                    if (isInStoreSection(pathname, "streetwear")) {
-                      e.preventDefault();
-                    }
-                    openShopDrawer("streetwear");
+                <button
+                  type="button"
+                  onClick={() => {
+                    handleHeaderSectionClick("streetwear");
                     setBurgerOpen(false);
                   }}
                   className={cn(
-                    "flex items-center gap-3 px-4 py-3 text-sm font-medium text-foreground hover:bg-muted/50 rounded-none",
+                    "flex w-full items-center gap-3 px-4 py-3 text-sm font-medium text-foreground hover:bg-muted/50 rounded-none text-start",
                     activeStore === "streetwear" && "bg-muted/30",
                   )}
                   role="menuitem"
                 >
                   {t("streetwear")}
-                </Link>
-                <Link
-                  href={formalHref}
-                  onClick={(e) => {
-                    if (isInStoreSection(pathname, "formal")) {
-                      e.preventDefault();
-                    }
-                    openShopDrawer("formal");
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    handleHeaderSectionClick("formal");
                     setBurgerOpen(false);
                   }}
                   className={cn(
-                    "flex items-center gap-3 px-4 py-3 text-sm font-medium text-foreground hover:bg-muted/50 rounded-none",
+                    "flex w-full items-center gap-3 px-4 py-3 text-sm font-medium text-foreground hover:bg-muted/50 rounded-none text-start",
                     activeStore === "formal" && "bg-muted/30",
                   )}
                   role="menuitem"
                 >
                   {t("formal")}
-                </Link>
+                </button>
               </div>
               <Link
                 href={isStoreType ? `/${storeType}/shop` : "/shop"}
@@ -378,11 +383,10 @@ export function Navbar() {
       )}
 
       <ShopDrawer
-        isOpen={shopDrawerOpen}
+        isOpen={isDrawerOpen}
         onClose={closeShopDrawer}
         categories={drawerCategories}
-        storeType={shopDrawerStore ?? "streetwear"}
-        onActiveStoreChange={setShopDrawerStore}
+        storeType={drawerStoreType ?? "streetwear"}
       />
       <CartDrawer isOpen={cartOpen} onClose={() => setCartOpen(false)} />
     </nav>
