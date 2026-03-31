@@ -18,7 +18,7 @@ export default async function AdminOrdersPage() {
           <thead>
             <tr className="bg-muted/50">
               <th className="text-left px-4 py-3 font-medium uppercase tracking-wider text-muted-foreground">
-                ID
+                Order
               </th>
               <th className="text-left px-4 py-3 font-medium uppercase tracking-wider text-muted-foreground">
                 Email
@@ -53,7 +53,9 @@ export default async function AdminOrdersPage() {
                   key={order.id}
                   className="border-t border-border hover:bg-muted/30"
                 >
-                  <td className="px-4 py-3">{order.id}</td>
+                  <td className="px-4 py-3 font-mono text-sm tabular-nums">
+                    {order.orderNumber}
+                  </td>
                   <td className="px-4 py-3">
                     {order.guestEmail ?? order.userId ?? "—"}
                   </td>

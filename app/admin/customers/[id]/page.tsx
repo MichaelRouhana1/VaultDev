@@ -78,7 +78,7 @@ export default async function AdminCustomerDetailPage({
           <thead>
             <tr className="bg-muted/50">
               <th className="text-left px-4 py-3 font-medium uppercase tracking-wider text-muted-foreground">
-                Order ID
+                Order
               </th>
               <th className="text-left px-4 py-3 font-medium uppercase tracking-wider text-muted-foreground">
                 Date
@@ -100,9 +100,9 @@ export default async function AdminCustomerDetailPage({
                 <td className="px-4 py-3">
                   <Link
                     href={`/admin/orders/${order.id}`}
-                    className="font-medium hover:underline"
+                    className="font-mono text-sm font-medium tabular-nums hover:underline"
                   >
-                    #{order.id}
+                    {order.orderNumber}
                   </Link>
                 </td>
                 <td className="px-4 py-3 text-muted-foreground">

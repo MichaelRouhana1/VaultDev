@@ -54,10 +54,10 @@ function placeOrderAction(
     promoCode,
   })
     .then((res) => {
-      if (res.success === false && res.error) {
+      if ("success" in res && res.success === false) {
         return { error: res.error };
       }
-      if (!res.orderId) {
+      if (!("orderId" in res) || !res.orderId) {
         return { error: "Order failed" };
       }
       return { orderId: res.orderId };

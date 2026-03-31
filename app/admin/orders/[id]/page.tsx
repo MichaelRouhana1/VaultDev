@@ -4,6 +4,8 @@ import { db } from "@/db";
 import { orders, orderItems, products } from "@/db/schema";
 import { eq } from "drizzle-orm";
 import { UpdateOrderStatus } from "@/components/UpdateOrderStatus";
+import { OrderNumberWithCopy } from "@/components/orders/OrderNumberWithCopy";
+import { orderNumberOrFallback } from "@/lib/order-reference";
 
 export default async function AdminOrderDetailPage({
   params,
@@ -43,7 +45,13 @@ export default async function AdminOrderDetailPage({
       >
         ← Back to orders
       </Link>
-      <h1 className="text-2xl font-bold mb-8">Order #{order.id}</h1>
+      <div className="mb-8 flex flex-wrap items-center gap-3">
+        <h1 className="text-2xl font-bold">Order</h1>
+        <OrderNumberWithCopy
+          orderNumber={orderNumberOrFallback(order.orderNumber, order.id)}
+          monoClassName="text-xl"
+        />
+      </div>
 
       <div className="space-y-6 max-w-2xl">
         <div className="border border-border rounded-md p-6">

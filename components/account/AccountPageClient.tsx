@@ -12,7 +12,8 @@ import { AccountChangePasswordPanel } from "@/components/account/AccountChangePa
 import { DeleteAccountButton } from "@/components/DeleteAccountButton";
 import type { VaultProfileStored } from "@/lib/account-vault-profile";
 import { cn } from "@/lib/utils";
-import { formatOrderReference } from "@/lib/order-reference";
+import { orderNumberOrFallback } from "@/lib/order-reference";
+import { OrderNumberWithCopy } from "@/components/orders/OrderNumberWithCopy";
 import { ChevronDown, Mail, Lock, Package, Trash2 } from "lucide-react";
 
 export type AccountOrderItemDto = {
@@ -25,6 +26,7 @@ export type AccountOrderItemDto = {
 
 export type AccountOrderDto = {
   id: number;
+  orderNumber: string;
   createdAt: string;
   status: string;
   subtotalAmount: string;
@@ -282,9 +284,10 @@ export function AccountPageClient({
                             className="flex w-full items-start gap-3 px-4 py-4 text-left transition-colors hover:bg-muted/40 md:items-center md:gap-4 md:px-5 md:py-5"
                           >
                             <div className="min-w-0 flex-1 space-y-1">
-                              <p className="font-mono text-sm font-bold tabular-nums tracking-tight text-foreground">
-                                {formatOrderReference(order.id)}
-                              </p>
+                              <OrderNumberWithCopy
+                                orderNumber={orderNumberOrFallback(order.orderNumber, order.id)}
+                                className="flex-wrap"
+                              />
                               <p className="text-xs text-muted-foreground">
                                 Placed on{" "}
                                 <time dateTime={order.createdAt}>{placedLabel}</time>

@@ -164,3 +164,27 @@ export function sortSizes(sizes: string[]): string[] {
     return ka.secondary.localeCompare(kb.secondary, undefined, { numeric: true, sensitivity: "base" });
   });
 }
+
+/** Uppercase alphanumerics excluding O, 0, I, 1, L for readable order suffixes. */
+const ORDER_NUMBER_SUFFIX_ALPHABET = "23456789ABCDEFGHJKMNPQRSTUVWXYZ";
+
+/**
+ * Generates a public order reference: `ORD-[YYMMDD]-[4-char suffix]`.
+ * The date segment uses the runtime local calendar date (same as `Date` getters in Node/browser).
+ */
+export function generateOrderNumber(fromDate: Date = new Date()): string {
+  const d = fromDate;
+  const yy = String(d.getFullYear() % 100).padStart(2, "0");
+  const mm = String(d.getMonth() + 1).padStart(2, "0");
+  const dd = String(d.getDate()).padStart(2, "0");
+  const yymmdd = `${yy}${mm}${dd}`;
+
+  const bytes = new Uint8Array(4);
+  globalThis.crypto.getRandomValues(bytes);
+  let suffix = "";
+  for (let i = 0; i < 4; i++) {
+    suffix += ORDER_NUMBER_SUFFIX_ALPHABET[bytes[i]! % ORDER_NUMBER_SUFFIX_ALPHABET.length]!;
+  }
+
+  return `ORD-${yymmdd}-${suffix}`;
+}

@@ -67,6 +67,7 @@ export default async function AccountPage() {
 
       return {
         id: order.id,
+        orderNumber: order.orderNumber,
         createdAt: order.createdAt.toISOString(),
         status: order.status,
         subtotalAmount: toMoney(order.subtotalAmount),

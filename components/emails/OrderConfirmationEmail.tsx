@@ -10,11 +10,12 @@ import {
   Section,
   Text,
 } from "@react-email/components";
-import { formatOrderReference } from "@/lib/order-reference";
+import { orderNumberOrFallback } from "@/lib/order-reference";
 
 export interface OrderConfirmationEmailProps {
   customerName: string;
   orderId: number;
+  orderNumber: string;
   totalAmount: string;
   /** Full URL for guest account activation (optional). */
   activationLink?: string;
@@ -30,13 +31,14 @@ export interface OrderConfirmationEmailProps {
 export function OrderConfirmationEmail({
   customerName,
   orderId,
+  orderNumber,
   totalAmount,
   activationLink,
   showActivationConfigNote,
   addressLine1,
   city,
 }: OrderConfirmationEmailProps) {
-  const orderRef = formatOrderReference(orderId);
+  const orderRef = orderNumberOrFallback(orderNumber, orderId);
   const previewText = `Order ${orderRef} confirmed — thank you for shopping with VAULT`;
 
   return (

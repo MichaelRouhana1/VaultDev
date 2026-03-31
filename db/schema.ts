@@ -274,6 +274,8 @@ export const promoCodes = pgTable("promo_codes", {
 // Orders
 export const orders = pgTable("orders", {
   id: serial("id").primaryKey(),
+  /** Public order reference (e.g. ORD-241026-8A3B); not sequential. */
+  orderNumber: text("order_number").notNull().unique(),
   userId: text("user_id"),
   guestEmail: text("guest_email"),
   customerName: text("customer_name").notNull(),
@@ -291,9 +293,7 @@ export const orders = pgTable("orders", {
   activationToken: text("activation_token"),
   activationTokenExpires: timestamp("activation_token_expires"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
-}, (t) => [
-  index("orders_created_at_idx").on(t.createdAt),
-]);
+}, (t) => [index("orders_created_at_idx").on(t.createdAt)]);
 
 // OrderItems
 export const orderItems = pgTable("order_items", {

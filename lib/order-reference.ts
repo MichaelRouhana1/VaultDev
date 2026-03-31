@@ -9,3 +9,13 @@ export function formatOrderReference(orderId: number): string {
   const n = Math.trunc(orderId);
   return `#${String(n).padStart(6, "0")}`;
 }
+
+/** Prefer public `orderNumber`; legacy rows before backfill fall back to padded id. */
+export function orderNumberOrFallback(
+  orderNumber: string | null | undefined,
+  orderId: number,
+): string {
+  const trimmed = orderNumber?.trim();
+  if (trimmed) return trimmed;
+  return formatOrderReference(orderId);
+}

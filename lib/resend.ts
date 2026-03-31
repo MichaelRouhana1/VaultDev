@@ -18,6 +18,7 @@ export type SendOrderConfirmationParams = {
   to: string;
   customerName: string;
   orderId: number;
+  orderNumber: string;
   totalAmount: string;
   addressLine1: string;
   city: string;
@@ -44,6 +45,7 @@ export async function sendOrderConfirmationEmail(
       OrderConfirmationEmail({
         customerName: params.customerName,
         orderId: params.orderId,
+        orderNumber: params.orderNumber,
         totalAmount: params.totalAmount,
         activationLink: params.activationLink,
         showActivationConfigNote: params.showActivationConfigNote,
@@ -57,7 +59,7 @@ export async function sendOrderConfirmationEmail(
     await resend.emails.send({
       from: fromEmail,
       to: params.to,
-      subject: `Order #${params.orderId} confirmed — VAULT`,
+      subject: `Order ${params.orderNumber} confirmed — VAULT`,
       html,
     });
 

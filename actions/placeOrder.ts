@@ -16,11 +16,10 @@ import {
   notifications,
 } from "@/db/schema";
 import { validatePromoInTransaction } from "@/actions/promo";
-import { getProductDisplayPrice } from "@/lib/utils";
+import { getProductDisplayPrice, getPublicSiteUrl, generateOrderNumber } from "@/lib/utils";
 import { checkPlaceOrderLimit } from "@/lib/rate-limit";
 import { logger } from "@/lib/logger";
 import { sendOrderConfirmationEmail } from "@/lib/resend";
-import { getPublicSiteUrl } from "@/lib/utils";
 import {
   ACTIVATION_ORDER_ID_COOKIE,
   ACTIVATION_TOKEN_COOKIE,
@@ -28,6 +27,11 @@ import {
 } from "@/lib/order-activation-cookies";
 
 const DEFAULT_SHIPPING_FEE = 5;
+
+function isPostgresUniqueViolation(error: unknown): boolean {
+  const e = error as { code?: string };
+  return e.code === "23505";
+}
 
 const cartItemSchema = z.object({
   productId: z.coerce.number(),
@@ -54,7 +58,10 @@ export type PlaceOrderInput = z.infer<typeof placeOrderSchema>;
 
 export async function placeOrder(
   input: PlaceOrderInput,
-): Promise<{ orderId?: number; success?: boolean; error?: string }> {
+): Promise<
+  | { success: false; error: string }
+  | { orderId: number; orderNumber: string }
+> {
   const headersList = await headers();
   const ip = headersList.get("x-forwarded-for")?.split(",")[0]?.trim() ?? headersList.get("x-real-ip") ?? "unknown";
   const identifier = input.userId ?? input.guestEmail ?? ip;
@@ -230,36 +237,53 @@ export async function placeOrder(
 
     const totalAmount = Math.max(0, subtotalAmount - discountAmount + shippingFee);
 
-    const [order] = await tx
-      .insert(orders)
-      .values({
-        userId: userId ?? null,
-        guestEmail,
-        customerName,
-        phoneNumber,
-        addressLine1,
-        city,
-        subtotalAmount: subtotalAmount.toFixed(2),
-        discountAmount: discountAmount.toFixed(2),
-        shippingFee: shippingFee.toFixed(2),
-        totalAmount: totalAmount.toFixed(2),
-        promoCodeId,
-        status: "PENDING",
-        paymentMethod,
-        activationToken,
-        activationTokenExpires,
-      })
-      .returning({ id: orders.id });
+    let order: { id: number; orderNumber: string } | undefined;
+    for (let attempt = 0; attempt < 8; attempt++) {
+      const orderNumber = generateOrderNumber();
+      try {
+        const [row] = await tx
+          .insert(orders)
+          .values({
+            orderNumber,
+            userId: userId ?? null,
+            guestEmail,
+            customerName,
+            phoneNumber,
+            addressLine1,
+            city,
+            subtotalAmount: subtotalAmount.toFixed(2),
+            discountAmount: discountAmount.toFixed(2),
+            shippingFee: shippingFee.toFixed(2),
+            totalAmount: totalAmount.toFixed(2),
+            promoCodeId,
+            status: "PENDING",
+            paymentMethod,
+            activationToken,
+            activationTokenExpires,
+          })
+          .returning({ id: orders.id, orderNumber: orders.orderNumber });
+
+        if (row) {
+          order = row;
+          break;
+        }
+      } catch (e) {
+        if (isPostgresUniqueViolation(e)) {
+          continue;
+        }
+        throw e;
+      }
+    }
+
+    if (!order) {
+      throw new Error("Could not assign a unique order number; please try again.");
+    }
 
     if (promoCodeId != null) {
       await tx
         .update(promoCodes)
         .set({ currentUses: sql`${promoCodes.currentUses} + 1` })
         .where(eq(promoCodes.id, promoCodeId));
-    }
-
-    if (!order) {
-      throw new Error("Failed to create order");
     }
 
     const orderItemsToInsert = items.map((item) => {
@@ -279,6 +303,7 @@ export async function placeOrder(
 
     return {
       orderId: order.id,
+      orderNumber: order.orderNumber,
       totalAmount: totalAmount.toFixed(2),
       guestEmail,
       activationToken,
@@ -304,6 +329,7 @@ export async function placeOrder(
       to: emailTo,
       customerName,
       orderId: orderResult.orderId,
+      orderNumber: orderResult.orderNumber,
       totalAmount: orderResult.totalAmount,
       addressLine1,
       city,
@@ -314,5 +340,6 @@ export async function placeOrder(
 
   return {
     orderId: orderResult.orderId,
+    orderNumber: orderResult.orderNumber,
   };
 }

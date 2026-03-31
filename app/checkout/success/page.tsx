@@ -22,7 +22,7 @@ import {
   ACTIVATION_TOKEN_COOKIE,
 } from "@/lib/order-activation-cookies";
 import { getValidActivationOrder } from "@/lib/order-activation";
-import { formatOrderReference } from "@/lib/order-reference";
+import { orderNumberOrFallback } from "@/lib/order-reference";
 
 export default async function CheckoutSuccessPage() {
   const cookieStore = await cookies();
@@ -80,6 +80,16 @@ export default async function CheckoutSuccessPage() {
     sessionMissing = true;
   }
 
+  let displayOrderNumber: string | null = null;
+  if (displayOrderId != null) {
+    const [row] = await db
+      .select({ orderNumber: orders.orderNumber })
+      .from(orders)
+      .where(eq(orders.id, displayOrderId))
+      .limit(1);
+    displayOrderNumber = orderNumberOrFallback(row?.orderNumber, displayOrderId);
+  }
+
   if (sessionMissing && displayOrderId == null && guestUpsell == null) {
     return (
       <div className="pt-14">
@@ -104,11 +114,11 @@ export default async function CheckoutSuccessPage() {
       <div className="container mx-auto flex max-w-lg flex-col items-center gap-8 px-4 py-16 text-center">
         <div className="space-y-4">
           <h1 className="text-2xl font-bold">Order confirmed</h1>
-          {displayOrderId != null ? (
+          {displayOrderNumber != null ? (
             <p className="text-muted-foreground">
               Order{" "}
               <strong className="font-mono tracking-tight text-foreground">
-                {formatOrderReference(displayOrderId)}
+                {displayOrderNumber}
               </strong>{" "}
               has been placed successfully.
             </p>
