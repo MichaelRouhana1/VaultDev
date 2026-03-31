@@ -23,8 +23,11 @@ import {
 } from "@/lib/order-activation-cookies";
 import { getValidActivationOrder } from "@/lib/order-activation";
 import { orderNumberOrFallback } from "@/lib/order-reference";
+import { getTranslations } from "next-intl/server";
 
 export default async function CheckoutSuccessPage() {
+  const t = await getTranslations("CheckoutSuccess");
+  const tNav = await getTranslations("Navbar");
   const cookieStore = await cookies();
   const orderIdRaw = cookieStore.get(ACTIVATION_ORDER_ID_COOKIE)?.value;
   const activationKey = cookieStore.get(ACTIVATION_TOKEN_COOKIE)?.value?.trim();
@@ -95,14 +98,11 @@ export default async function CheckoutSuccessPage() {
       <div className="pt-14">
         <div className="container mx-auto flex max-w-lg flex-col items-center gap-8 px-4 py-16 text-center">
           <div className="space-y-4">
-            <h1 className="text-2xl font-bold">Order confirmed</h1>
-            <p className="text-muted-foreground">
-              Session expired or we couldn&apos;t load this confirmation. If you just checked out, open the success
-              page from the same browser, or check your email for your order details.
-            </p>
+            <h1 className="text-2xl font-bold">{t("title")}</h1>
+            <p className="text-muted-foreground">{t("sessionError")}</p>
           </div>
           <Button asChild>
-            <Link href="/">Continue shopping</Link>
+            <Link href="/">{t("continueShopping")}</Link>
           </Button>
         </div>
       </div>
@@ -113,17 +113,15 @@ export default async function CheckoutSuccessPage() {
     <div className="pt-14">
       <div className="container mx-auto flex max-w-lg flex-col items-center gap-8 px-4 py-16 text-center">
         <div className="space-y-4">
-          <h1 className="text-2xl font-bold">Order confirmed</h1>
+          <h1 className="text-2xl font-bold">{t("title")}</h1>
           {displayOrderNumber != null ? (
             <p className="text-muted-foreground">
-              Order{" "}
-              <strong className="font-mono tracking-tight text-foreground">
-                {displayOrderNumber}
-              </strong>{" "}
-              has been placed successfully.
+              {t("orderPrefix")}{" "}
+              <strong className="font-mono tracking-tight text-foreground">{displayOrderNumber}</strong>{" "}
+              {t("orderSuffix")}
             </p>
           ) : (
-            <p className="text-muted-foreground">Your order has been placed successfully.</p>
+            <p className="text-muted-foreground">{t("orderPlacedGeneric")}</p>
           )}
         </div>
 
@@ -137,42 +135,37 @@ export default async function CheckoutSuccessPage() {
         )}
 
         {guestUpsell?.mode === "sign_in" && (
-          <Card className="w-full max-w-md text-left">
+          <Card className="w-full max-w-md text-start">
             <ActivationCookieCleanup />
             <CardHeader>
-              <CardTitle className="text-lg">Track your order</CardTitle>
-              <CardDescription>
-                You already have an account with {guestUpsell.email}. Sign in to see this order in your
-                history—we&apos;ve linked it to your account.
-              </CardDescription>
+              <CardTitle className="text-lg">{t("trackTitle")}</CardTitle>
+              <CardDescription>{t("trackDescription", { email: guestUpsell.email })}</CardDescription>
             </CardHeader>
             <CardFooter>
               <Button asChild className="w-full">
-                <Link href="/sign-in">Sign in</Link>
+                <Link href="/sign-in">{tNav("signIn")}</Link>
               </Button>
             </CardFooter>
           </Card>
         )}
 
         {guestUpsell?.mode === "linked_now" && (
-          <Card className="w-full max-w-md text-left">
+          <Card className="w-full max-w-md text-start">
             <ActivationCookieCleanup />
             <CardHeader>
-              <CardTitle className="text-lg">Order linked</CardTitle>
-              <CardDescription>
-                This order is now on your account ({guestUpsell.email}). You can view it in your order history.
-              </CardDescription>
+              <CardTitle className="text-lg">{t("linkedTitle")}</CardTitle>
+              <CardDescription>{t("linkedDescription", { email: guestUpsell.email })}</CardDescription>
             </CardHeader>
             <CardFooter>
               <Button asChild className="w-full">
-                <Link href="/account">My account</Link>
+                <Link href="/account">{t("myAccount")}</Link>
               </Button>
             </CardFooter>
           </Card>
         )}
 
         <Button asChild variant={guestUpsell ? "outline" : "default"}>
-          <Link href="/">Continue shopping</Link>
+          <Link href="/">{t("continueShopping")}</Link>
         </Button>
       </div>
     </div>

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useLocale, useTranslations } from "next-intl";
 import { useRouter } from "@/i18n/navigation";
 import { SignOutButton, useSession, useUser } from "@clerk/nextjs";
 import { isClerkAPIResponseError, isReverificationCancelledError } from "@clerk/nextjs/errors";
@@ -10,13 +11,13 @@ import { AccountPasswordInput } from "@/components/account/AccountPasswordInput"
 const labelClass =
   "block text-[0.65rem] font-semibold uppercase tracking-[0.2em] text-foreground mb-2";
 
-function clerkErrorMessage(err: unknown): string {
+function clerkErrorMessage(err: unknown, fallback: string): string {
   if (isClerkAPIResponseError(err)) {
     const first = err.errors?.[0];
-    return first?.longMessage ?? first?.message ?? "Something went wrong";
+    return first?.longMessage ?? first?.message ?? fallback;
   }
   if (err instanceof Error) return err.message;
-  return "Something went wrong";
+  return fallback;
 }
 
 function meetsPasswordRules(password: string): boolean {
@@ -33,6 +34,8 @@ type Props = {
 
 export function AccountChangePasswordPanel({ onSuccess }: Props) {
   const router = useRouter();
+  const locale = useLocale();
+  const t = useTranslations("AccountChangePassword");
   const { isLoaded: userLoaded, isSignedIn, user } = useUser();
   const { isLoaded: sessionLoaded, session } = useSession();
   const [currentPassword, setCurrentPassword] = useState("");
@@ -41,19 +44,14 @@ export function AccountChangePasswordPanel({ onSuccess }: Props) {
   const [busy, setBusy] = useState(false);
 
   if (!userLoaded || !sessionLoaded) {
-    return <p className="text-sm text-muted-foreground">Loading…</p>;
+    return <p className="text-sm text-muted-foreground">{t("loading")}</p>;
   }
   if (!isSignedIn || !user) {
-    return <p className="text-sm text-muted-foreground">Sign in to change your password.</p>;
+    return <p className="text-sm text-muted-foreground">{t("signInToChange")}</p>;
   }
 
   if (!user.passwordEnabled) {
-    return (
-      <p className="text-sm leading-relaxed text-muted-foreground">
-        This account doesn’t use an email and password — you signed in another way. There’s no password to change
-        here.
-      </p>
-    );
+    return <p className="text-sm leading-relaxed text-muted-foreground">{t("noPasswordAccount")}</p>;
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -63,23 +61,23 @@ export function AccountChangePasswordPanel({ onSuccess }: Props) {
     const confirm = confirmPassword;
 
     if (!cur) {
-      toast.error("Enter your current password");
+      toast.error(t("toastEnterCurrent"));
       return;
     }
     if (!meetsPasswordRules(next)) {
-      toast.error("New password must be at least 8 characters and include uppercase, lowercase, and a number");
+      toast.error(t("toastRules"));
       return;
     }
     if (next !== confirm) {
-      toast.error("New passwords don’t match");
+      toast.error(t("toastMismatch"));
       return;
     }
     if (next === cur) {
-      toast.error("New password must be different from your current password");
+      toast.error(t("toastSame"));
       return;
     }
     if (!session) {
-      toast.error("No active session. Refresh and try again.");
+      toast.error(t("toastNoSession"));
       return;
     }
 
@@ -95,12 +93,12 @@ export function AccountChangePasswordPanel({ onSuccess }: Props) {
       setCurrentPassword("");
       setNewPassword("");
       setConfirmPassword("");
-      toast.success("Password updated");
+      toast.success(t("toastUpdated"));
       router.refresh();
       onSuccess();
     } catch (err) {
       if (isReverificationCancelledError(err)) return;
-      toast.error(clerkErrorMessage(err));
+      toast.error(clerkErrorMessage(err, t("genericError")));
     } finally {
       setBusy(false);
     }
@@ -112,7 +110,7 @@ export function AccountChangePasswordPanel({ onSuccess }: Props) {
         <div className="space-y-2">
           <AccountPasswordInput
             id="chg-pw-current"
-            label="Current password"
+            label={t("labelCurrent")}
             labelClassName={labelClass}
             value={currentPassword}
             onChange={setCurrentPassword}
@@ -121,38 +119,38 @@ export function AccountChangePasswordPanel({ onSuccess }: Props) {
             disabled={busy}
           />
           <div className="flex flex-col items-end gap-1">
-            <SignOutButton signOutOptions={{ redirectUrl: "/sign-in" }}>
+            <SignOutButton signOutOptions={{ redirectUrl: `/${locale}/sign-in` }}>
               <button
                 type="button"
                 disabled={busy}
                 className="text-[0.65rem] font-semibold uppercase tracking-[0.15em] text-muted-foreground underline-offset-4 transition-colors hover:text-foreground hover:underline disabled:pointer-events-none disabled:opacity-50"
               >
-                Forgot password?
+                {t("forgotPassword")}
               </button>
             </SignOutButton>
-            <p className="max-w-[16rem] text-right text-[0.6rem] leading-snug text-muted-foreground/90">
-              We’ll sign you out so you can request a reset link on the sign-in page.
+            <p className="max-w-[16rem] text-end text-[0.6rem] leading-snug text-muted-foreground/90">
+              {t("forgotHint")}
             </p>
           </div>
         </div>
         <AccountPasswordInput
           id="chg-pw-new"
-          label="New password"
+          label={t("labelNew")}
           labelClassName={labelClass}
           value={newPassword}
           onChange={setNewPassword}
           autoComplete="new-password"
-          placeholder="NEW PASSWORD"
+          placeholder={t("phNew")}
           disabled={busy}
         />
         <AccountPasswordInput
           id="chg-pw-confirm"
-          label="Confirm new password"
+          label={t("labelConfirm")}
           labelClassName={labelClass}
           value={confirmPassword}
           onChange={setConfirmPassword}
           autoComplete="new-password"
-          placeholder="CONFIRM"
+          placeholder={t("phConfirm")}
           disabled={busy}
         />
         <button
@@ -160,7 +158,7 @@ export function AccountChangePasswordPanel({ onSuccess }: Props) {
           disabled={busy}
           className="bg-primary px-10 py-3 text-xs font-semibold uppercase tracking-[0.2em] text-primary-foreground hover:opacity-90 disabled:opacity-50"
         >
-          {busy ? "Updating…" : "Update password"}
+          {busy ? t("submitting") : t("submit")}
         </button>
       </form>
     </div>

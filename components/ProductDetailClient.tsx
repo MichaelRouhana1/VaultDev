@@ -2,6 +2,7 @@
 
 import { useState, useCallback, useRef, useEffect, useMemo } from "react";
 import Image from "next/image";
+import { useTranslations } from "next-intl";
 import { useRouter } from "@/i18n/navigation";
 import { useSearchParams } from "next/navigation";
 import { useCart } from "@/context/CartContext";
@@ -47,6 +48,8 @@ export function ProductDetailClient({
   productPageAccordionCopy,
 }: ProductDetailClientProps) {
   const router = useRouter();
+  const t = useTranslations("ProductDetail");
+  const tCommon = useTranslations("Common");
   const searchParams = useSearchParams();
   const { addToCart, openCart } = useCart();
   const { isInWishlist, hasHydrated, toggleItem } = useWishlist();
@@ -314,14 +317,14 @@ export function ProductDetailClient({
     >
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 lg:gap-20 xl:gap-28 lg:items-start">
         {/* Image gallery */}
-        <div className="flex flex-col gap-4 lg:min-w-0 lg:pr-3 xl:pr-6 2xl:pr-8">
+        <div className="flex flex-col gap-4 lg:min-w-0 lg:pe-3 xl:pe-6 2xl:pe-8">
           {/* Mobile: peek carousel with dots */}
           <div className="md:hidden w-full relative">
             <button
               type="button"
               onClick={handleWishlistClick}
-              className="absolute top-4 right-4 w-10 h-10 z-10 flex items-center justify-center bg-white/90 dark:bg-black/60 text-foreground hover:bg-white dark:hover:bg-black/80 transition-colors rounded-none"
-              aria-label={wishlistState ? "Remove from wishlist" : "Add to wishlist"}
+              className="absolute end-4 top-4 z-10 flex h-10 w-10 items-center justify-center rounded-none bg-white/90 text-foreground transition-colors hover:bg-white dark:bg-black/60 dark:hover:bg-black/80"
+              aria-label={wishlistState ? t("wishlistRemove") : t("wishlistAdd")}
             >
               <WishlistBookmarkIcon active={wishlistState} className="w-5 h-5" />
             </button>
@@ -335,7 +338,7 @@ export function ProductDetailClient({
                   const hasError = imageErrors[idx];
                   const src = !hasError && url ? url : null;
                   return (
-                    <CarouselItem key={idx} className="basis-[80%] min-w-0 shrink-0 grow-0 pl-2 first:pl-0">
+                    <CarouselItem key={idx} className="basis-[80%] min-w-0 shrink-0 grow-0 ps-2 first:ps-0">
                       <div
                         className="relative aspect-[2/3] overflow-hidden bg-muted rounded-sm cursor-pointer transition-transform duration-200 hover:scale-[1.02] active:scale-[0.99]"
                         onClick={() => {
@@ -345,7 +348,7 @@ export function ProductDetailClient({
                         role="button"
                         tabIndex={0}
                         onKeyDown={(e) => e.key === "Enter" && (setLightboxIndex(idx), openLightbox())}
-                        aria-label="View full image"
+                        aria-label={t("viewFullImage")}
                       >
                         {src ? (
                           <Image
@@ -359,7 +362,7 @@ export function ProductDetailClient({
                           />
                         ) : (
                           <div className="flex h-full w-full items-center justify-center text-muted-foreground text-sm">
-                            No image
+                            {t("noImage")}
                           </div>
                         )}
                       </div>
@@ -379,7 +382,7 @@ export function ProductDetailClient({
               role="button"
               tabIndex={0}
               onKeyDown={(e) => e.key === "Enter" && openLightbox()}
-              aria-label="View full image"
+              aria-label={t("viewFullImage")}
             >
               {mainSrc ? (
                 <Image
@@ -393,7 +396,7 @@ export function ProductDetailClient({
                 />
               ) : (
                 <div className="flex h-full w-full items-center justify-center text-muted-foreground">
-                  No image
+                  {t("noImage")}
                 </div>
               )}
 
@@ -401,8 +404,8 @@ export function ProductDetailClient({
               <button
                 type="button"
                 onClick={handleWishlistClick}
-                className="absolute top-4 right-4 w-10 h-10 flex items-center justify-center bg-white/90 dark:bg-black/60 text-foreground hover:bg-white dark:hover:bg-black/80 transition-colors z-10"
-                aria-label={wishlistState ? "Remove from wishlist" : "Add to wishlist"}
+                className="absolute end-4 top-4 z-10 flex h-10 w-10 items-center justify-center bg-white/90 text-foreground transition-colors hover:bg-white dark:bg-black/60 dark:hover:bg-black/80"
+                aria-label={wishlistState ? t("wishlistRemove") : t("wishlistAdd")}
               >
                 <WishlistBookmarkIcon active={wishlistState} className="w-5 h-5" />
               </button>
@@ -415,8 +418,8 @@ export function ProductDetailClient({
                       e.stopPropagation();
                       goToPrevImage();
                     }}
-                    className="absolute left-0 top-1/2 -translate-y-1/2 w-10 h-10 flex items-center justify-center bg-white/80 dark:bg-black/60 text-foreground opacity-0 group-hover:opacity-100 transition-opacity duration-200 hover:bg-white dark:hover:bg-black/80"
-                    aria-label="Previous image"
+                    className="absolute start-0 top-1/2 flex h-10 w-10 -translate-y-1/2 items-center justify-center bg-white/80 text-foreground opacity-0 transition-opacity duration-200 hover:bg-white group-hover:opacity-100 dark:bg-black/60 dark:hover:bg-black/80"
+                    aria-label={t("prevImage")}
                   >
                     <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
@@ -428,8 +431,8 @@ export function ProductDetailClient({
                       e.stopPropagation();
                       goToNextImage();
                     }}
-                    className="absolute right-0 top-1/2 -translate-y-1/2 w-10 h-10 flex items-center justify-center bg-white/80 dark:bg-black/60 text-foreground opacity-0 group-hover:opacity-100 transition-opacity duration-200 hover:bg-white dark:hover:bg-black/80"
-                    aria-label="Next image"
+                    className="absolute end-0 top-1/2 flex h-10 w-10 -translate-y-1/2 items-center justify-center bg-white/80 text-foreground opacity-0 transition-opacity duration-200 hover:bg-white group-hover:opacity-100 dark:bg-black/60 dark:hover:bg-black/80"
+                    aria-label={t("nextImage")}
                   >
                     <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
@@ -445,13 +448,13 @@ export function ProductDetailClient({
                 className="fixed inset-0 z-50 bg-black/90 flex items-center justify-center"
                 aria-modal="true"
                 role="dialog"
-                aria-label="Image gallery"
+                aria-label={t("galleryAria")}
               >
                 <button
                   type="button"
                   onClick={closeLightbox}
-                  className="absolute top-4 right-4 w-10 h-10 flex items-center justify-center text-white/80 hover:text-white transition-colors z-10"
-                  aria-label="Close"
+                  className="absolute end-4 top-4 z-10 flex h-10 w-10 items-center justify-center text-white/80 transition-colors hover:text-white"
+                  aria-label={tCommon("close")}
                 >
                   <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -482,7 +485,7 @@ export function ProductDetailClient({
                           {!hasError && url ? (
                             <Image
                               src={url}
-                              alt={`Thumbnail image ${idx + 1} of ${product.name}`}
+                              alt={t("thumbAlt", { index: idx + 1, name: product.name })}
                               width={64}
                               height={80}
                               className="w-full h-full object-cover"
@@ -538,7 +541,7 @@ export function ProductDetailClient({
                         {imageUrls[lightboxIndex] && !imageErrors[lightboxIndex] ? (
                           <Image
                             src={imageUrls[lightboxIndex]}
-                            alt={`Zoomed image ${lightboxIndex + 1} of ${product.name}`}
+                            alt={t("zoomedAlt", { index: lightboxIndex + 1, name: product.name })}
                             width={1200}
                             height={1600}
                             className={`object-contain select-none pointer-events-none ${lightboxZoomed ? "w-[110%] h-[110%]" : "max-w-full max-h-[85vh]"
@@ -547,7 +550,7 @@ export function ProductDetailClient({
                           />
                         ) : (
                           <div className="w-96 h-96 bg-muted flex items-center justify-center text-muted-foreground">
-                            No image
+                            {t("noImage")}
                           </div>
                         )}
                       </div>
@@ -561,8 +564,8 @@ export function ProductDetailClient({
                             e.stopPropagation();
                             lightboxPrev();
                           }}
-                          className="absolute left-0 top-1/2 -translate-y-1/2 w-12 h-12 flex items-center justify-center text-white/80 hover:text-white transition-colors z-10"
-                          aria-label="Previous image"
+                          className="absolute start-0 top-1/2 z-10 flex h-12 w-12 -translate-y-1/2 items-center justify-center text-white/80 transition-colors hover:text-white"
+                          aria-label={t("prevImage")}
                         >
                           <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
@@ -574,8 +577,8 @@ export function ProductDetailClient({
                             e.stopPropagation();
                             lightboxNext();
                           }}
-                          className="absolute right-0 top-1/2 -translate-y-1/2 w-12 h-12 flex items-center justify-center text-white/80 hover:text-white transition-colors z-10"
-                          aria-label="Next image"
+                          className="absolute end-0 top-1/2 z-10 flex h-12 w-12 -translate-y-1/2 items-center justify-center text-white/80 transition-colors hover:text-white"
+                          aria-label={t("nextImage")}
                         >
                           <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
@@ -590,8 +593,8 @@ export function ProductDetailClient({
                         setLightboxZoomed((z) => !z);
                         requestAnimationFrame(() => lightboxScrollRef.current?.scrollTo(0, 0));
                       }}
-                      className="absolute bottom-0 right-0 w-12 h-12 flex items-center justify-center bg-white/20 hover:bg-white/30 text-white rounded-none z-10 transition-colors"
-                      aria-label={lightboxZoomed ? "Zoom out" : "Zoom in"}
+                      className="absolute bottom-0 end-0 z-10 flex h-12 w-12 items-center justify-center rounded-none bg-white/20 text-white transition-colors hover:bg-white/30"
+                      aria-label={lightboxZoomed ? t("zoomOut") : t("zoomIn")}
                     >
                       {lightboxZoomed ? (
                         <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -625,7 +628,7 @@ export function ProductDetailClient({
                       {!hasError && url ? (
                         <Image
                           src={url}
-                          alt={`Thumbnail image ${position} of ${product.name}`}
+                          alt={t("thumbAlt", { index: position, name: product.name })}
                           fill
                           className="object-cover"
                           onError={() => handleImageError(urlIndex)}
@@ -645,7 +648,7 @@ export function ProductDetailClient({
         </div>
 
         {/* Product info */}
-        <div className="flex flex-col lg:min-w-0 lg:pl-2 xl:pl-6 2xl:pl-8">
+        <div className="flex flex-col lg:min-w-0 lg:ps-2 xl:ps-6 2xl:ps-8">
           <div className="flex items-start justify-between gap-4">
             <h1 className="text-xl font-normal text-foreground uppercase tracking-widest">
               {product.name.toUpperCase()}
@@ -654,7 +657,7 @@ export function ProductDetailClient({
               type="button"
               onClick={handleWishlistClick}
               className="text-muted-foreground hover:text-foreground transition-colors"
-              aria-label={wishlistState ? "Remove from wishlist" : "Add to wishlist"}
+              aria-label={wishlistState ? t("wishlistRemove") : t("wishlistAdd")}
             >
               <WishlistBookmarkIcon active={wishlistState} className="w-5 h-5" />
             </button>
@@ -662,8 +665,8 @@ export function ProductDetailClient({
 
           {colors.length > 1 ? (
             <div className="mt-4">
-              <p className="text-xs font-medium uppercase tracking-widest text-muted-foreground mb-3">
-                Color — {selectedColor?.name ?? ""}
+              <p className="mb-3 text-xs font-medium uppercase tracking-widest text-muted-foreground">
+                {t("colorHeading", { name: selectedColor?.name ?? "" })}
               </p>
               <div className="flex flex-wrap gap-3">
                 {colors.map((c) => {
@@ -679,7 +682,7 @@ export function ProductDetailClient({
                         isSelected ? "border-2 border-foreground" : "border border-border hover:border-foreground/35",
                       )}
                       title={c.name}
-                      aria-label={`Select ${c.name}`}
+                      aria-label={t("selectColorAria", { name: c.name })}
                       aria-pressed={isSelected}
                     >
                       <span
@@ -703,7 +706,7 @@ export function ProductDetailClient({
             <div className="mt-4 aspect-square w-16 h-16 overflow-hidden border border-border">
               <Image
                 src={imageUrls[0]}
-                alt={`Selected color ${selectedColor?.name ?? ""}`.trim()}
+                alt={t("selectedColorAlt", { name: selectedColor?.name ?? "" })}
                 width={64}
                 height={64}
                 className="w-full h-full object-cover"
@@ -723,7 +726,7 @@ export function ProductDetailClient({
           </p>
 
           <div className="mt-8">
-            <p className="text-xs font-medium uppercase tracking-widest text-foreground mb-3">Size</p>
+            <p className="mb-3 text-xs font-medium uppercase tracking-widest text-foreground">{t("size")}</p>
             <div className="flex flex-wrap gap-2">
               {sizes.map((size) => {
                 const inStock = isSizeInStock(size);
@@ -740,7 +743,9 @@ export function ProductDetailClient({
                         ? "bg-foreground text-background"
                         : "border border-border text-foreground hover:border-foreground"
                       }`}
-                    title={!inStock ? "Out of stock" : stock > 0 ? `${stock} in stock` : undefined}
+                    title={
+                      !inStock ? t("outOfStockTitle") : stock > 0 ? t("inStockTitle", { count: stock }) : undefined
+                    }
                   >
                     {size}
                   </button>
@@ -750,7 +755,7 @@ export function ProductDetailClient({
           </div>
 
           {!hasAnyInStock && (
-            <p className="mt-4 text-sm text-destructive">This product is currently out of stock.</p>
+            <p className="mt-4 text-sm text-destructive">{t("allOutOfStock")}</p>
           )}
 
           <button
@@ -759,10 +764,10 @@ export function ProductDetailClient({
             disabled={!canAddToCart}
             className="mt-10 w-full py-5 text-sm font-bold uppercase tracking-widest text-background bg-foreground hover:opacity-90 transition-opacity disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            Add to bag
+            {t("addToBag")}
           </button>
           {!selectedSize && hasAnyInStock && (
-            <p className="mt-2 text-xs text-muted-foreground">Please select a size</p>
+            <p className="mt-2 text-xs text-muted-foreground">{t("selectSizeHint")}</p>
           )}
 
           <ProductDetailAccordion
@@ -778,8 +783,8 @@ export function ProductDetailClient({
           id="similar-items"
           className="mt-24 pt-16 border-t border-border scroll-mt-8"
         >
-          <h2 className="text-sm font-medium text-foreground tracking-[0.2em] uppercase mb-8">
-            Similar Items
+          <h2 className="mb-8 text-sm font-medium uppercase tracking-[0.2em] text-foreground">
+            {t("similarItems")}
           </h2>
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
             {similarProducts.map((p) => (
@@ -833,7 +838,7 @@ export function ProductDetailClient({
                 {selectedColor?.name ?? product.color ?? ""}
               </p>
             </div>
-            <div className="flex flex-wrap items-center gap-2 shrink-0 ml-auto sm:ml-0">
+            <div className="flex shrink-0 flex-wrap items-center gap-2 ms-auto sm:ms-0">
               {stickyBuyPhase === "pickSize" && (
                 <div className="flex flex-wrap items-center gap-1.5">
                   {sizes.map((size) => {
@@ -864,13 +869,13 @@ export function ProductDetailClient({
                 aria-expanded={stickyBuyPhase === "pickSize"}
                 className="rounded-none bg-foreground px-4 py-2.5 text-xs font-bold uppercase tracking-[0.2em] text-background hover:opacity-90 disabled:opacity-40 disabled:cursor-not-allowed whitespace-nowrap"
               >
-                Add to bag
+                {t("addToBag")}
               </button>
               <button
                 type="button"
                 onClick={handleWishlistClick}
-                className="flex h-10 w-10 shrink-0 items-center justify-center text-foreground hover:opacity-70 rounded-none"
-                aria-label={wishlistState ? "Remove from wishlist" : "Add to wishlist"}
+                className="flex h-10 w-10 shrink-0 items-center justify-center rounded-none text-foreground hover:opacity-70"
+                aria-label={wishlistState ? t("wishlistRemove") : t("wishlistAdd")}
               >
                 <WishlistBookmarkIcon active={wishlistState} className="w-5 h-5" />
               </button>

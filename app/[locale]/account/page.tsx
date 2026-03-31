@@ -1,5 +1,5 @@
 import { auth, currentUser } from "@clerk/nextjs/server";
-import { getLocale } from "next-intl/server";
+import { getLocale, getTranslations } from "next-intl/server";
 import { redirect } from "@/i18n/navigation";
 import { eq, desc, asc, inArray } from "drizzle-orm";
 import { db } from "@/db";
@@ -9,6 +9,7 @@ import { parseVaultProfile, type VaultProfileStored } from "@/lib/account-vault-
 
 export default async function AccountPage() {
   const locale = await getLocale();
+  const tAccount = await getTranslations("Account");
   const { userId } = await auth();
   if (!userId) {
     return redirect({ href: "/sign-in", locale });
@@ -24,7 +25,9 @@ export default async function AccountPage() {
   const lastName = user?.lastName ?? "";
   const email = user?.primaryEmailAddress?.emailAddress ?? null;
   const vaultTitle =
-    firstName.trim().length > 0 ? `${firstName.trim()}'s Vault` : "Your Vault";
+    firstName.trim().length > 0
+      ? tAccount("vaultTitleNamed", { name: firstName.trim() })
+      : tAccount("vaultTitleDefault");
 
   const userOrders = await db
     .select()

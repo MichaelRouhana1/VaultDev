@@ -14,6 +14,8 @@ import { Navbar } from "@/components/Navbar";
 import { ThemeProvider } from "@/components/ThemeProvider";
 import { isMosaikLocale } from "@/lib/i18n-locales";
 import { routing } from "@/lib/i18n-routing";
+import { getTranslations } from "next-intl/server";
+import { SiteFooter } from "@/components/storefront/SiteFooter";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -49,6 +51,7 @@ export default async function LocaleLayout({
   setRequestLocale(locale);
 
   const messages = await getMessages();
+  const tLayout = await getTranslations("Layout");
   const headersList = await headers();
   const nonce = headersList.get("x-nonce") || undefined;
   const dir = locale === "ar" ? "rtl" : "ltr";
@@ -72,10 +75,11 @@ export default async function LocaleLayout({
                     href="#main-content"
                     className="sr-only focus:not-sr-only focus:absolute focus:z-[100] focus:p-4 focus:bg-background focus:text-foreground"
                   >
-                    Skip to content
+                    {tLayout("skipToContent")}
                   </a>
                   <Navbar />
                   <div id="main-content">{children}</div>
+                  <SiteFooter />
                   <Toaster richColors position="top-right" />
                 </CartProvider>
               </WishlistProvider>

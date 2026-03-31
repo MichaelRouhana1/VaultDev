@@ -2,6 +2,7 @@
 
 import { useState, useTransition, useEffect, useRef } from "react";
 import Image from "next/image";
+import { useLocale, useTranslations } from "next-intl";
 import { Link } from "@/i18n/navigation";
 import { useRouter } from "@/i18n/navigation";
 import { SignOutButton } from "@clerk/nextjs";
@@ -86,18 +87,6 @@ function orderStatusBadgeClass(status: string): string {
   }
 }
 
-function orderStatusLabel(status: string): string {
-  const s = status.toUpperCase();
-  const map: Record<string, string> = {
-    PENDING: "Pending",
-    PROCESSING: "Processing",
-    SHIPPED: "Shipped",
-    DELIVERED: "Delivered",
-    CANCELLED: "Cancelled",
-  };
-  return map[s] ?? status;
-}
-
 type Props = {
   vaultTitle: string;
   email: string | null;
@@ -116,6 +105,8 @@ export function AccountPageClient({
   orders,
 }: Props) {
   const router = useRouter();
+  const locale = useLocale();
+  const t = useTranslations("Account");
   const [panel, setPanel] = useState<Panel>("purchases");
   const [isSaving, startSave] = useTransition();
   const [expandedOrderId, setExpandedOrderId] = useState<number | null>(null);
@@ -148,9 +139,27 @@ export function AccountPageClient({
 
   const navBtn = (active: boolean) =>
     cn(
-      "text-left text-sm font-medium uppercase tracking-[0.2em] transition-colors py-1",
+      "text-start text-sm font-medium uppercase tracking-[0.2em] transition-colors py-1",
       active ? "text-foreground" : "text-muted-foreground hover:text-foreground",
     );
+
+  const orderStatusLabel = (status: string): string => {
+    const s = status.toUpperCase();
+    switch (s) {
+      case "PENDING":
+        return t("statusPending");
+      case "PROCESSING":
+        return t("statusProcessing");
+      case "SHIPPED":
+        return t("statusShipped");
+      case "DELIVERED":
+        return t("statusDelivered");
+      case "CANCELLED":
+        return t("statusCancelled");
+      default:
+        return status;
+    }
+  };
 
   const handleSave = () => {
     startSave(async () => {
@@ -165,7 +174,7 @@ export function AccountPageClient({
         billingLocality,
       });
       if (res.ok) {
-        toast.success("Saved");
+        toast.success(t("toastSaved"));
         router.refresh();
       } else {
         toast.error(res.error);
@@ -187,15 +196,15 @@ export function AccountPageClient({
             onClick={() => setPanel("details")}
             className="text-[0.65rem] font-semibold uppercase tracking-[0.18em] text-foreground hover:opacity-70"
           >
-            ← Back to personal details
+            {t("backToDetails")}
           </button>
           <h2 className="mt-3 text-lg font-bold uppercase tracking-tight text-foreground lg:mt-3.5 lg:text-xl">
-            {panel === "change-email" ? "Change email address" : "Change password"}
+            {panel === "change-email" ? t("changeEmailHeading") : t("changePasswordHeading")}
           </h2>
           <p className="mt-1.5 text-xs text-muted-foreground lg:mt-2">
             {panel === "change-email"
-              ? `Current: ${email ?? "—"} — add a new address below, verify the code, and it becomes your sign-in email.`
-              : "Use the secure form below. Your password must be at least 8 characters and include uppercase, lowercase, and a number."}
+              ? t("changeEmailIntro", { email: email ?? "—" })
+              : t("changePasswordIntro")}
           </p>
           <div className="mt-5 flex w-full justify-center lg:mt-6">
             <div className="w-full max-w-3xl border border-border bg-card p-3 lg:max-w-4xl lg:p-4">
@@ -216,17 +225,17 @@ export function AccountPageClient({
             </h1>
             <nav className="mt-12 flex flex-col gap-8">
               <button type="button" className={navBtn(panel === "purchases")} onClick={() => setPanel("purchases")}>
-                My purchases
+                {t("navPurchases")}
               </button>
               <button type="button" className={navBtn(panel === "details")} onClick={() => setPanel("details")}>
-                Personal details
+                {t("navDetails")}
               </button>
-              <SignOutButton signOutOptions={{ redirectUrl: "/" }}>
+              <SignOutButton signOutOptions={{ redirectUrl: `/${locale}` }}>
                 <button
                   type="button"
-                  className="text-left text-sm font-semibold uppercase tracking-[0.2em] text-foreground hover:opacity-70"
+                  className="text-start text-sm font-semibold uppercase tracking-[0.2em] text-foreground hover:opacity-70"
                 >
-                  Log out
+                  {t("logOut")}
                 </button>
               </SignOutButton>
             </nav>
@@ -238,23 +247,23 @@ export function AccountPageClient({
               {orders.length === 0 ? (
                 <div className="flex min-h-[320px] flex-col items-center justify-center text-center">
                   <p className="max-w-md text-sm font-semibold uppercase tracking-[0.15em] text-foreground">
-                    You do not have any purchases yet
+                    {t("purchasesEmpty")}
                   </p>
                   <Link
                     href="/streetwear/shop"
                     className="mt-8 bg-primary px-10 py-3 text-xs font-semibold uppercase tracking-[0.2em] text-primary-foreground hover:opacity-90"
                   >
-                    Shop now
+                    {t("shopNow")}
                   </Link>
                 </div>
               ) : (
                 <div className="space-y-10">
                   <div>
                     <h2 className="text-sm font-semibold uppercase tracking-[0.2em] text-foreground">
-                      Order history
+                      {t("orderHistory")}
                     </h2>
-                    <p className="mt-2 max-w-xl text-xs text-muted-foreground leading-relaxed">
-                      View details, line items, and shipping for each order. Select an order to expand.
+                    <p className="mt-2 max-w-xl text-xs leading-relaxed text-muted-foreground">
+                      {t("orderHistoryHint")}
                     </p>
                   </div>
                   <ul className="flex flex-col gap-4">
@@ -289,7 +298,15 @@ export function AccountPageClient({
                               role="button"
                               tabIndex={0}
                               aria-expanded={expanded}
-                              aria-label={`${expanded ? "Collapse" : "Expand"} order ${orderNumberOrFallback(order.orderNumber, order.id)}`}
+                              aria-label={
+                                expanded
+                                  ? t("collapseOrder", {
+                                      id: orderNumberOrFallback(order.orderNumber, order.id),
+                                    })
+                                  : t("expandOrder", {
+                                      id: orderNumberOrFallback(order.orderNumber, order.id),
+                                    })
+                              }
                               className="flex min-w-0 flex-1 cursor-pointer items-start gap-3 text-left outline-none transition-colors hover:opacity-90 focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background md:items-center md:gap-4"
                               onClick={toggleExpanded}
                               onKeyDown={(e) => {
@@ -301,14 +318,14 @@ export function AccountPageClient({
                             >
                               <div className="min-w-0 flex-1 space-y-1">
                                 <p className="text-xs text-muted-foreground">
-                                  Placed on{" "}
+                                  {t("placedOn")}{" "}
                                   <time dateTime={order.createdAt}>{placedLabel}</time>
                                 </p>
                               </div>
                               <div className="flex shrink-0 flex-col items-end gap-2 sm:flex-row sm:items-center sm:gap-4">
-                                <div className="text-right">
+                                <div className="text-end">
                                   <p className="text-[0.65rem] font-semibold uppercase tracking-[0.15em] text-muted-foreground">
-                                    Total
+                                    {t("total")}
                                   </p>
                                   <p className="text-base font-semibold tabular-nums text-foreground">
                                     ${formatUsd(order.totalAmount)}
@@ -344,12 +361,12 @@ export function AccountPageClient({
                                 <div className="space-y-6">
                                   <div>
                                     <h3 className="text-[0.65rem] font-semibold uppercase tracking-[0.2em] text-muted-foreground">
-                                      Items
+                                      {t("items")}
                                     </h3>
                                     <ul className="mt-4 space-y-4">
                                       {items.length === 0 ? (
                                         <li className="text-sm text-muted-foreground">
-                                          No line items recorded for this order.
+                                          {t("noLineItems")}
                                         </li>
                                       ) : (
                                         items.map((item, i) => {
@@ -381,16 +398,18 @@ export function AccountPageClient({
                                                   {item.productName}
                                                 </p>
                                                 <p className="mt-1 text-xs text-muted-foreground">
-                                                  Size {item.size}
+                                                  {t("size")} {item.size}
                                                 </p>
                                                 <div className="mt-2 flex flex-wrap items-baseline gap-x-3 gap-y-1 text-xs text-muted-foreground">
-                                                  <span>Qty: {item.quantity}</span>
+                                                  <span>{t("qty", { count: item.quantity })}</span>
                                                   <span className="tabular-nums">
-                                                    ${formatUsd(item.priceAtPurchase)} each
+                                                    {t("each", {
+                                                      price: `$${formatUsd(item.priceAtPurchase)}`,
+                                                    })}
                                                   </span>
                                                 </div>
                                               </div>
-                                              <div className="shrink-0 text-right">
+                                              <div className="shrink-0 text-end">
                                                 <p className="text-sm font-semibold tabular-nums text-foreground">
                                                   ${formatUsd(String(lineTotal))}
                                                 </p>
@@ -405,7 +424,7 @@ export function AccountPageClient({
                                   <div className="flex flex-col gap-6 border-t border-border/80 pt-6 sm:flex-row sm:justify-between">
                                     <div className="max-w-md space-y-1 text-sm">
                                       <h3 className="text-[0.65rem] font-semibold uppercase tracking-[0.2em] text-muted-foreground">
-                                        Shipping address
+                                        {t("shippingAddress")}
                                       </h3>
                                       <p className="font-medium text-foreground">
                                         {order.shipping?.name ?? "—"}
@@ -417,31 +436,31 @@ export function AccountPageClient({
                                       </p>
                                     </div>
 
-                                    <div className="w-full max-w-xs space-y-2 sm:text-right">
-                                      <h3 className="text-left text-[0.65rem] font-semibold uppercase tracking-[0.2em] text-muted-foreground sm:text-right">
-                                        Summary
+                                    <div className="w-full max-w-xs space-y-2 sm:text-end">
+                                      <h3 className="text-start text-[0.65rem] font-semibold uppercase tracking-[0.2em] text-muted-foreground sm:text-end">
+                                        {t("summary")}
                                       </h3>
                                       <div className="space-y-1.5 text-sm">
                                         <div className="flex justify-between gap-4 tabular-nums">
-                                          <span className="text-muted-foreground">Subtotal</span>
+                                          <span className="text-muted-foreground">{t("subtotal")}</span>
                                           <span>${formatUsd(order.subtotalAmount)}</span>
                                         </div>
                                         {discountNum > 0 && (
                                           <div className="flex justify-between gap-4 tabular-nums text-emerald-700 dark:text-emerald-400">
-                                            <span>Discount</span>
+                                            <span>{t("discount")}</span>
                                             <span>−${formatUsd(order.discountAmount)}</span>
                                           </div>
                                         )}
                                         <div className="flex justify-between gap-4 tabular-nums">
-                                          <span className="text-muted-foreground">Shipping</span>
+                                          <span className="text-muted-foreground">{t("shipping")}</span>
                                           <span>
                                             {shippingNum <= 0
-                                              ? "Free"
+                                              ? t("shippingFree")
                                               : `$${formatUsd(order.shippingFee)}`}
                                           </span>
                                         </div>
                                         <div className="flex justify-between gap-4 border-t border-border pt-2 text-base font-semibold tabular-nums">
-                                          <span>Total</span>
+                                          <span>{t("total")}</span>
                                           <span>${formatUsd(order.totalAmount)}</span>
                                         </div>
                                       </div>
@@ -453,23 +472,21 @@ export function AccountPageClient({
                                       type="button"
                                       onClick={(e) => {
                                         e.stopPropagation();
-                                        window.alert("Tracking is not available for this order yet.");
+                                        window.alert(t("trackingUnavailable"));
                                       }}
                                       className="border border-border bg-background px-4 py-2.5 text-[0.65rem] font-semibold uppercase tracking-[0.15em] text-foreground transition-colors hover:bg-muted"
                                     >
-                                      Track order
+                                      {t("trackOrder")}
                                     </button>
                                     <button
                                       type="button"
                                       onClick={(e) => {
                                         e.stopPropagation();
-                                        window.alert(
-                                          "Please email support from the address on your account for order help.",
-                                        );
+                                        window.alert(t("supportEmailHint"));
                                       }}
                                       className="border border-transparent px-4 py-2.5 text-[0.65rem] font-semibold uppercase tracking-[0.15em] text-muted-foreground underline-offset-4 hover:text-foreground hover:underline"
                                     >
-                                      Contact support
+                                      {t("contactSupport")}
                                     </button>
                                   </div>
                                 </div>
@@ -489,44 +506,44 @@ export function AccountPageClient({
             <div className="max-w-2xl space-y-14">
               <section>
                 <h2 className="text-sm font-semibold uppercase tracking-[0.2em] text-foreground">
-                  Personal details
+                  {t("detailsHeading")}
                 </h2>
                 <div className="mt-8 grid gap-6 sm:grid-cols-2">
                   <div>
                     <label className={labelClass} htmlFor="acct-first">
-                      Name
+                      {t("labelName")}
                     </label>
                     <input
                       id="acct-first"
                       className={inputClass}
                       value={firstName}
                       onChange={(e) => setFirstName(e.target.value)}
-                      placeholder="NAME"
+                      placeholder={t("phName")}
                       autoComplete="given-name"
                     />
                   </div>
                   <div>
                     <label className={labelClass} htmlFor="acct-last">
-                      Surname
+                      {t("labelSurname")}
                     </label>
                     <input
                       id="acct-last"
                       className={inputClass}
                       value={lastName}
                       onChange={(e) => setLastName(e.target.value)}
-                      placeholder="SURNAME"
+                      placeholder={t("phSurname")}
                       autoComplete="family-name"
                     />
                   </div>
                 </div>
                 <div className="mt-6">
-                  <label className={labelClass}>Telephone</label>
+                  <label className={labelClass}>{t("labelTelephone")}</label>
                   <div className="flex gap-2">
                     <select
                       className={cn(inputClass, "w-[100px] shrink-0 cursor-pointer")}
                       value={phoneCountryCode}
                       onChange={(e) => setPhoneCountryCode(e.target.value)}
-                      aria-label="Country code"
+                      aria-label={t("countryCodeAria")}
                     >
                       {COUNTRY_CODES.map((c) => (
                         <option key={c.value} value={c.value}>
@@ -538,7 +555,7 @@ export function AccountPageClient({
                       className={inputClass}
                       value={phoneNumber}
                       onChange={(e) => setPhoneNumber(e.target.value)}
-                      placeholder="TELEPHONE"
+                      placeholder={t("phTelephone")}
                       autoComplete="tel-national"
                     />
                   </div>
@@ -547,24 +564,24 @@ export function AccountPageClient({
 
               <section>
                 <h2 className="text-sm font-semibold uppercase tracking-[0.2em] text-foreground">
-                  Billing address
+                  {t("billingHeading")}
                 </h2>
                 <div className="mt-8 space-y-6">
                   <div>
                     <label className={labelClass} htmlFor="acct-street">
-                      Street and number
+                      {t("labelStreet")}
                     </label>
                     <input
                       id="acct-street"
                       className={inputClass}
                       value={billingStreet}
                       onChange={(e) => setBillingStreet(e.target.value)}
-                      placeholder="STREET AND NUMBER"
+                      placeholder={t("phStreet")}
                     />
                   </div>
                   <div>
                     <label className={labelClass} htmlFor="acct-stair">
-                      Stairway, floor…
+                      {t("labelStairway")}
                     </label>
                     <div className="relative">
                       <input
@@ -573,9 +590,9 @@ export function AccountPageClient({
                         value={billingStairway}
                         maxLength={15}
                         onChange={(e) => setBillingStairway(e.target.value)}
-                        placeholder="STAIRWAY, FLOOR…"
+                        placeholder={t("phStairway")}
                       />
-                      <span className="pointer-events-none absolute bottom-2 right-3 text-[0.65rem] text-muted-foreground">
+                      <span className="pointer-events-none absolute bottom-2 end-3 text-[0.65rem] text-muted-foreground">
                         {billingStairway.length}/15
                       </span>
                     </div>
@@ -583,7 +600,7 @@ export function AccountPageClient({
                   <div className="grid gap-6 sm:grid-cols-2">
                     <div>
                       <label className={labelClass} htmlFor="acct-district">
-                        District
+                        {t("labelDistrict")}
                       </label>
                       <select
                         id="acct-district"
@@ -591,19 +608,19 @@ export function AccountPageClient({
                         value={billingDistrict}
                         onChange={(e) => setBillingDistrict(e.target.value)}
                       >
-                        <option value="">Select district</option>
-                        <option value="Beirut">Beirut</option>
-                        <option value="Mount Lebanon">Mount Lebanon</option>
-                        <option value="North">North</option>
-                        <option value="South">South</option>
-                        <option value="Nabatieh">Nabatieh</option>
-                        <option value="Bekaa">Bekaa</option>
-                        <option value="Other">Other</option>
+                        <option value="">{t("selectDistrict")}</option>
+                        <option value="Beirut">{t("districtBeirut")}</option>
+                        <option value="Mount Lebanon">{t("districtMountLebanon")}</option>
+                        <option value="North">{t("districtNorth")}</option>
+                        <option value="South">{t("districtSouth")}</option>
+                        <option value="Nabatieh">{t("districtNabatieh")}</option>
+                        <option value="Bekaa">{t("districtBekaa")}</option>
+                        <option value="Other">{t("districtOther")}</option>
                       </select>
                     </div>
                     <div>
                       <label className={labelClass} htmlFor="acct-locality">
-                        Locality
+                        {t("labelLocality")}
                       </label>
                       <select
                         id="acct-locality"
@@ -611,14 +628,14 @@ export function AccountPageClient({
                         value={billingLocality}
                         onChange={(e) => setBillingLocality(e.target.value)}
                       >
-                        <option value="">Select locality</option>
-                        <option value="Beirut">Beirut</option>
-                        <option value="Tripoli">Tripoli</option>
-                        <option value="Sidon">Sidon</option>
-                        <option value="Tyre">Tyre</option>
-                        <option value="Zahle">Zahle</option>
-                        <option value="Jounieh">Jounieh</option>
-                        <option value="Other">Other</option>
+                        <option value="">{t("selectLocality")}</option>
+                        <option value="Beirut">{t("localityBeirut")}</option>
+                        <option value="Tripoli">{t("localityTripoli")}</option>
+                        <option value="Sidon">{t("localitySidon")}</option>
+                        <option value="Tyre">{t("localityTyre")}</option>
+                        <option value="Zahle">{t("localityZahle")}</option>
+                        <option value="Jounieh">{t("localityJounieh")}</option>
+                        <option value="Other">{t("localityOther")}</option>
                       </select>
                     </div>
                   </div>
@@ -627,7 +644,7 @@ export function AccountPageClient({
 
               <section>
                 <h2 className="text-sm font-semibold uppercase tracking-[0.2em] text-foreground">
-                  Account information
+                  {t("accountInfoHeading")}
                 </h2>
                 <ul className="mt-6 divide-y divide-border border-t border-border">
                   <li className="flex items-center gap-4 py-5">
@@ -640,25 +657,25 @@ export function AccountPageClient({
                       onClick={() => setPanel("change-email")}
                       className="shrink-0 text-xs font-semibold uppercase tracking-widest underline underline-offset-4 hover:opacity-70"
                     >
-                      Change
+                      {t("change")}
                     </button>
                   </li>
                   <li className="flex items-center gap-4 py-5">
                     <Lock className="h-5 w-5 shrink-0 text-foreground" strokeWidth={1.25} aria-hidden />
                     <span className="flex-1 text-sm font-semibold uppercase tracking-wide text-foreground">
-                      Password
+                      {t("password")}
                     </span>
                     <button
                       type="button"
                       onClick={() => setPanel("change-password")}
                       className="shrink-0 text-xs font-semibold uppercase tracking-widest underline underline-offset-4 hover:opacity-70"
                     >
-                      Change
+                      {t("change")}
                     </button>
                   </li>
                   <li className="flex items-center gap-4 py-5">
                     <Trash2 className="h-5 w-5 shrink-0 text-destructive" strokeWidth={1.25} aria-hidden />
-                    <DeleteAccountButton variant="link" label="Delete account" className="text-destructive" />
+                    <DeleteAccountButton variant="link" label={t("deleteAccount")} className="text-destructive" />
                   </li>
                 </ul>
               </section>
@@ -669,7 +686,7 @@ export function AccountPageClient({
                 disabled={isSaving}
                 className="bg-primary px-14 py-3 text-xs font-semibold uppercase tracking-[0.2em] text-primary-foreground hover:opacity-90 disabled:opacity-50"
               >
-                {isSaving ? "Saving…" : "Save"}
+                {isSaving ? t("saving") : t("save")}
               </button>
             </div>
           )}

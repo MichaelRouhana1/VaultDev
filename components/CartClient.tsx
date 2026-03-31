@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { useTranslations } from "next-intl";
 import { Link } from "@/i18n/navigation";
 import Image from "next/image";
 import { useRouter } from "@/i18n/navigation";
@@ -30,6 +31,7 @@ export function CartClient({
   wishlistColorsByProductId,
 }: CartClientProps) {
   const router = useRouter();
+  const t = useTranslations("Bag");
   const searchParams = useSearchParams();
   const { items, removeFromCart, updateQuantity, totalPrice } = useCart();
   const { isSignedIn } = useAuth();
@@ -101,42 +103,45 @@ export function CartClient({
   };
 
   return (
-    <div className="w-full max-w-[1400px] mx-auto px-6 py-12">
-      <h1 className="sr-only">Your bag</h1>
-      {/* Tabs */}
-      <div className="flex gap-8 mb-12 border-b border-border">
+    <div className="mx-auto w-full max-w-[1400px] px-6 py-12">
+      <h1 className="sr-only">{t("srTitle")}</h1>
+      <div className="mb-12 flex gap-8 border-b border-border">
         <button
           type="button"
           onClick={() => setActiveTab("bag")}
-          className={`text-sm font-medium uppercase tracking-widest pb-4 -mb-px transition-colors ${activeTab === "bag"
-            ? "text-foreground border-b-2 border-foreground"
-            : "text-muted-foreground hover:text-foreground"
-            }`}
+          className={`-mb-px pb-4 text-sm font-medium uppercase tracking-widest transition-colors ${
+            activeTab === "bag"
+              ? "border-b-2 border-foreground text-foreground"
+              : "text-muted-foreground hover:text-foreground"
+          }`}
         >
-          Bag ({items.length})
+          {t("tabBag", { count: items.length })}
         </button>
         <button
           type="button"
           onClick={() => setActiveTab("favorites")}
-          className={`text-sm font-medium uppercase tracking-widest pb-4 -mb-px transition-colors ${activeTab === "favorites"
-            ? "text-foreground border-b-2 border-foreground"
-            : "text-muted-foreground hover:text-foreground"
-            }`}
+          className={`-mb-px pb-4 text-sm font-medium uppercase tracking-widest transition-colors ${
+            activeTab === "favorites"
+              ? "border-b-2 border-foreground text-foreground"
+              : "text-muted-foreground hover:text-foreground"
+          }`}
         >
-          Favourites ({hasHydrated ? favouritesCount : isSignedIn ? wishlistProductIds.length : 0})
+          {t("tabFavourites", {
+            count: hasHydrated ? favouritesCount : isSignedIn ? wishlistProductIds.length : 0,
+          })}
         </button>
       </div>
 
       {activeTab === "bag" && (
         <>
           {items.length === 0 ? (
-            <div className="flex flex-col items-center justify-center py-16 border border-border">
-              <p className="text-muted-foreground mb-4">Your bag is empty</p>
+            <div className="flex flex-col items-center justify-center border border-border py-16">
+              <p className="mb-4 text-muted-foreground">{t("emptyBag")}</p>
               <Link
                 href="/shop"
-                className="text-sm font-normal text-foreground border-b border-foreground pb-1 hover:opacity-60"
+                className="border-b border-foreground pb-1 text-sm font-normal text-foreground hover:opacity-60"
               >
-                Continue shopping
+                {t("continueShopping")}
               </Link>
             </div>
           ) : (
@@ -190,7 +195,7 @@ export function CartClient({
                           updateQuantity(item.sku, item.quantity - 1)
                         }
                         className="w-9 h-9 flex items-center justify-center border border-border text-foreground font-medium hover:bg-muted transition-colors"
-                        aria-label="Decrease quantity"
+                        aria-label={t("decreaseQty")}
                       >
                         −
                       </button>
@@ -203,16 +208,16 @@ export function CartClient({
                           updateQuantity(item.sku, item.quantity + 1)
                         }
                         className="w-9 h-9 flex items-center justify-center border border-border text-foreground font-medium hover:bg-muted transition-colors"
-                        aria-label="Increase quantity"
+                        aria-label={t("increaseQty")}
                       >
                         +
                       </button>
                       <button
                         type="button"
                         onClick={() => removeFromCart(item.sku)}
-                        className="ml-auto text-xs text-muted-foreground hover:text-destructive"
+                        className="ms-auto text-xs text-muted-foreground hover:text-destructive"
                       >
-                        Remove
+                        {t("remove")}
                       </button>
                     </div>
                   </div>
@@ -222,8 +227,8 @@ export function CartClient({
               {/* Right: Order summary */}
               <div>
                 <div className="sticky top-24 border border-border p-6 bg-card/50">
-                  <h2 className="text-sm font-medium uppercase tracking-widest text-foreground mb-4">
-                    Order Summary
+                  <h2 className="mb-4 text-sm font-medium uppercase tracking-widest text-foreground">
+                    {t("orderSummary")}
                   </h2>
 
                   {!qualifiesForFreeDelivery && amountToFreeDelivery > 0 && (
@@ -242,22 +247,17 @@ export function CartClient({
                         />
                       </svg>
                       <p className="text-xs text-blue-800 dark:text-blue-200">
-                        Add ${amountToFreeDelivery.toFixed(2)} more to get free
-                        standard delivery
+                        {t("addMoreFree", { amount: amountToFreeDelivery.toFixed(2) })}
                       </p>
                     </div>
                   )}
 
                   {qualifiesForFreeDelivery && (
-                    <p className="text-xs text-green-700 dark:text-green-400 mb-4">
-                      You qualify for free standard delivery
-                    </p>
+                    <p className="mb-4 text-xs text-green-700 dark:text-green-400">{t("freeDelivery")}</p>
                   )}
 
-                  <div className="flex items-center justify-between py-4 border-t border-b border-border">
-                    <span className="text-sm text-muted-foreground">
-                      Total (VAT included)
-                    </span>
+                  <div className="flex items-center justify-between border-b border-t border-border py-4">
+                    <span className="text-sm text-muted-foreground">{t("totalVat")}</span>
                     <span className="text-lg font-semibold text-foreground">
                       ${totalPrice.toFixed(2)}
                     </span>
@@ -266,19 +266,14 @@ export function CartClient({
                   <button
                     type="button"
                     onClick={handleProcessOrder}
-                    className="w-full mt-6 py-4 text-xs font-medium uppercase tracking-widest text-primary-foreground bg-primary hover:opacity-90 transition-opacity"
+                    className="mt-6 w-full bg-primary py-4 text-xs font-medium uppercase tracking-widest text-primary-foreground transition-opacity hover:opacity-90"
                   >
-                    Process Order
+                    {t("processOrder")}
                   </button>
 
-                  <label className="flex items-center gap-2 mt-6 cursor-pointer">
-                    <input
-                      type="checkbox"
-                      className="rounded border-border"
-                    />
-                    <span className="text-xs text-muted-foreground">
-                      Promotional code
-                    </span>
+                  <label className="mt-6 flex cursor-pointer items-center gap-2">
+                    <input type="checkbox" className="rounded border-border" />
+                    <span className="text-xs text-muted-foreground">{t("promoCheckbox")}</span>
                   </label>
                 </div>
               </div>
@@ -290,20 +285,18 @@ export function CartClient({
       {activeTab === "favorites" && (
         <>
           {!hasHydrated ? (
-            <div className="flex flex-col items-center justify-center py-16 border border-border">
-              <p className="text-muted-foreground">Loading favourites…</p>
+            <div className="flex flex-col items-center justify-center border border-border py-16">
+              <p className="text-muted-foreground">{t("loadingFavourites")}</p>
             </div>
           ) : displayWishlistProducts.length === 0 ? (
-            <div className="flex flex-col items-center justify-center py-16 border border-border">
-              <p className="text-muted-foreground mb-4">No favourites yet</p>
-              <p className="text-xs text-muted-foreground mb-4 text-center max-w-sm">
-                Save items with the bookmark icon while you browse. Sign in anytime to sync across devices.
-              </p>
+            <div className="flex flex-col items-center justify-center border border-border py-16">
+              <p className="mb-4 text-muted-foreground">{t("noFavourites")}</p>
+              <p className="mb-4 max-w-sm text-center text-xs text-muted-foreground">{t("favouritesHint")}</p>
               <Link
                 href="/streetwear/shop"
-                className="text-sm font-normal text-foreground border-b border-foreground pb-1 hover:opacity-60"
+                className="border-b border-foreground pb-1 text-sm font-normal text-foreground hover:opacity-60"
               >
-                Continue shopping
+                {t("continueShopping")}
               </Link>
             </div>
           ) : (

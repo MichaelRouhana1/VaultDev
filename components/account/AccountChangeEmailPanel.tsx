@@ -1,6 +1,7 @@
 "use client";
 
 import { useRef, useState } from "react";
+import { useTranslations } from "next-intl";
 import { useRouter } from "@/i18n/navigation";
 import { useReverification, useSession, useUser } from "@clerk/nextjs";
 import { isClerkAPIResponseError, isReverificationCancelledError } from "@clerk/nextjs/errors";
@@ -14,13 +15,13 @@ const inputClass =
 const labelClass =
   "block text-[0.65rem] font-semibold uppercase tracking-[0.2em] text-foreground mb-2";
 
-function clerkErrorMessage(err: unknown): string {
+function clerkErrorMessage(err: unknown, fallback: string): string {
   if (isClerkAPIResponseError(err)) {
     const first = err.errors?.[0];
-    return first?.longMessage ?? first?.message ?? "Something went wrong";
+    return first?.longMessage ?? first?.message ?? fallback;
   }
   if (err instanceof Error) return err.message;
-  return "Something went wrong";
+  return fallback;
 }
 
 type Props = {
@@ -31,6 +32,7 @@ type Props = {
 
 export function AccountChangeEmailPanel({ currentEmailLabel, onSuccess }: Props) {
   const router = useRouter();
+  const t = useTranslations("AccountChangeEmail");
   const { isLoaded: userLoaded, isSignedIn, user } = useUser();
   const { isLoaded: sessionLoaded, session } = useSession();
   const [step, setStep] = useState<"enter" | "verify">("enter");
@@ -51,10 +53,10 @@ export function AccountChangeEmailPanel({ currentEmailLabel, onSuccess }: Props)
   });
 
   if (!userLoaded || !sessionLoaded) {
-    return <p className="text-sm text-muted-foreground">Loading…</p>;
+    return <p className="text-sm text-muted-foreground">{t("loading")}</p>;
   }
   if (!isSignedIn || !user) {
-    return <p className="text-sm text-muted-foreground">Sign in to change your email.</p>;
+    return <p className="text-sm text-muted-foreground">{t("signInToChange")}</p>;
   }
 
   const primary = user.primaryEmailAddress?.emailAddress?.toLowerCase() ?? null;
@@ -73,21 +75,21 @@ export function AccountChangeEmailPanel({ currentEmailLabel, onSuccess }: Props)
     e.preventDefault();
     const trimmed = newEmail.trim().toLowerCase();
     if (!trimmed) {
-      toast.error("Enter an email address");
+      toast.error(t("toastEnterEmail"));
       return;
     }
     if (displayCurrent && trimmed === displayCurrent) {
-      toast.error("Enter a different email address than your current one");
+      toast.error(t("toastDifferentEmail"));
       return;
     }
     if (user.passwordEnabled) {
       const pw = currentPassword.trim();
       if (!pw) {
-        toast.error("Enter your current password");
+        toast.error(t("toastEnterPassword"));
         return;
       }
       if (!session) {
-        toast.error("No active session. Refresh and try again.");
+        toast.error(t("toastNoSession"));
         return;
       }
       try {
@@ -95,7 +97,7 @@ export function AccountChangeEmailPanel({ currentEmailLabel, onSuccess }: Props)
         await session.attemptFirstFactorVerification({ strategy: "password", password: pw });
       } catch (err) {
         if (isReverificationCancelledError(err)) return;
-        toast.error(clerkErrorMessage(err) || "Incorrect password");
+        toast.error(clerkErrorMessage(err, t("genericError")));
         return;
       }
     }
@@ -106,18 +108,18 @@ export function AccountChangeEmailPanel({ currentEmailLabel, onSuccess }: Props)
       await user.reload();
       const ea = user.emailAddresses.find((a) => a.id === created.id);
       if (!ea) {
-        toast.error("Could not load the new email. Try again.");
+        toast.error(t("toastLoadEmail"));
         return;
       }
       await ea.prepareVerification({ strategy: "email_code" });
       setPendingEmailId(ea.id);
       setStep("verify");
-      toast.success("Code sent", {
-        description: `We sent a verification code to ${trimmed}.`,
+      toast.success(t("toastCodeSentTitle"), {
+        description: t("toastCodeSentDesc", { email: trimmed }),
       });
     } catch (err) {
       if (isReverificationCancelledError(err)) return;
-      toast.error(clerkErrorMessage(err));
+      toast.error(clerkErrorMessage(err, t("genericError")));
     } finally {
       setBusy(false);
     }
@@ -126,25 +128,25 @@ export function AccountChangeEmailPanel({ currentEmailLabel, onSuccess }: Props)
   const handleVerifyAndSetPrimary = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!pendingEmailId) {
-      toast.error("Start over from the beginning.");
+      toast.error(t("toastStartOver"));
       return;
     }
     const trimmedCode = code.trim();
     if (!trimmedCode) {
-      toast.error("Enter the verification code");
+      toast.error(t("toastEnterCode"));
       return;
     }
     setBusy(true);
     try {
       const ea = user.emailAddresses.find((a) => a.id === pendingEmailId);
       if (!ea) {
-        toast.error("That request expired. Start again.");
+        toast.error(t("toastExpired"));
         resetFlow();
         return;
       }
       const updated = await ea.attemptVerification({ code: trimmedCode });
       if (updated.verification?.status !== "verified") {
-        toast.error("Invalid or expired code");
+        toast.error(t("toastInvalidCode"));
         return;
       }
       await updatePrimary(updated.id);
@@ -158,13 +160,13 @@ export function AccountChangeEmailPanel({ currentEmailLabel, onSuccess }: Props)
           // Primary is already updated; old address may be tied to SSO — safe to leave listed
         }
       }
-      toast.success("Email address updated");
+      toast.success(t("toastUpdated"));
       resetFlow();
       router.refresh();
       onSuccess();
     } catch (err) {
       if (isReverificationCancelledError(err)) return;
-      toast.error(clerkErrorMessage(err));
+      toast.error(clerkErrorMessage(err, t("genericError")));
     } finally {
       setBusy(false);
     }
@@ -176,7 +178,7 @@ export function AccountChangeEmailPanel({ currentEmailLabel, onSuccess }: Props)
         <form onSubmit={handleRequestCode} className="space-y-4">
           <div>
             <label className={labelClass} htmlFor="change-email-old">
-              Old email address
+              {t("labelOldEmail")}
             </label>
             <input
               id="change-email-old"
@@ -191,7 +193,7 @@ export function AccountChangeEmailPanel({ currentEmailLabel, onSuccess }: Props)
           {user.passwordEnabled && (
             <AccountPasswordInput
               id="change-email-password"
-              label="Current password"
+              label={t("labelCurrentPassword")}
               labelClassName={labelClass}
               value={currentPassword}
               onChange={setCurrentPassword}
@@ -202,7 +204,7 @@ export function AccountChangeEmailPanel({ currentEmailLabel, onSuccess }: Props)
           )}
           <div>
             <label className={labelClass} htmlFor="change-email-new">
-              New email address
+              {t("labelNewEmail")}
             </label>
             <input
               id="change-email-new"
@@ -211,7 +213,7 @@ export function AccountChangeEmailPanel({ currentEmailLabel, onSuccess }: Props)
               className={inputClass}
               value={newEmail}
               onChange={(ev) => setNewEmail(ev.target.value)}
-              placeholder="NEW@EMAIL.COM"
+              placeholder={t("phNewEmail")}
               disabled={busy}
             />
           </div>
@@ -220,7 +222,7 @@ export function AccountChangeEmailPanel({ currentEmailLabel, onSuccess }: Props)
             disabled={busy}
             className="bg-primary px-10 py-3 text-xs font-semibold uppercase tracking-[0.2em] text-primary-foreground hover:opacity-90 disabled:opacity-50"
           >
-            {busy ? "Sending…" : "Send verification code"}
+            {busy ? t("sending") : t("sendCode")}
           </button>
         </form>
       )}
@@ -229,7 +231,7 @@ export function AccountChangeEmailPanel({ currentEmailLabel, onSuccess }: Props)
         <form onSubmit={handleVerifyAndSetPrimary} className="space-y-4">
           <div>
             <label className={labelClass} htmlFor="change-email-code">
-              Verification code
+              {t("labelCode")}
             </label>
             <input
               id="change-email-code"
@@ -239,7 +241,7 @@ export function AccountChangeEmailPanel({ currentEmailLabel, onSuccess }: Props)
               className={inputClass}
               value={code}
               onChange={(ev) => setCode(ev.target.value)}
-              placeholder="CODE"
+              placeholder={t("phCode")}
               disabled={busy}
             />
           </div>
@@ -249,7 +251,7 @@ export function AccountChangeEmailPanel({ currentEmailLabel, onSuccess }: Props)
               disabled={busy}
               className="bg-primary px-10 py-3 text-xs font-semibold uppercase tracking-[0.2em] text-primary-foreground hover:opacity-90 disabled:opacity-50"
             >
-              {busy ? "Verifying…" : "Verify and use this email"}
+              {busy ? t("verifying") : t("verifySubmit")}
             </button>
             <button
               type="button"
@@ -257,7 +259,7 @@ export function AccountChangeEmailPanel({ currentEmailLabel, onSuccess }: Props)
               onClick={resetFlow}
               className="border border-border bg-background px-6 py-3 text-xs font-semibold uppercase tracking-[0.2em] text-foreground hover:bg-muted disabled:opacity-50"
             >
-              Start over
+              {t("startOver")}
             </button>
           </div>
         </form>

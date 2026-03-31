@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import Image from "next/image";
+import { useTranslations } from "next-intl";
 import { Link, useRouter } from "@/i18n/navigation";
 import { useCart } from "@/context/CartContext";
 
@@ -13,6 +14,7 @@ interface CartDrawerProps {
 
 export function CartDrawer({ isOpen, onClose }: CartDrawerProps) {
   const router = useRouter();
+  const t = useTranslations("CartDrawer");
   const { items, removeFromCart, updateQuantity, totalPrice } = useCart();
   const [mounted, setMounted] = useState(false);
 
@@ -51,17 +53,18 @@ export function CartDrawer({ isOpen, onClose }: CartDrawerProps) {
 
       {/* Drawer - fixed width, rendered via portal to avoid parent layout issues */}
       <aside
-        className={`fixed top-0 right-0 h-full w-[min(100vw,28rem)] min-w-[320px] flex flex-col bg-card text-card-foreground shadow-2xl z-[9999] transition-transform duration-300 ease-out ${isOpen ? "translate-x-0" : "translate-x-full"
-          }`}
+        className={`fixed end-0 top-0 z-[9999] flex h-full w-[min(100vw,28rem)] min-w-[320px] flex-col bg-card text-card-foreground shadow-2xl transition-transform duration-300 ease-out ${
+          isOpen ? "translate-x-0 rtl:translate-x-0" : "translate-x-full rtl:-translate-x-full"
+        }`}
         style={{ boxShadow: "-4px 0 24px rgba(0,0,0,0.15)" }}
       >
-        <div className="flex items-center justify-between p-6 border-b border-border">
-          <h2 className="text-xl font-bold text-foreground">Your bag</h2>
+        <div className="flex items-center justify-between border-b border-border p-6">
+          <h2 className="text-xl font-bold text-foreground">{t("title")}</h2>
           <button
             type="button"
             onClick={onClose}
-            className="p-2 rounded-none text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
-            aria-label="Close bag"
+            className="rounded-none p-2 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+            aria-label={t("closeAria")}
           >
             <svg
               className="w-5 h-5"
@@ -95,8 +98,8 @@ export function CartDrawer({ isOpen, onClose }: CartDrawerProps) {
                   d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z"
                 />
               </svg>
-              <p className="font-medium">Your bag is empty</p>
-              <p className="text-sm mt-1">Add items to get started</p>
+              <p className="font-medium">{t("empty")}</p>
+              <p className="mt-1 text-sm">{t("emptyHint")}</p>
             </div>
           ) : (
             <ul className="space-y-4">
@@ -125,26 +128,24 @@ export function CartDrawer({ isOpen, onClose }: CartDrawerProps) {
                     <h3 className="font-medium text-foreground truncate">
                       {item.productName}
                     </h3>
-                    <p className="text-sm text-muted-foreground mt-0.5">
-                      ${item.priceAtPurchase} each
+                    <p className="mt-0.5 text-sm text-muted-foreground">
+                      {t("each", { price: `$${item.priceAtPurchase}` })}
                     </p>
                     {(item.productColor || item.size) && (
-                      <p className="text-xs text-muted-foreground mt-0.5">
-                        {item.productColor && (
-                          <span>Colour: {item.productColor}</span>
-                        )}
+                      <p className="mt-0.5 text-xs text-muted-foreground">
+                        {item.productColor && <span>{t("colour", { name: item.productColor })}</span>}
                         {item.productColor && item.size && " | "}
-                        {item.size && <span>Size: {item.size}</span>}
+                        {item.size && <span>{t("size", { size: item.size })}</span>}
                       </p>
                     )}
-                    <div className="flex items-center gap-2 mt-2">
+                    <div className="mt-2 flex items-center gap-2">
                       <button
                         type="button"
                         onClick={() =>
                           updateQuantity(item.sku, item.quantity - 1)
                         }
                         className="w-8 h-8 flex items-center justify-center rounded-none border border-border hover:bg-muted text-foreground font-medium"
-                        aria-label="Decrease quantity"
+                        aria-label={t("decreaseQty")}
                       >
                         −
                       </button>
@@ -157,20 +158,20 @@ export function CartDrawer({ isOpen, onClose }: CartDrawerProps) {
                           updateQuantity(item.sku, item.quantity + 1)
                         }
                         className="w-8 h-8 flex items-center justify-center rounded-none border border-border hover:bg-muted text-foreground font-medium"
-                        aria-label="Increase quantity"
+                        aria-label={t("increaseQty")}
                       >
                         +
                       </button>
                       <button
                         type="button"
                         onClick={() => removeFromCart(item.sku)}
-                        className="ml-2 text-sm text-destructive hover:underline"
+                        className="ms-2 text-sm text-destructive hover:underline"
                       >
-                        Remove
+                        {t("remove")}
                       </button>
                     </div>
                   </div>
-                  <div className="text-right shrink-0">
+                  <div className="shrink-0 text-end">
                     <p className="font-semibold text-foreground">
                       $
                       {(
@@ -193,28 +194,28 @@ export function CartDrawer({ isOpen, onClose }: CartDrawerProps) {
               onClick={onClose}
               className="shrink-0 text-muted-foreground hover:text-foreground"
             >
-              View full bag →
+              {t("viewFullBag")} →
             </Link>
             <Link
               href="/bag?tab=favorites"
               onClick={onClose}
-              className="shrink-0 text-right text-muted-foreground hover:text-foreground"
+              className="shrink-0 text-end text-muted-foreground hover:text-foreground"
             >
-              View favourites →
+              {t("viewFavourites")} →
             </Link>
           </div>
           {items.length > 0 && (
             <>
               <div className="mb-4 flex items-center justify-between">
-                <span className="text-lg font-semibold text-foreground">Total</span>
+                <span className="text-lg font-semibold text-foreground">{t("total")}</span>
                 <span className="text-xl font-bold text-foreground">${totalPrice.toFixed(2)}</span>
               </div>
               <button
                 type="button"
                 onClick={handleProceedToCheckout}
-                className="w-full py-3 px-4 font-medium text-primary-foreground bg-primary hover:opacity-90 transition-opacity"
+                className="w-full bg-primary px-4 py-3 font-medium text-primary-foreground transition-opacity hover:opacity-90"
               >
-                Proceed to Checkout
+                {t("checkout")}
               </button>
             </>
           )}

@@ -11,7 +11,6 @@ import { HeroFallback } from "@/components/storefront/HeroFallback";
 import { CategoryGrid } from "@/components/storefront/CategoryGrid";
 import { LookbookSection } from "@/components/storefront/LookbookSection";
 import { ProductDiscovery } from "@/components/storefront/ProductDiscovery";
-import { SiteFooter } from "@/components/storefront/SiteFooter";
 import type { Metadata } from "next";
 
 export async function generateMetadata({ params }: { params: Promise<{ storeType: string }> }): Promise<Metadata> {
@@ -99,9 +98,6 @@ export default async function HomePage({
 
       {/* Newsletter */}
       <NewsletterForm />
-
-      {/* Footer */}
-      <SiteFooter />
     </div>
   );
 }

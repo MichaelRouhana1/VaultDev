@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useMemo } from "react";
 import { useActionState } from "react";
+import { useTranslations } from "next-intl";
 import { useRouter } from "@/i18n/navigation";
 import Image from "next/image";
 import { Loader2 } from "lucide-react";
@@ -28,6 +29,22 @@ import {
 import { toast } from "sonner";
 
 const DEFAULT_SHIPPING_FEE = 5;
+
+const CHECKOUT_ERROR_KEYS: Record<string, "errorBagEmpty" | "errorInvalidBag" | "errorOrderFailed" | "errorRateLimit"> = {
+  "Your bag is empty": "errorBagEmpty",
+  "Invalid bag data": "errorInvalidBag",
+  "Order failed": "errorOrderFailed",
+  "Too many requests. Please wait before trying again.": "errorRateLimit",
+};
+
+function translateCheckoutError(
+  msg: string | undefined,
+  t: (key: string) => string,
+): string | undefined {
+  if (!msg) return undefined;
+  const key = CHECKOUT_ERROR_KEYS[msg];
+  return key ? t(key) : msg;
+}
 
 function cartItemsToDisplay(items: CartItemDisplay[]): CheckoutDisplayItem[] {
   return items.map((i) => ({
@@ -85,6 +102,8 @@ function placeOrderAction(
 
 export function CheckoutForm() {
   const router = useRouter();
+  const t = useTranslations("CheckoutForm");
+  const tCommon = useTranslations("Common");
   const { userId: clerkUserId } = useAuth();
   const { items, cartHydrated, clearCart } = useCart();
   const displayItems = useMemo(() => cartItemsToDisplay(items), [items]);
@@ -119,7 +138,7 @@ export function CheckoutForm() {
     return (
       <div className="flex min-h-[240px] items-center justify-center text-muted-foreground">
         <Loader2 className="size-8 animate-spin" aria-hidden />
-        <span className="sr-only">Loading your bag…</span>
+        <span className="sr-only">{t("loadingBag")}</span>
       </div>
     );
   }
@@ -139,7 +158,7 @@ export function CheckoutForm() {
   const handleApplyPromo = async () => {
     const code = promoInput?.trim().toUpperCase();
     if (!code) {
-      toast.error("Please enter a promo code");
+      toast.error(t("toastEnterPromo"));
       return;
     }
     setPromoLoading(true);
@@ -150,9 +169,14 @@ export function CheckoutForm() {
       }
       setAppliedPromo({ code: result.code, discountAmount: result.discountAmount });
       setPromoInput("");
-      toast.success(`Promo code ${result.code} applied! -$${result.discountAmount.toFixed(2)}`);
+      toast.success(
+        t("toastPromoApplied", {
+          code: result.code,
+          amount: `$${result.discountAmount.toFixed(2)}`,
+        }),
+      );
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Invalid promo code");
+      toast.error(err instanceof Error ? err.message : t("toastInvalidPromo"));
     } finally {
       setPromoLoading(false);
     }
@@ -171,82 +195,74 @@ export function CheckoutForm() {
       <div className="grid gap-8 lg:grid-cols-2">
         <Card>
           <CardHeader>
-            <CardTitle>Contact & payment</CardTitle>
+            <CardTitle>{t("contactTitle")}</CardTitle>
             <CardDescription>
-              Enter your details for order confirmation. Payment is{" "}
-              <span className="font-medium text-foreground">cash on delivery only</span>—pay when your
-              order arrives.
+              {t("contactDescriptionBefore")}{" "}
+              <span className="font-medium text-foreground">{t("codBold")}</span>
+              {t("contactDescriptionAfter")}
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="customerName">Full name</Label>
+              <Label htmlFor="customerName">{t("labelFullName")}</Label>
               <Input
                 id="customerName"
                 name="customerName"
-                placeholder="John Doe"
+                placeholder={t("phFullName")}
                 required
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="guestEmail">Email</Label>
+              <Label htmlFor="guestEmail">{t("labelEmail")}</Label>
               <Input
                 id="guestEmail"
                 name="guestEmail"
                 type="email"
-                placeholder="you@example.com"
+                placeholder={t("phEmail")}
                 required
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="phoneNumber">Phone number</Label>
+              <Label htmlFor="phoneNumber">{t("labelPhone")}</Label>
               <Input
                 id="phoneNumber"
                 name="phoneNumber"
                 type="tel"
-                placeholder="+1 234 567 8900"
+                placeholder={t("phPhone")}
                 required
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="addressLine1">Address</Label>
+              <Label htmlFor="addressLine1">{t("labelAddress")}</Label>
               <Input
                 id="addressLine1"
                 name="addressLine1"
-                placeholder="123 Main St, Apt 4"
+                placeholder={t("phAddress")}
                 required
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="city">City</Label>
-              <Input
-                id="city"
-                name="city"
-                placeholder="New York"
-                required
-              />
+              <Label htmlFor="city">{t("labelCity")}</Label>
+              <Input id="city" name="city" placeholder={t("phCity")} required />
             </div>
             <div className="space-y-2 rounded-md border border-border bg-muted/30 px-3 py-3 text-sm">
-              <p className="font-medium text-foreground">Payment</p>
-              <p className="text-muted-foreground">
-                Cash on Delivery (COD) — the only method we offer. You&apos;ll pay the courier when you
-                receive your package.
-              </p>
+              <p className="font-medium text-foreground">{t("paymentTitle")}</p>
+              <p className="text-muted-foreground">{t("paymentCod")}</p>
             </div>
           </CardContent>
         </Card>
         <Card>
           <CardHeader>
-            <CardTitle>Order summary</CardTitle>
-            <CardDescription>{displayItems.length} item(s) in your bag</CardDescription>
+            <CardTitle>{t("summaryTitle")}</CardTitle>
+            <CardDescription>{t("summaryItems", { count: displayItems.length })}</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             <ul className="space-y-4">
               {displayItems.map((item, i) => {
                 const lineTotal = item.quantity * parseFloat(item.priceAtPurchase);
                 const variantParts = [
-                  `Size: ${item.size}`,
-                  item.productColor ? `Color: ${item.productColor}` : null,
+                  t("sizeLabel", { size: item.size }),
+                  item.productColor ? t("colorLabel", { color: item.productColor }) : null,
                 ].filter(Boolean);
                 const src = item.productImageUrl?.trim();
                 return (
@@ -271,14 +287,16 @@ export function CheckoutForm() {
                     </div>
                     <div className="min-w-0 flex-1">
                       <p className="text-sm font-medium leading-snug text-foreground">
-                        {item.productName || "Unknown item"}
+                        {item.productName || t("unknownItem")}
                       </p>
                       <p className="mt-0.5 text-xs text-muted-foreground">
                         {variantParts.join(" | ")}
                       </p>
-                      <p className="mt-1 text-xs text-muted-foreground">Qty: {item.quantity}</p>
+                      <p className="mt-1 text-xs text-muted-foreground">
+                        {t("lineQty", { count: item.quantity })}
+                      </p>
                     </div>
-                    <div className="shrink-0 text-right">
+                    <div className="shrink-0 text-end">
                       <span className="text-sm font-semibold tabular-nums text-foreground">
                         ${lineTotal.toFixed(2)}
                       </span>
@@ -288,26 +306,31 @@ export function CheckoutForm() {
               })}
             </ul>
 
-            <div className="space-y-2 pt-2 border-t border-border">
-              <Label htmlFor="promoCode" className="text-muted-foreground">Promo code</Label>
+            <div className="space-y-2 border-t border-border pt-2">
+              <Label htmlFor="promoCode" className="text-muted-foreground">
+                {t("promoLabel")}
+              </Label>
               {appliedPromo ? (
                 <div className="flex items-center justify-between rounded-md border border-border bg-muted/30 px-3 py-2">
                   <span className="text-sm font-medium text-green-600 dark:text-green-400">
-                    {appliedPromo.code} applied (−${appliedPromo.discountAmount.toFixed(2)})
+                    {t("promoApplied", {
+                      code: appliedPromo.code,
+                      amount: `$${appliedPromo.discountAmount.toFixed(2)}`,
+                    })}
                   </span>
                   <button
                     type="button"
                     onClick={handleRemovePromo}
                     className="text-xs text-destructive hover:underline"
                   >
-                    Remove
+                    {tCommon("remove")}
                   </button>
                 </div>
               ) : (
                 <div className="flex gap-2">
                   <Input
                     id="promoCode"
-                    placeholder="Enter code"
+                    placeholder={t("promoPlaceholder")}
                     value={promoInput}
                     onChange={(e) => setPromoInput(e.target.value.toUpperCase())}
                     className="uppercase"
@@ -319,39 +342,39 @@ export function CheckoutForm() {
                     onClick={handleApplyPromo}
                     disabled={promoLoading || !promoInput.trim()}
                   >
-                    {promoLoading ? "Applying…" : "Apply"}
+                    {promoLoading ? t("applying") : t("apply")}
                   </Button>
                 </div>
               )}
             </div>
 
-            <div className="space-y-2 pt-2 border-t border-border text-sm">
+            <div className="space-y-2 border-t border-border pt-2 text-sm">
               <div className="flex justify-between text-muted-foreground">
-                <span>Subtotal</span>
+                <span>{t("subtotal")}</span>
                 <span>${subtotal.toFixed(2)}</span>
               </div>
               {discountAmount > 0 && (
                 <div className="flex justify-between text-green-600 dark:text-green-400">
-                  <span>Discount ({appliedPromo?.code})</span>
+                  <span>{t("discountLine", { code: appliedPromo?.code ?? "" })}</span>
                   <span>−${discountAmount.toFixed(2)}</span>
                 </div>
               )}
               <div className="flex justify-between text-muted-foreground">
-                <span>Shipping</span>
+                <span>{t("shipping")}</span>
                 <span>${shippingFee.toFixed(2)}</span>
               </div>
             </div>
           </CardContent>
           <CardFooter className="flex flex-col items-stretch gap-2">
-            <div className="flex justify-between font-semibold text-base">
-              <span>Total</span>
+            <div className="flex justify-between text-base font-semibold">
+              <span>{t("total")}</span>
               <span>${total.toFixed(2)}</span>
             </div>
             {state?.error && (
-              <p className="text-sm text-destructive">{state.error}</p>
+              <p className="text-sm text-destructive">{translateCheckoutError(state.error, t)}</p>
             )}
             <Button type="submit" disabled={isPending || displayItems.length === 0}>
-              {isPending ? "Placing order…" : "Place order"}
+              {isPending ? t("placing") : t("placeOrder")}
             </Button>
           </CardFooter>
         </Card>
