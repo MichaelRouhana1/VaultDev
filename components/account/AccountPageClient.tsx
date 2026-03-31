@@ -270,55 +270,68 @@ export function AccountPageClient({
                       const shippingNum = parseAmount(order.shippingFee);
                       const items = order.items ?? [];
 
+                      const toggleExpanded = () =>
+                        setExpandedOrderId((id) => (id === order.id ? null : order.id));
+
                       return (
                         <li
                           key={order.id}
                           className="overflow-hidden rounded-none border border-border bg-card shadow-sm transition-shadow hover:shadow-md"
                         >
-                          <button
-                            type="button"
-                            onClick={() =>
-                              setExpandedOrderId((id) => (id === order.id ? null : order.id))
-                            }
-                            aria-expanded={expanded}
-                            className="flex w-full items-start gap-3 px-4 py-4 text-left transition-colors hover:bg-muted/40 md:items-center md:gap-4 md:px-5 md:py-5"
-                          >
-                            <div className="min-w-0 flex-1 space-y-1">
+                          <div className="group flex w-full flex-wrap items-start gap-x-3 gap-y-3 px-4 py-4 transition-colors hover:bg-muted/40 md:flex-nowrap md:items-center md:gap-4 md:px-5 md:py-5">
+                            <div className="min-w-0 shrink-0 pt-0.5 md:pt-0">
                               <OrderNumberWithCopy
                                 orderNumber={orderNumberOrFallback(order.orderNumber, order.id)}
                                 className="flex-wrap"
                               />
-                              <p className="text-xs text-muted-foreground">
-                                Placed on{" "}
-                                <time dateTime={order.createdAt}>{placedLabel}</time>
-                              </p>
                             </div>
-                            <div className="flex shrink-0 flex-col items-end gap-2 sm:flex-row sm:items-center sm:gap-4">
-                              <div className="text-right">
-                                <p className="text-[0.65rem] font-semibold uppercase tracking-[0.15em] text-muted-foreground">
-                                  Total
-                                </p>
-                                <p className="text-base font-semibold tabular-nums text-foreground">
-                                  ${formatUsd(order.totalAmount)}
+                            <div
+                              role="button"
+                              tabIndex={0}
+                              aria-expanded={expanded}
+                              aria-label={`${expanded ? "Collapse" : "Expand"} order ${orderNumberOrFallback(order.orderNumber, order.id)}`}
+                              className="flex min-w-0 flex-1 cursor-pointer items-start gap-3 text-left outline-none transition-colors hover:opacity-90 focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background md:items-center md:gap-4"
+                              onClick={toggleExpanded}
+                              onKeyDown={(e) => {
+                                if (e.key === "Enter" || e.key === " ") {
+                                  e.preventDefault();
+                                  toggleExpanded();
+                                }
+                              }}
+                            >
+                              <div className="min-w-0 flex-1 space-y-1">
+                                <p className="text-xs text-muted-foreground">
+                                  Placed on{" "}
+                                  <time dateTime={order.createdAt}>{placedLabel}</time>
                                 </p>
                               </div>
-                              <span
-                                className={cn(
-                                  "inline-flex border px-2.5 py-1 text-[0.65rem] font-semibold uppercase tracking-wider",
-                                  orderStatusBadgeClass(order.status),
-                                )}
-                              >
-                                {orderStatusLabel(order.status)}
-                              </span>
-                              <ChevronDown
-                                className={cn(
-                                  "size-5 shrink-0 text-muted-foreground transition-transform duration-300 ease-out",
-                                  expanded && "rotate-180",
-                                )}
-                                aria-hidden
-                              />
+                              <div className="flex shrink-0 flex-col items-end gap-2 sm:flex-row sm:items-center sm:gap-4">
+                                <div className="text-right">
+                                  <p className="text-[0.65rem] font-semibold uppercase tracking-[0.15em] text-muted-foreground">
+                                    Total
+                                  </p>
+                                  <p className="text-base font-semibold tabular-nums text-foreground">
+                                    ${formatUsd(order.totalAmount)}
+                                  </p>
+                                </div>
+                                <span
+                                  className={cn(
+                                    "inline-flex border px-2.5 py-1 text-[0.65rem] font-semibold uppercase tracking-wider",
+                                    orderStatusBadgeClass(order.status),
+                                  )}
+                                >
+                                  {orderStatusLabel(order.status)}
+                                </span>
+                                <ChevronDown
+                                  className={cn(
+                                    "size-5 shrink-0 text-muted-foreground transition-transform duration-300 ease-out",
+                                    expanded && "rotate-180",
+                                  )}
+                                  aria-hidden
+                                />
+                              </div>
                             </div>
-                          </button>
+                          </div>
 
                           <div
                             className={cn(

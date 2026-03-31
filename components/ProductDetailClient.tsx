@@ -13,7 +13,7 @@ import {
   CarouselDots,
   type CarouselApi,
 } from "@/components/ui/carousel";
-import { cn, getProductDisplayPrice, isProductOnSale } from "@/lib/utils";
+import { cn, getProductDisplayPrice, isProductOnSale, sortSizes } from "@/lib/utils";
 import { ProductDetailAccordion } from "@/components/ProductDetailAccordion";
 import type { ProductPageAccordionResolved } from "@/actions/product-page-copy";
 import type { Product, ProductVariant, ProductColor } from "@/db/schema";
@@ -139,10 +139,8 @@ export function ProductDetailClient({
   const variantMap = new Map(variantsForColor.map((v) => [v.size, v]));
   const sizes =
     variantsForColor.length > 0
-      ? [...new Set(variantsForColor.map((v) => v.size))].sort(
-        (a, b) => DEFAULT_SIZES.indexOf(a) - DEFAULT_SIZES.indexOf(b)
-      )
-      : DEFAULT_SIZES;
+      ? sortSizes([...new Set(variantsForColor.map((v) => v.size))])
+      : sortSizes([...DEFAULT_SIZES]);
 
   const getStockForSize = (size: string) => variantMap.get(size)?.stock ?? 0;
   const isSizeInStock = (size: string) => getStockForSize(size) > 0;
