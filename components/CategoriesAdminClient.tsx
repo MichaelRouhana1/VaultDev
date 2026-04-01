@@ -14,6 +14,12 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
+import { ImageCropModal } from "@/components/ImageCropModal";
+import { ensureBrowserDisplayableImage } from "@/lib/ensureBrowserDisplayableImage";
+import { toast } from "sonner";
+
+/** Same as product card / ProductImageUpload preview. */
+const CATEGORY_IMAGE_ASPECT = 2 / 3;
 
 interface CategoriesAdminClientProps {
   categories: ProductCategory[];
@@ -38,6 +44,7 @@ export function CategoriesAdminClient({ categories: initialCategories, initialSt
   const [formLabel, setFormLabel] = useState("");
   const [formShowOnHome, setFormShowOnHome] = useState(false);
   const [formImage, setFormImage] = useState<File | null>(null);
+  const [cropObjectUrl, setCropObjectUrl] = useState<string | null>(null);
   const [formStoreType, setFormStoreType] = useState<"streetwear" | "formal" | "both">(initialStoreType);
 
   const resetForm = useCallback(() => {
@@ -45,6 +52,10 @@ export function CategoriesAdminClient({ categories: initialCategories, initialSt
     setFormLabel("");
     setFormShowOnHome(false);
     setFormImage(null);
+    setCropObjectUrl((prev) => {
+      if (prev) URL.revokeObjectURL(prev);
+      return null;
+    });
     setFormStoreType(initialStoreType);
     setEditingId(null);
     setAdding(false);
@@ -118,12 +129,43 @@ export function CategoriesAdminClient({ categories: initialCategories, initialSt
     });
   }, [mainRows, sortByHomeFirst]);
 
+  const handleImageDrop = useCallback((files: File[]) => {
+    const raw = files[0];
+    if (!raw) return;
+    void (async () => {
+      try {
+        const file = await ensureBrowserDisplayableImage(raw);
+        setCropObjectUrl((prev) => {
+          if (prev) URL.revokeObjectURL(prev);
+          return URL.createObjectURL(file);
+        });
+      } catch {
+        toast.error("Could not load image. For HEIC/HEIF, try again or use JPEG or PNG.");
+      }
+    })();
+  }, []);
+
+  const handleCategoryCropComplete = useCallback((blob: Blob) => {
+    setCropObjectUrl((prev) => {
+      if (prev) URL.revokeObjectURL(prev);
+      return null;
+    });
+    setFormImage(new File([blob], "category.jpg", { type: "image/jpeg" }));
+  }, []);
+
+  const handleCategoryCropCancel = useCallback(() => {
+    setCropObjectUrl((prev) => {
+      if (prev) URL.revokeObjectURL(prev);
+      return null;
+    });
+  }, []);
+
   const { getRootProps, getInputProps } = useDropzone({
-    onDrop: (files) => files[0] && setFormImage(files[0]),
-    accept: { "image/*": [".png", ".jpg", ".jpeg", ".webp", ".gif"] },
+    onDrop: handleImageDrop,
+    accept: { "image/*": [".png", ".jpg", ".jpeg", ".webp", ".gif", ".heic", ".heif"] },
     maxSize: 5 * 1024 * 1024,
     maxFiles: 1,
-    disabled: !adding && editingId === null,
+    disabled: (!adding && editingId === null) || !!cropObjectUrl,
   });
 
   return (
@@ -193,10 +235,11 @@ export function CategoriesAdminClient({ categories: initialCategories, initialSt
           </div>
           <div className="space-y-2">
             <Label>Image</Label>
+            <p className="text-xs text-muted-foreground">Crop to 2:3 — same framing as product cards.</p>
             <div {...getRootProps()} className="border-2 border-dashed border-border rounded p-4 cursor-pointer hover:bg-muted/50">
               <input {...getInputProps()} />
               {formImage ? (
-                <p className="text-sm">{formImage.name}</p>
+                <p className="text-sm">{formImage.name} (cropped)</p>
               ) : editingId ? (
                 <p className="text-sm text-muted-foreground">Drop new image or click to replace (optional)</p>
               ) : (
@@ -275,6 +318,16 @@ export function CategoriesAdminClient({ categories: initialCategories, initialSt
           <div className="p-12 text-center text-muted-foreground">No main categories yet. Add one to get started.</div>
         )}
       </div>
+
+      {cropObjectUrl && (
+        <ImageCropModal
+          imageSrc={cropObjectUrl}
+          onComplete={handleCategoryCropComplete}
+          onCancel={handleCategoryCropCancel}
+          aspect={CATEGORY_IMAGE_ASPECT}
+          title="Crop image (2:3 product card ratio)"
+        />
+      )}
     </div>
   );
 }

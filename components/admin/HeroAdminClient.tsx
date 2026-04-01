@@ -13,13 +13,15 @@ import type { HeroImage } from "@/db/schema";
 
 /** Matches hero carousel: width / 75vh. From user's viewport ~1567×544: aspect ≈ 2.88. Use 72/25 ≈ 2.88 */
 const HERO_DESKTOP_ASPECT = 72 / 25;
-const HERO_MOBILE_ASPECT = 3 / 4;
+/** Mobile hero block (storefront): measured ~349.09×323.57 CSS px → width/height ≈ 1.078 */
+const HERO_MOBILE_ASPECT = 349.09 / 323.57;
 
 function MobileCropPreview({ url, alt }: { url: string | null | undefined; alt: string }) {
   if (!url) {
     return (
       <div
-        className="flex h-24 w-12 shrink-0 flex-col items-center justify-center rounded border border-dashed border-border bg-muted/40 px-1 text-center text-[9px] font-medium uppercase leading-tight text-muted-foreground"
+        className="flex w-12 shrink-0 flex-col items-center justify-center rounded border border-dashed border-border bg-muted/40 px-0.5 text-center text-[8px] font-medium uppercase leading-tight text-muted-foreground"
+        style={{ aspectRatio: HERO_MOBILE_ASPECT }}
         title="No mobile crop yet"
       >
         Mobile
@@ -27,7 +29,11 @@ function MobileCropPreview({ url, alt }: { url: string | null | undefined; alt: 
     );
   }
   return (
-    <div className="relative h-24 w-12 shrink-0 overflow-hidden rounded border border-border" title={`${alt} — mobile`}>
+    <div
+      className="relative w-12 shrink-0 overflow-hidden rounded border border-border"
+      style={{ aspectRatio: HERO_MOBILE_ASPECT }}
+      title={`${alt} — mobile`}
+    >
       <Image src={url} alt={`${alt} mobile`} fill className="object-cover" sizes="48px" />
     </div>
   );
@@ -192,7 +198,7 @@ export function HeroAdminClient({ images: initialImages, initialStoreType }: Her
           desktopAspect={HERO_DESKTOP_ASPECT}
           mobileAspect={HERO_MOBILE_ASPECT}
           desktopLabel="Hero wide"
-          mobileLabel="3:4"
+          mobileLabel="≈1.08:1 (mobile hero)"
           title="Crop hero — desktop & mobile"
         />
       )}

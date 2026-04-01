@@ -13,6 +13,12 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { ImageCropModal } from "@/components/ImageCropModal";
+import { ensureBrowserDisplayableImage } from "@/lib/ensureBrowserDisplayableImage";
+import { toast } from "sonner";
+
+/** Same as product card / ProductImageUpload. */
+const COLLECTION_COVER_ASPECT = 2 / 3;
 
 interface CollectionsAdminClientProps {
   collections: CollectionRow[];
@@ -39,6 +45,7 @@ export function CollectionsAdminClient({
   const [formDescription, setFormDescription] = useState("");
   const [formStoreType, setFormStoreType] = useState<"streetwear" | "formal" | "both">("streetwear");
   const [formImage, setFormImage] = useState<File | null>(null);
+  const [cropObjectUrl, setCropObjectUrl] = useState<string | null>(null);
 
   const resetForm = useCallback(() => {
     setFormName("");
@@ -46,6 +53,10 @@ export function CollectionsAdminClient({
     setFormDescription("");
     setFormStoreType(initialStoreType === "formal" ? "formal" : "streetwear");
     setFormImage(null);
+    setCropObjectUrl((prev) => {
+      if (prev) URL.revokeObjectURL(prev);
+      return null;
+    });
     setEditingId(null);
     setAdding(false);
     setError(null);
@@ -110,12 +121,43 @@ export function CollectionsAdminClient({
     [rows],
   );
 
+  const handleCoverDrop = useCallback((files: File[]) => {
+    const raw = files[0];
+    if (!raw) return;
+    void (async () => {
+      try {
+        const file = await ensureBrowserDisplayableImage(raw);
+        setCropObjectUrl((prev) => {
+          if (prev) URL.revokeObjectURL(prev);
+          return URL.createObjectURL(file);
+        });
+      } catch {
+        toast.error("Could not load image. For HEIC/HEIF, try again or use JPEG or PNG.");
+      }
+    })();
+  }, []);
+
+  const handleCollectionCropComplete = useCallback((blob: Blob) => {
+    setCropObjectUrl((prev) => {
+      if (prev) URL.revokeObjectURL(prev);
+      return null;
+    });
+    setFormImage(new File([blob], "collection-cover.jpg", { type: "image/jpeg" }));
+  }, []);
+
+  const handleCollectionCropCancel = useCallback(() => {
+    setCropObjectUrl((prev) => {
+      if (prev) URL.revokeObjectURL(prev);
+      return null;
+    });
+  }, []);
+
   const { getRootProps, getInputProps } = useDropzone({
-    onDrop: (files) => files[0] && setFormImage(files[0]),
-    accept: { "image/*": [".png", ".jpg", ".jpeg", ".webp", ".gif"] },
+    onDrop: handleCoverDrop,
+    accept: { "image/*": [".png", ".jpg", ".jpeg", ".webp", ".gif", ".heic", ".heif"] },
     maxSize: 5 * 1024 * 1024,
     maxFiles: 1,
-    disabled: !adding && editingId === null,
+    disabled: (!adding && editingId === null) || !!cropObjectUrl,
   });
 
   return (
@@ -182,13 +224,14 @@ export function CollectionsAdminClient({
           </div>
           <div className="space-y-2">
             <Label>Cover image</Label>
+            <p className="text-xs text-muted-foreground">Crop to 2:3 — same framing as product cards.</p>
             <div
               {...getRootProps()}
               className="border-2 border-dashed border-border rounded p-4 cursor-pointer hover:bg-muted/50"
             >
               <input {...getInputProps()} />
               {formImage ? (
-                <p className="text-sm">{formImage.name}</p>
+                <p className="text-sm">{formImage.name} (cropped)</p>
               ) : editingId ? (
                 <p className="text-sm text-muted-foreground">Drop new image or click to replace (optional)</p>
               ) : (
@@ -258,6 +301,16 @@ export function CollectionsAdminClient({
           <div className="p-12 text-center text-muted-foreground">No collections yet. Add one to get started.</div>
         )}
       </div>
+
+      {cropObjectUrl && (
+        <ImageCropModal
+          imageSrc={cropObjectUrl}
+          onComplete={handleCollectionCropComplete}
+          onCancel={handleCollectionCropCancel}
+          aspect={COLLECTION_COVER_ASPECT}
+          title="Crop image (2:3 product card ratio)"
+        />
+      )}
     </div>
   );
 }
