@@ -70,8 +70,10 @@ export function ProductCard({
     thumb: string | null;
   } | null>(null);
   const [mobileAddedToastVisible, setMobileAddedToastVisible] = useState(false);
+  const [isColorTrayOpen, setIsColorTrayOpen] = useState(false);
 
   const hasMultipleColors = colors && colors.length > 1;
+  const colorTrayId = `product-card-colors-${product.id}`;
   const activeColor = colors?.[selectedColorIndex];
   const imageUrls =
     activeColor?.imageUrls?.length
@@ -122,6 +124,7 @@ export function ProductCard({
     e.stopPropagation();
     setSelectedColorIndex(index);
     setCurrentImageIndex(0);
+    setIsColorTrayOpen(false);
   };
 
   const addLineForSize = (size: string, openBag: boolean) => {
@@ -331,7 +334,7 @@ export function ProductCard({
           {/* Size selection overlay - theme-aware for dark mode */}
           {!isOutOfStock && (
             <div
-              className={`pointer-events-none absolute inset-x-0 bottom-0 border-t border-border bg-card opacity-0 transition-opacity duration-200 group-hover:pointer-events-auto group-hover:opacity-100 ${compact ? "p-2" : "p-4"
+              className={`pointer-events-none absolute inset-x-0 bottom-0 z-10 border-t border-border bg-card opacity-0 transition-opacity duration-200 group-hover:pointer-events-auto group-hover:opacity-100 ${compact ? "p-2" : "p-4"
                 }`}
             >
               <p className="text-xs font-medium uppercase tracking-widest text-foreground mb-2">
@@ -359,6 +362,93 @@ export function ProductCard({
               </div>
             </div>
           )}
+
+          {/* Mobile: color tray slides up over the image; toggle (+N left of swatch) sits above the tray */}
+          {hasMultipleColors && colors && (
+            <>
+              <div
+                id={colorTrayId}
+                className={cn(
+                  "hidden max-md:block absolute inset-x-0 bottom-0 z-20 border-t border-border bg-background/95 shadow-[0_-4px_16px_rgba(0,0,0,0.12)] backdrop-blur-sm transition-all duration-300 ease-in-out dark:bg-background/95 dark:shadow-[0_-4px_16px_rgba(0,0,0,0.4)]",
+                  isColorTrayOpen
+                    ? "max-h-32 opacity-100"
+                    : "pointer-events-none max-h-0 overflow-hidden opacity-0",
+                )}
+                aria-hidden={!isColorTrayOpen}
+              >
+                <div className="scrollbar-hide flex gap-3 overflow-x-auto px-3 py-2.5">
+                  {colors.map((color, i) => {
+                    const isSelected = i === selectedColorIndex;
+                    const thumb = color.imageUrls?.[0] ?? null;
+                    return (
+                      <button
+                        key={color.id}
+                        type="button"
+                        onClick={(e) => handleColorClick(e, i)}
+                        className="shrink-0 rounded-none border-0 bg-transparent p-0 focus:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                        title={color.name}
+                        aria-label={tPdp("selectColorAria", { name: color.name })}
+                        aria-pressed={isSelected}
+                      >
+                        <span
+                          className={cn(
+                            "relative block overflow-hidden border border-border",
+                            compact ? "h-9 w-9" : "h-10 w-10",
+                            isSelected && "ring-1 ring-foreground ring-offset-1 ring-offset-background",
+                          )}
+                          style={
+                            thumb
+                              ? {
+                                  backgroundImage: `url(${thumb})`,
+                                  backgroundSize: "cover",
+                                  backgroundPosition: "center",
+                                }
+                              : { backgroundColor: color.hexCode ?? "var(--muted)" }
+                          }
+                        >
+                          {!thumb && !color.hexCode ? (
+                            <span className="absolute inset-0 block bg-muted" />
+                          ) : null}
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  setIsColorTrayOpen((o) => !o);
+                }}
+                className="hidden max-md:flex absolute bottom-2 start-2 z-30 items-center gap-1.5 rounded-none border-0 bg-transparent p-0 shadow-none outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                aria-expanded={isColorTrayOpen}
+                aria-controls={colorTrayId}
+                aria-label={tPdp("colorHeading", { name: activeColor?.name ?? colorLabel })}
+              >
+                <span className="text-xs font-semibold tabular-nums text-foreground drop-shadow-[0_1px_2px_rgba(0,0,0,0.45)]">
+                  {tPdp("colorToggleMore", { count: colors.length - 1 })}
+                </span>
+                <span
+                  className={cn(
+                    "relative shrink-0 overflow-hidden border border-border bg-muted",
+                    compact ? "h-7 w-7" : "h-8 w-8",
+                  )}
+                  style={
+                    activeColor?.imageUrls?.[0]
+                      ? {
+                          backgroundImage: `url(${activeColor.imageUrls[0]})`,
+                          backgroundSize: "cover",
+                          backgroundPosition: "center",
+                        }
+                      : { backgroundColor: activeColor?.hexCode ?? "var(--muted)" }
+                  }
+                  aria-hidden
+                />
+              </button>
+            </>
+          )}
         </div>
         <div
           className={cn(
@@ -376,39 +466,51 @@ export function ProductCard({
             <p className="text-xs font-light text-muted-foreground shrink-0">
               {colorLabel}
               {hasMultipleColors && colors && (
-                <span className="ms-1 text-muted-foreground">
+                <span className="ms-1 text-muted-foreground max-md:hidden">
                   {t("moreColours", { count: colors.length - 1 })}
                 </span>
               )}
             </p>
             {hasMultipleColors && colors && (
-              <div className="flex items-center gap-1.5 shrink-0">
-                {colors.map((color, i) => (
-                  <button
-                    key={color.id}
-                    type="button"
-                    onClick={(e) => handleColorClick(e, i)}
-                    className={`relative shrink-0 rounded-none overflow-hidden transition-transform hover:scale-105 focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-1 focus-visible:ring-foreground ${compact ? "size-3" : "size-4"
-                      } ${i === selectedColorIndex ? "ring-1 ring-foreground ring-offset-0.5 ring-offset-background" : "border border-border"}`}
-                    style={
-                      color.hexCode ? { backgroundColor: color.hexCode } : undefined
-                    }
-                    aria-label={t("colorAria", { name: color.name })}
-                    aria-pressed={i === selectedColorIndex}
-                  >
-                    {!color.hexCode && color.imageUrls?.[0] && (
-                      <span className="absolute inset-0 block overflow-hidden bg-muted">
-                        <Image
-                          src={color.imageUrls[0]}
-                          alt={`${product.name} in ${color.name}`}
-                          fill
-                          className="object-cover"
-                          sizes={compact ? "12px" : "16px"}
-                        />
+              <div className="hidden md:flex items-center gap-1.5 shrink-0">
+                {colors.map((color, i) => {
+                  const selected = i === selectedColorIndex;
+                  return (
+                    <button
+                      key={color.id}
+                      type="button"
+                      onClick={(e) => handleColorClick(e, i)}
+                      className={cn(
+                        "relative shrink-0 rounded-none border-0 bg-transparent p-0 transition-transform hover:scale-105 focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-1 focus-visible:ring-foreground",
+                        compact ? "h-3 w-3" : "h-4 w-4",
+                      )}
+                      aria-label={t("colorAria", { name: color.name })}
+                      aria-pressed={selected}
+                    >
+                      <span
+                        className={cn(
+                          "relative block size-full overflow-hidden",
+                          selected
+                            ? "ring-1 ring-foreground ring-offset-0.5 ring-offset-background"
+                            : "border border-border",
+                        )}
+                        style={color.hexCode ? { backgroundColor: color.hexCode } : undefined}
+                      >
+                        {!color.hexCode && color.imageUrls?.[0] && (
+                          <span className="absolute inset-0 block overflow-hidden bg-muted">
+                            <Image
+                              src={color.imageUrls[0]}
+                              alt={`${product.name} in ${color.name}`}
+                              fill
+                              className="object-cover"
+                              sizes={compact ? "12px" : "16px"}
+                            />
+                          </span>
+                        )}
                       </span>
-                    )}
-                  </button>
-                ))}
+                    </button>
+                  );
+                })}
               </div>
             )}
           </div>
