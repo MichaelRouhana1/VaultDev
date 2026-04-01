@@ -281,6 +281,20 @@ export function ProductDetailClient({
     };
   }, [lightboxOpen, closeLightbox, lightboxPrev, lightboxNext]);
 
+  const handleBack = useCallback(() => {
+    if (typeof window === "undefined") return;
+
+    // Client navigations in Next.js do not refresh document.referrer; stack depth is the reliable signal.
+    // Use length > 1 (not > 2) so routes like home → PDP still get a real back().
+    // With length === 1, router.back() is a no-op or wrong even if referrer is same-origin (e.g. new tab).
+    if (window.history.length > 1) {
+      router.back();
+      return;
+    }
+
+    router.push(`/${listStoreType}/shop`);
+  }, [router, listStoreType]);
+
   const handleWishlistClick = async (e: React.MouseEvent) => {
     e.stopPropagation();
     await toggleItem(product.id);
@@ -381,7 +395,7 @@ export function ProductDetailClient({
           <div className="absolute inset-x-0 top-0 z-20 flex items-center justify-between gap-2 px-4 pb-2 pt-[max(0.75rem,env(safe-area-inset-top,0px))]">
             <button
               type="button"
-              onClick={() => router.back()}
+              onClick={handleBack}
               className={navIconPill}
               aria-label={t("mobileBackAria")}
             >
