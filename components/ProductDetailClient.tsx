@@ -904,13 +904,16 @@ export function ProductDetailClient({
       <div
         ref={stickyBuyBarRef}
         className={cn(
-          // Match Navbar glass: frosted strip when backdrop-filter is supported
-          "fixed inset-x-0 bottom-0 z-40 border-t border-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 transition-transform duration-300 ease-out",
+          // Chrome mobile: avoid translucent blur + transform compositing glitches — solid base, blur only as enhancement
+          "fixed inset-x-0 bottom-0 z-40 isolate transform-gpu border-t border-border bg-background shadow-[0_-1px_0_0_var(--border)]",
+          "supports-[backdrop-filter]:bg-background/92 supports-[backdrop-filter]:backdrop-blur-md",
+          "pb-[env(safe-area-inset-bottom,0px)] transition-[transform] duration-300 ease-out [backface-visibility:hidden]",
+          "will-change-transform",
           showStickyBuyBar ? "translate-y-0" : "translate-y-full pointer-events-none",
         )}
         aria-hidden={!showStickyBuyBar}
       >
-        <div className="max-w-[min(100%,1680px)] mx-auto px-4 sm:px-5 lg:px-6 xl:px-8 py-2 pb-[max(0.5rem,env(safe-area-inset-bottom,0px))]">
+        <div className="mx-auto max-w-[min(100%,1680px)] px-4 py-2 sm:px-5 lg:px-6 xl:px-8">
           <div className="flex flex-wrap items-center gap-x-2.5 gap-y-1.5 min-w-0">
             <div className="relative h-11 w-11 shrink-0 overflow-hidden bg-muted border border-border">
               {stickyThumbSrc ? (
