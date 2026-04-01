@@ -23,13 +23,9 @@ import type { ProductVariant, ProductColor, StorefrontProductResolved } from "@/
 import { WishlistBookmarkIcon } from "@/components/WishlistBookmarkIcon";
 import { PRODUCT_STICKY_BUYBAR_CSS_VAR } from "@/lib/product-sticky-buybar";
 import type { EmblaOptionsType } from "embla-carousel";
-import { ChevronLeft, Search, ShoppingBag, User } from "lucide-react";
-import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
+import { ChevronLeft, Search, User } from "lucide-react";
 
 const DEFAULT_SIZES = ["XS", "S", "M", "L", "XL"];
-
-const MOBILE_ADD_TOAST_MS = 5000;
-const MOBILE_ADD_TOAST_ANIM_MS = 300;
 
 interface ProductDetailClientProps {
   product: StorefrontProductResolved & { images?: string[] };
@@ -77,12 +73,6 @@ export function ProductDetailClient({
   const stickyBuyBarRef = useRef<HTMLDivElement | null>(null);
   const [similarSectionInView, setSimilarSectionInView] = useState(false);
   const [stickyBuyPhase, setStickyBuyPhase] = useState<"summary" | "pickSize">("summary");
-  const [mobileSizeSheetOpen, setMobileSizeSheetOpen] = useState(false);
-  const [mobileAddedToast, setMobileAddedToast] = useState<{
-    key: number;
-    thumb: string | null;
-  } | null>(null);
-  const [mobileAddedToastVisible, setMobileAddedToastVisible] = useState(false);
   const [isColorMenuOpen, setIsColorMenuOpen] = useState(false);
 
   const firstColor = colors[0];
@@ -319,48 +309,6 @@ export function ProductDetailClient({
     setStickyBuyPhase("summary");
   };
 
-  const showMobileAddedToast = useCallback(() => {
-    const thumb = imageUrls[0] && !imageErrors[0] ? imageUrls[0] : null;
-    setMobileAddedToast((prev) => ({
-      key: (prev?.key ?? 0) + 1,
-      thumb,
-    }));
-  }, [imageUrls, imageErrors]);
-
-  useEffect(() => {
-    if (!mobileAddedToast) return;
-    setMobileAddedToastVisible(false);
-    let raf2 = 0;
-    const raf1 = requestAnimationFrame(() => {
-      raf2 = requestAnimationFrame(() => setMobileAddedToastVisible(true));
-    });
-    const leaveTimer = window.setTimeout(() => {
-      setMobileAddedToastVisible(false);
-    }, MOBILE_ADD_TOAST_MS);
-    const removeTimer = window.setTimeout(() => {
-      setMobileAddedToast(null);
-    }, MOBILE_ADD_TOAST_MS + MOBILE_ADD_TOAST_ANIM_MS);
-    return () => {
-      cancelAnimationFrame(raf1);
-      cancelAnimationFrame(raf2);
-      clearTimeout(leaveTimer);
-      clearTimeout(removeTimer);
-    };
-  }, [mobileAddedToast]);
-
-  const handleMobileSheetPickSize = (size: string) => {
-    if (!isSizeInStock(size)) return;
-    addLineForSize(size, { openBag: false });
-    setMobileSizeSheetOpen(false);
-    showMobileAddedToast();
-  };
-
-  const handleMobileToastGoToBag = () => {
-    setMobileAddedToast(null);
-    setMobileAddedToastVisible(false);
-    openCart();
-  };
-
   const handleAddToBag = () => {
     if (!selectedSize || !isSizeInStock(selectedSize)) return;
     addLineForSize(selectedSize);
@@ -485,7 +433,24 @@ export function ProductDetailClient({
                 );
               })}
             </CarouselContent>
-            <CarouselDots />
+            <div className="pointer-events-none absolute inset-x-0 bottom-0 z-10 flex items-end justify-between gap-2 bg-gradient-to-t from-black/55 via-black/15 to-transparent px-4 pb-[max(0.75rem,env(safe-area-inset-bottom,0px))] pt-14">
+              <span className="h-10 w-10 shrink-0" aria-hidden />
+              <div className="pointer-events-auto flex min-w-0 flex-1 justify-center">
+                <CarouselDots variant="onImage" className="mt-0" />
+              </div>
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  void handleWishlistClick(e);
+                }}
+                className={cn(navIconPill, "pointer-events-auto shrink-0")}
+                aria-label={wishlistState ? t("wishlistRemove") : t("wishlistAdd")}
+              >
+                <WishlistBookmarkIcon active={wishlistState} className="h-5 w-5" />
+              </button>
+            </div>
           </Carousel>
           {colors.length > 1 ? (
             <div
@@ -531,53 +496,33 @@ export function ProductDetailClient({
 
         <div className="flex flex-1 flex-col px-4 pb-10 pt-5">
           <div className="flex items-start justify-between gap-3">
-            <h1 className="text-lg font-normal uppercase tracking-widest text-foreground">{product.name.toUpperCase()}</h1>
-            <div className="flex shrink-0 items-center gap-2">
-              <button
-                type="button"
-                onClick={() => hasAnyInStock && setMobileSizeSheetOpen(true)}
-                disabled={!hasAnyInStock}
-                aria-haspopup="dialog"
-                aria-expanded={mobileSizeSheetOpen}
-                className="text-muted-foreground transition-colors hover:text-foreground disabled:cursor-not-allowed disabled:opacity-40"
-                aria-label={t("mobileCartPickSize")}
-              >
-                <ShoppingBag className="h-5 w-5" aria-hidden />
-              </button>
-              <button
-                type="button"
-                onClick={handleWishlistClick}
-                className="text-muted-foreground transition-colors hover:text-foreground"
-                aria-label={wishlistState ? t("wishlistRemove") : t("wishlistAdd")}
-              >
-                <WishlistBookmarkIcon active={wishlistState} className="h-5 w-5" />
-              </button>
-            </div>
-          </div>
-
-          {colors.length > 1 ? (
-            <div className="mt-4">
+            <h1 className="min-w-0 flex-1 text-lg font-normal uppercase tracking-widest text-foreground">
+              {product.name.toUpperCase()}
+            </h1>
+            {colors.length > 1 ? (
               <button
                 type="button"
                 onClick={() => setIsColorMenuOpen((o) => !o)}
-                className="flex items-center gap-3 rounded-sm border border-border bg-muted/30 px-3 py-2 text-left transition-colors hover:bg-muted/50"
+                className="flex shrink-0 items-center gap-2 rounded-sm border border-border bg-muted/40 px-2 py-1.5 text-left transition-colors hover:bg-muted/60"
                 aria-expanded={isColorMenuOpen}
                 aria-controls="mobile-color-menu"
               >
                 <span
-                  className="block h-8 w-8 shrink-0 bg-muted bg-cover bg-center ring-1 ring-border"
+                  className="block h-7 w-7 shrink-0 bg-muted bg-cover bg-center ring-1 ring-border"
                   style={
                     selectedColor?.imageUrls?.[0]
                       ? { backgroundImage: `url(${selectedColor.imageUrls[0]})` }
                       : { backgroundColor: selectedColor?.hexCode ?? "var(--muted)" }
                   }
                 />
-                <span className="text-sm font-medium text-foreground">
+                <span className="text-sm font-semibold tabular-nums text-foreground">
                   {t("colorToggleMore", { count: colors.length - 1 })}
                 </span>
               </button>
-            </div>
-          ) : colors.length === 0 && product.color ? (
+            ) : null}
+          </div>
+
+          {colors.length === 0 && product.color ? (
             <p className="mt-4 text-sm text-muted-foreground">{product.color}</p>
           ) : null}
 
@@ -1183,79 +1128,6 @@ export function ProductDetailClient({
           </div>
         </div>
       </div>
-
-      <Sheet open={mobileSizeSheetOpen} onOpenChange={setMobileSizeSheetOpen}>
-        <SheetContent side="bottom" className="gap-0 px-6 pb-8 pt-2">
-          <SheetHeader className="border-b border-border pb-4 text-start">
-            <SheetTitle>{t("selectSizeSheetTitle")}</SheetTitle>
-          </SheetHeader>
-          <div className="flex flex-wrap gap-2 pt-6">
-            {sizes.map((size) => {
-              const inStock = isSizeInStock(size);
-              return (
-                <button
-                  key={size}
-                  type="button"
-                  disabled={!inStock}
-                  onClick={() => handleMobileSheetPickSize(size)}
-                  className={cn(
-                    "min-h-10 min-w-10 rounded-sm px-3 text-sm font-medium uppercase tracking-wide transition-colors",
-                    !inStock
-                      ? "cursor-not-allowed border border-border bg-muted/30 text-muted-foreground opacity-50"
-                      : "border border-border text-foreground hover:border-foreground active:bg-foreground active:text-background",
-                  )}
-                  title={
-                    !inStock ? t("outOfStockTitle") : t("inStockTitle", { count: getStockForSize(size) })
-                  }
-                >
-                  {size}
-                </button>
-              );
-            })}
-          </div>
-        </SheetContent>
-      </Sheet>
-
-      {mobileAddedToast ? (
-        <div
-          className="pointer-events-none fixed inset-x-0 bottom-0 z-[10000] flex justify-center px-4 pb-[max(1rem,env(safe-area-inset-bottom))] md:hidden"
-          role="status"
-          aria-live="polite"
-        >
-          <div
-            className={cn(
-              "pointer-events-auto flex w-full max-w-lg items-center gap-3 border border-border bg-background/95 p-3 shadow-lg backdrop-blur-sm transition-transform duration-300 ease-out",
-              mobileAddedToastVisible ? "translate-y-0" : "translate-y-[calc(100%+2.5rem)]",
-            )}
-          >
-            <div className="flex min-w-0 flex-1 items-center gap-3">
-              <div className="relative h-14 w-11 shrink-0 overflow-hidden bg-muted">
-                {mobileAddedToast.thumb ? (
-                  <Image
-                    src={mobileAddedToast.thumb}
-                    alt=""
-                    fill
-                    className="object-cover"
-                    sizes="56px"
-                  />
-                ) : (
-                  <div className="flex h-full w-full items-center justify-center text-muted-foreground text-xs">
-                    —
-                  </div>
-                )}
-              </div>
-              <p className="text-sm font-medium text-foreground">{t("addedToBag")}</p>
-            </div>
-            <button
-              type="button"
-              onClick={handleMobileToastGoToBag}
-              className="shrink-0 rounded-none border border-foreground bg-transparent px-3 py-2 text-xs font-semibold uppercase tracking-wider text-foreground transition-colors hover:bg-foreground hover:text-background"
-            >
-              {t("goToBag")}
-            </button>
-          </div>
-        </div>
-      ) : null}
     </main>
   );
 }

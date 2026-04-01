@@ -209,12 +209,20 @@ const CarouselNext = React.forwardRef<
 });
 CarouselNext.displayName = "CarouselNext";
 
-function CarouselDots({ className }: { className?: string }) {
+function CarouselDots({
+  className,
+  variant = "default",
+}: {
+  className?: string;
+  /** Light dots for use over photography (e.g. mobile PDP). */
+  variant?: "default" | "onImage";
+}) {
   const { scrollSnapList, selectedIndex, scrollTo } = useCarousel();
   if (scrollSnapList.length <= 1) return null;
+  const onImage = variant === "onImage";
   return (
     <div
-      className={cn("flex justify-center gap-1.5 mt-3", className)}
+      className={cn("flex justify-center gap-1.5", !onImage && "mt-3", className)}
       role="tablist"
       aria-label="Image gallery pagination"
     >
@@ -228,9 +236,13 @@ function CarouselDots({ className }: { className?: string }) {
           onClick={() => scrollTo(index)}
           className={cn(
             "h-1.5 rounded-full transition-all duration-200",
-            index === selectedIndex
-              ? "w-4 bg-foreground"
-              : "w-1.5 bg-muted-foreground/40 hover:bg-muted-foreground/60"
+            onImage
+              ? index === selectedIndex
+                ? "w-4 bg-white shadow-sm"
+                : "w-1.5 bg-white/45 hover:bg-white/75"
+              : index === selectedIndex
+                ? "w-4 bg-foreground"
+                : "w-1.5 bg-muted-foreground/40 hover:bg-muted-foreground/60",
           )}
         />
       ))}
