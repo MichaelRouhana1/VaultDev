@@ -1,11 +1,12 @@
 import { getTranslations } from "next-intl/server";
 import { Link } from "@/i18n/navigation";
-import Image from "next/image";
+import { ResponsiveArtPicture } from "@/components/storefront/ResponsiveArtPicture";
 
 interface LookbookItemData {
   id: number;
   label: string;
   imageUrl: string;
+  mobileImageUrl?: string | null;
   href: string;
 }
 
@@ -21,11 +22,13 @@ export async function LookbookSection({ items }: { items: LookbookItemData[] }) 
         {items.map((item) => (
           <Link key={item.id} href={item.href} className="group">
             <div className="relative mb-4 aspect-[3/4] overflow-hidden">
-              <Image
-                src={item.imageUrl}
+              <ResponsiveArtPicture
+                desktopSrc={item.imageUrl}
+                mobileSrc={item.mobileImageUrl}
                 alt={item.label}
-                fill
-                className="object-cover transition-transform duration-200 ease-out group-hover:scale-[1.02]"
+                className="absolute inset-0 block h-full w-full"
+                imgClassName="h-full w-full object-cover transition-transform duration-200 ease-out group-hover:scale-[1.02]"
+                loading="lazy"
               />
             </div>
             <p className="text-sm font-normal text-foreground">{item.label}</p>

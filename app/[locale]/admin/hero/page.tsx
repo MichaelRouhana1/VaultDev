@@ -1,5 +1,5 @@
 import { getAllHeroImages } from "@/actions/hero";
-import { HeroAdminClient } from "@/components/HeroAdminClient";
+import { HeroAdminClient } from "@/components/admin/HeroAdminClient";
 import { getAdminStoreType } from "@/actions/admin-store";
 import { requireAdmin } from "@/lib/security";
 

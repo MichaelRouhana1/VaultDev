@@ -70,15 +70,27 @@ export async function getAllLookbookItems() {
 export async function deleteLookbookItem(id: number) {
   const validId = z.number().int().positive().parse(id);
   const { userId } = await requireAdmin();
-  const [item] = await db.select({ imageUrl: lookbookItems.imageUrl }).from(lookbookItems).where(eq(lookbookItems.id, validId)).limit(1);
+  const [item] = await db
+    .select({ imageUrl: lookbookItems.imageUrl, mobileImageUrl: lookbookItems.mobileImageUrl })
+    .from(lookbookItems)
+    .where(eq(lookbookItems.id, validId))
+    .limit(1);
   if (item?.imageUrl) await deleteFromR2(item.imageUrl);
+  if (item?.mobileImageUrl) await deleteFromR2(item.mobileImageUrl);
   await db.delete(lookbookItems).where(eq(lookbookItems.id, validId));
   auditLog({ userId, action: "lookbook.delete", target: String(validId) });
 }
 
 export async function updateLookbookItem(
   id: number,
-  data: { label?: string; href?: string; order?: number; storeType?: "streetwear" | "formal" | "both" }
+  data: {
+    label?: string;
+    href?: string;
+    order?: number;
+    storeType?: "streetwear" | "formal" | "both";
+    /** Set a public URL for the mobile crop; omit to leave unchanged. Pass null to clear. */
+    mobileImageUrl?: string | null;
+  }
 ) {
   const validId = z.number().int().positive().parse(id);
   const { userId } = await requireAdmin();
@@ -87,17 +99,96 @@ export async function updateLookbookItem(
     href: z.string().optional(),
     order: z.number().int().optional(),
     storeType: z.enum(["streetwear", "formal", "both"]).optional(),
+    mobileImageUrl: z.union([z.string().url(), z.null()]).optional(),
   });
   const parsedData = updateSchema.parse(data);
 
-  const updateData: typeof parsedData = { ...parsedData };
+  const updateData: Record<string, unknown> = { ...parsedData };
   if (parsedData.href !== undefined) {
     const validated = validateHref(parsedData.href);
     if (!validated.ok) throw new Error(validated.error);
     updateData.href = validated.href;
   }
+
+  if (parsedData.mobileImageUrl !== undefined) {
+    const [row] = await db
+      .select({ mobileImageUrl: lookbookItems.mobileImageUrl })
+      .from(lookbookItems)
+      .where(eq(lookbookItems.id, validId))
+      .limit(1);
+    if (parsedData.mobileImageUrl === null) {
+      if (row?.mobileImageUrl) await deleteFromR2(row.mobileImageUrl);
+      updateData.mobileImageUrl = null;
+    } else {
+      const next = parsedData.mobileImageUrl;
+      if (row?.mobileImageUrl && row.mobileImageUrl !== next) await deleteFromR2(row.mobileImageUrl);
+      updateData.mobileImageUrl = next;
+    }
+  } else {
+    delete updateData.mobileImageUrl;
+  }
+
   await db.update(lookbookItems).set(updateData).where(eq(lookbookItems.id, validId));
   auditLog({ userId, action: "lookbook.update", target: String(validId), details: updateData });
+}
+
+/** Replace lookbook desktop and/or mobile image from uploaded files. Admin only. */
+export async function updateLookbookItemImagesFromFile(
+  id: number,
+  formData: FormData
+): Promise<{ error?: string }> {
+  const gate = await requireAdminAction({ auditTarget: "lookbook.update" });
+  if (!gate.authorized) return { error: gate.response.error };
+  const { userId } = gate;
+
+  const validId = z.number().int().positive().parse(id);
+  const file = formData.get("image") as File | null;
+  const mobileFile = formData.get("mobileImage") as File | null;
+  const mobileUrlRaw = formData.get("mobileImageUrl")?.toString()?.trim();
+
+  if (!file?.size && !mobileFile?.size && !mobileUrlRaw) {
+    return { error: "Provide image, mobileImage, or mobileImageUrl" };
+  }
+
+  const [existing] = await db
+    .select({ imageUrl: lookbookItems.imageUrl, mobileImageUrl: lookbookItems.mobileImageUrl })
+    .from(lookbookItems)
+    .where(eq(lookbookItems.id, validId))
+    .limit(1);
+  if (!existing) return { error: "Item not found" };
+
+  let nextImageUrl = existing.imageUrl;
+  let nextMobileUrl: string | null = existing.mobileImageUrl ?? null;
+
+  if (file?.size) {
+    const filename = `look-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+    const result = await uploadLookImage(file, filename);
+    if (result.error) return { error: result.error };
+    if (!result.url) return { error: "Upload failed" };
+    await deleteFromR2(existing.imageUrl);
+    nextImageUrl = result.url;
+  }
+
+  if (mobileFile?.size) {
+    const mobileFilename = `look-mobile-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+    const mobileResult = await uploadLookImage(mobileFile, mobileFilename);
+    if (mobileResult.error) return { error: mobileResult.error };
+    if (!mobileResult.url) return { error: "Mobile upload failed" };
+    if (existing.mobileImageUrl) await deleteFromR2(existing.mobileImageUrl);
+    nextMobileUrl = mobileResult.url;
+  } else if (mobileUrlRaw) {
+    if (existing.mobileImageUrl && existing.mobileImageUrl !== mobileUrlRaw) {
+      await deleteFromR2(existing.mobileImageUrl);
+    }
+    nextMobileUrl = z.string().url().parse(mobileUrlRaw);
+  }
+
+  await db
+    .update(lookbookItems)
+    .set({ imageUrl: nextImageUrl, mobileImageUrl: nextMobileUrl })
+    .where(eq(lookbookItems.id, validId));
+  auditLog({ userId, action: "lookbook.update", target: String(validId), details: { images: true } });
+  return {};
 }
 
 /** Uploads a look image and adds it to the database. Admin only. */
@@ -133,10 +224,24 @@ export async function addLookbookItemFromFile(formData: FormData): Promise<{ err
 
   if (!file?.size) return { error: "No image provided" };
 
+  const mobileFile = formData.get("mobileImage") as File | null;
+  const mobileUrlRaw = formData.get("mobileImageUrl")?.toString()?.trim();
+
   const filename = `look-${Date.now()}-${Math.random().toString(36).slice(2)}`;
   const result = await uploadLookImage(file, filename);
   if (result.error) return { error: result.error };
   if (!result.url) return { error: "Upload failed" };
+
+  let mobileUrl: string | null = null;
+  if (mobileFile?.size) {
+    const mobileFilename = `look-mobile-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+    const mobileResult = await uploadLookImage(mobileFile, mobileFilename);
+    if (mobileResult.error) return { error: mobileResult.error };
+    if (!mobileResult.url) return { error: "Mobile upload failed" };
+    mobileUrl = mobileResult.url;
+  } else if (mobileUrlRaw) {
+    mobileUrl = z.string().url().parse(mobileUrlRaw);
+  }
 
   const [{ maxOrder }] = await db
     .select({ maxOrder: max(lookbookItems.order) })
@@ -146,6 +251,7 @@ export async function addLookbookItemFromFile(formData: FormData): Promise<{ err
   const [inserted] = await db.insert(lookbookItems).values({
     label,
     imageUrl: result.url,
+    mobileImageUrl: mobileUrl,
     href,
     order: nextOrder,
     storeType,

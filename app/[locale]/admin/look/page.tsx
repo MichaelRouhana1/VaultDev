@@ -1,5 +1,5 @@
 import { getAllLookbookItems, getLookbookSectionVisible } from "@/actions/lookbook";
-import { LookAdminClient } from "@/components/LookAdminClient";
+import { LookAdminClient } from "@/components/admin/LookAdminClient";
 import { getAdminStoreType } from "@/actions/admin-store";
 import { requireAdmin } from "@/lib/security";
 

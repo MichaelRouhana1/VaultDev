@@ -464,6 +464,7 @@ export const lookbookItems = pgTable("lookbook_items", {
   id: serial("id").primaryKey(),
   label: text("label").notNull(),
   imageUrl: text("image_url").notNull(),
+  mobileImageUrl: text("mobile_image_url"),
   href: text("href").notNull().default("/shop"),
   order: integer("sort_order").notNull().default(0),
   isActive: boolean("is_active").notNull().default(true),
@@ -475,6 +476,7 @@ export const lookbookItems = pgTable("lookbook_items", {
 export const heroImages = pgTable("hero_images", {
   id: serial("id").primaryKey(),
   imageUrl: text("image_url").notNull(),
+  mobileImageUrl: text("mobile_image_url"),
   altText: text("alt_text"),
   order: integer("sort_order").notNull().default(0),
   isActive: boolean("is_active").notNull().default(true),
@@ -489,6 +491,7 @@ export const landingImages = pgTable("landing_images", {
   id: serial("id").primaryKey(),
   storeType: storeTypeEnum("store_type").notNull().unique(),
   imageUrl: text("image_url").notNull(),
+  mobileImageUrl: text("mobile_image_url"),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
 

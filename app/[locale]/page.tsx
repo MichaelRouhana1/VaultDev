@@ -1,7 +1,7 @@
-import Image from "next/image";
 import { getTranslations } from "next-intl/server";
 import { Link } from "@/i18n/navigation";
 import { getLandingImages } from "@/actions/landing";
+import { ResponsiveArtPicture } from "@/components/storefront/ResponsiveArtPicture";
 
 const STREETWEAR_FALLBACK =
   "https://images.pexels.com/photos/157675/fashion-men-s-individuality-black-and-white-157675.jpeg?auto=compress&cs=tinysrgb&w=1200&h=1600&fit=crop";
@@ -11,8 +11,10 @@ const FORMAL_FALLBACK =
 export default async function RootHomePage() {
   const t = await getTranslations("Landing");
   const images = await getLandingImages();
-  const streetwearImg = images.find((img) => img.storeType === "streetwear")?.imageUrl ?? STREETWEAR_FALLBACK;
-  const formalImg = images.find((img) => img.storeType === "formal")?.imageUrl ?? FORMAL_FALLBACK;
+  const streetwearRow = images.find((img) => img.storeType === "streetwear");
+  const formalRow = images.find((img) => img.storeType === "formal");
+  const streetwearImg = streetwearRow?.imageUrl ?? STREETWEAR_FALLBACK;
+  const formalImg = formalRow?.imageUrl ?? FORMAL_FALLBACK;
 
   return (
     <div className="flex flex-col md:flex-row h-[100dvh] w-full overflow-hidden bg-black text-white">
@@ -25,12 +27,13 @@ export default async function RootHomePage() {
         href="/streetwear"
         className="group relative flex h-full w-full flex-1 cursor-pointer flex-col items-center justify-center transition-all duration-[800ms] md:hover:flex-[1.2]"
       >
-        <Image
-          src={streetwearImg}
+        <ResponsiveArtPicture
+          desktopSrc={streetwearImg}
+          mobileSrc={streetwearRow?.mobileImageUrl}
           alt={t("altStreetwear")}
-          fill
-          className="object-cover object-top transition-transform duration-[2s] ease-out md:group-hover:scale-105"
-          priority
+          className="absolute inset-0 block h-full w-full"
+          imgClassName="h-full w-full object-cover object-top transition-transform duration-[2s] ease-out md:group-hover:scale-105"
+          fetchPriority="high"
         />
         <div className="absolute inset-0 bg-black/40 transition-colors duration-[800ms] group-hover:bg-black/20" />
 
@@ -48,12 +51,13 @@ export default async function RootHomePage() {
         href="/formal"
         className="group relative flex h-full w-full flex-1 cursor-pointer flex-col items-center justify-center transition-all duration-[800ms] md:hover:flex-[1.2]"
       >
-        <Image
-          src={formalImg}
+        <ResponsiveArtPicture
+          desktopSrc={formalImg}
+          mobileSrc={formalRow?.mobileImageUrl}
           alt={t("altFormal")}
-          fill
-          className="object-cover object-top transition-transform duration-[2s] ease-out md:group-hover:scale-105"
-          priority
+          className="absolute inset-0 block h-full w-full"
+          imgClassName="h-full w-full object-cover object-top transition-transform duration-[2s] ease-out md:group-hover:scale-105"
+          fetchPriority="high"
         />
         <div className="absolute inset-0 bg-black/40 transition-colors duration-[800ms] group-hover:bg-black/20" />
 

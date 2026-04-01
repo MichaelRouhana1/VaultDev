@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import Image from "next/image";
+import { ResponsiveArtPicture } from "@/components/storefront/ResponsiveArtPicture";
 import type { HeroImage } from "@/db/schema";
 
 const SLIDE_DURATION_MS = 5000;
@@ -40,14 +40,14 @@ export function HeroCarousel({ images }: HeroCarouselProps) {
     <section className="w-full relative overflow-hidden">
       {/* Responsive height: min 50vh on mobile, 75vh on larger screens */}
       <div className="w-full min-h-[50vh] sm:min-h-[60vh] md:h-[75vh] relative">
-        <Image
-          src={current.imageUrl}
+        <ResponsiveArtPicture
+          key={`${current.id}-${currentIndex}`}
+          desktopSrc={current.imageUrl}
+          mobileSrc={current.mobileImageUrl}
           alt={current.altText ?? "Hero slide"}
-          fill
-          className="object-cover"
-          priority
-
-          sizes="100vw"
+          className="absolute inset-0 block h-full w-full"
+          imgClassName="h-full w-full object-cover"
+          fetchPriority={currentIndex === 0 ? "high" : undefined}
         />
 
         {/* Progress bar at bottom - only when multiple slides */}

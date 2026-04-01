@@ -31,16 +31,26 @@ export async function getAllHeroImages() {
     .orderBy(asc(heroImages.order));
 }
 
-export async function addHeroImage(imageUrl: string, altText?: string, storeType: "streetwear" | "formal" | "both" = "both") {
+export async function addHeroImage(
+  imageUrl: string,
+  altText?: string,
+  storeType: "streetwear" | "formal" | "both" = "both",
+  mobileImageUrl?: string | null
+) {
   const { userId } = await requireAdmin();
   const validatedStore = z.enum(["streetwear", "formal", "both"]).parse(storeType);
   const validatedUrl = z.string().url().parse(imageUrl);
   const validatedAlt = altText ? z.string().parse(altText) : null;
+  const validatedMobile =
+    mobileImageUrl != null && String(mobileImageUrl).trim() !== ""
+      ? z.string().url().parse(mobileImageUrl)
+      : null;
 
   const [image] = await db
     .insert(heroImages)
     .values({
       imageUrl: validatedUrl,
+      mobileImageUrl: validatedMobile,
       altText: validatedAlt,
       storeType: validatedStore,
     })
@@ -52,8 +62,13 @@ export async function addHeroImage(imageUrl: string, altText?: string, storeType
 export async function deleteHeroImage(id: number) {
   const { userId } = await requireAdmin();
   const validId = z.number().int().positive().parse(id);
-  const [image] = await db.select({ imageUrl: heroImages.imageUrl }).from(heroImages).where(eq(heroImages.id, validId)).limit(1);
+  const [image] = await db
+    .select({ imageUrl: heroImages.imageUrl, mobileImageUrl: heroImages.mobileImageUrl })
+    .from(heroImages)
+    .where(eq(heroImages.id, validId))
+    .limit(1);
   if (image?.imageUrl) await deleteFromR2(image.imageUrl);
+  if (image?.mobileImageUrl) await deleteFromR2(image.mobileImageUrl);
   await db.delete(heroImages).where(eq(heroImages.id, validId));
   auditLog({ userId, action: "hero.delete", target: String(validId) });
 }
@@ -65,6 +80,7 @@ export async function addHeroImageFromFile(formData: FormData): Promise<{ error?
   const { userId } = gate;
 
   const file = formData.get("image") as File | null;
+  const mobileFile = formData.get("mobileImage") as File | null;
   const storeTypeRaw = formData.get("storeType")?.toString() || "both";
   const storeType = z.enum(["streetwear", "formal", "both"]).parse(storeTypeRaw);
   if (!file?.size) return { error: "No image provided" };
@@ -74,10 +90,23 @@ export async function addHeroImageFromFile(formData: FormData): Promise<{ error?
   if (result.error) return { error: result.error };
   if (!result.url) return { error: "Upload failed" };
 
+  let mobileUrl: string | null = null;
+  const mobileUrlRaw = formData.get("mobileImageUrl")?.toString()?.trim();
+  if (mobileFile?.size) {
+    const mobileFilename = `hero-mobile-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+    const mobileResult = await uploadHeroImage(mobileFile, mobileFilename);
+    if (mobileResult.error) return { error: mobileResult.error };
+    if (!mobileResult.url) return { error: "Mobile upload failed" };
+    mobileUrl = mobileResult.url;
+  } else if (mobileUrlRaw) {
+    mobileUrl = z.string().url().parse(mobileUrlRaw);
+  }
+
   const [image] = await db
     .insert(heroImages)
     .values({
       imageUrl: result.url,
+      mobileImageUrl: mobileUrl,
       altText: null,
       storeType,
     })

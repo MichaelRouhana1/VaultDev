@@ -4,7 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import Image from "next/image";
 import { useRouter } from "@/i18n/navigation";
 import { useDropzone } from "react-dropzone";
-import { ImageCropModal } from "@/components/ImageCropModal";
+import { DualImageCropModal } from "@/components/admin/DualImageCropModal";
 import { addHeroImageFromFile, deleteHeroImage } from "@/actions/hero";
 import { ensureBrowserDisplayableImage } from "@/lib/ensureBrowserDisplayableImage";
 import { Button } from "@/components/ui/button";
@@ -12,7 +12,26 @@ import { toast } from "sonner";
 import type { HeroImage } from "@/db/schema";
 
 /** Matches hero carousel: width / 75vh. From user's viewport ~1567×544: aspect ≈ 2.88. Use 72/25 ≈ 2.88 */
-const HERO_ASPECT = 72 / 25;
+const HERO_DESKTOP_ASPECT = 72 / 25;
+const HERO_MOBILE_ASPECT = 3 / 4;
+
+function MobileCropPreview({ url, alt }: { url: string | null | undefined; alt: string }) {
+  if (!url) {
+    return (
+      <div
+        className="flex h-24 w-12 shrink-0 flex-col items-center justify-center rounded border border-dashed border-border bg-muted/40 px-1 text-center text-[9px] font-medium uppercase leading-tight text-muted-foreground"
+        title="No mobile crop yet"
+      >
+        Mobile
+      </div>
+    );
+  }
+  return (
+    <div className="relative h-24 w-12 shrink-0 overflow-hidden rounded border border-border" title={`${alt} — mobile`}>
+      <Image src={url} alt={`${alt} mobile`} fill className="object-cover" sizes="48px" />
+    </div>
+  );
+}
 
 interface HeroAdminClientProps {
   images: HeroImage[];
@@ -46,26 +65,30 @@ export function HeroAdminClient({ images: initialImages, initialStoreType }: Her
     })();
   }, []);
 
-  const handleCropComplete = useCallback(
-    async (blob: Blob) => {
+  const handleDualCropComplete = useCallback(
+    async (desktopBlob: Blob, mobileBlob: Blob) => {
       const current = cropFileRef.current;
       if (!current) return;
       URL.revokeObjectURL(current.objectUrl);
       setCropFile(null);
 
-      const file = new File([blob], current.file.name.replace(/\.[^.]+$/, ".jpg"), {
+      const desktopFile = new File([desktopBlob], current.file.name.replace(/\.[^.]+$/, "-desktop.jpg"), {
+        type: "image/jpeg",
+      });
+      const mobileFile = new File([mobileBlob], current.file.name.replace(/\.[^.]+$/, "-mobile.jpg"), {
         type: "image/jpeg",
       });
 
       setIsAdding(true);
       const formData = new FormData();
-      formData.append("image", file);
+      formData.append("image", desktopFile);
+      formData.append("mobileImage", mobileFile);
       formData.append("storeType", initialStoreType);
       const result = await addHeroImageFromFile(formData);
       setIsAdding(false);
 
       if (result.error) {
-        console.error(result.error);
+        toast.error(result.error);
         return;
       }
       router.refresh();
@@ -102,22 +125,17 @@ export function HeroAdminClient({ images: initialImages, initialStoreType }: Her
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+      <div className="flex flex-col items-start justify-between gap-4 sm:flex-row sm:items-center">
         <div className="flex items-center gap-4">
           <h1 className="text-2xl font-bold">Hero Slideshow</h1>
-          <span className="px-2.5 py-1 text-xs font-medium bg-muted text-muted-foreground rounded-full capitalize">
+          <span className="rounded-full bg-muted px-2.5 py-1 text-xs font-medium capitalize text-muted-foreground">
             Managing: {initialStoreType}
           </span>
         </div>
         <div className="flex items-center gap-4">
-
           <div {...getRootProps()}>
             <input {...getInputProps()} />
-            <Button
-              type="button"
-              disabled={!!cropFile || isAdding}
-              className="cursor-pointer"
-            >
+            <Button type="button" disabled={!!cropFile || isAdding} className="cursor-pointer">
               {isAdding ? "Adding…" : "Add Slide"}
             </Button>
           </div>
@@ -125,8 +143,10 @@ export function HeroAdminClient({ images: initialImages, initialStoreType }: Her
       </div>
 
       {images.length === 0 ? (
-        <div className="border border-dashed border-border rounded-lg p-12 text-center text-muted-foreground">
-          <p className="mb-4">No items found for this store. Add your first <span className="capitalize">{initialStoreType}</span> item.</p>
+        <div className="rounded-lg border border-dashed border-border p-12 text-center text-muted-foreground">
+          <p className="mb-4">
+            No items found for this store. Add your first <span className="capitalize">{initialStoreType}</span> item.
+          </p>
           <div {...getRootProps()}>
             <input {...getInputProps()} />
             <Button variant="outline" type="button" className="cursor-pointer">
@@ -135,33 +155,27 @@ export function HeroAdminClient({ images: initialImages, initialStoreType }: Her
           </div>
         </div>
       ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
           {images.map((img) => (
-            <div
-              key={img.id}
-              className="relative group overflow-hidden rounded-lg border border-border bg-muted"
-            >
-              <div className="aspect-[16/9] relative">
-                <Image
-                  src={img.imageUrl}
-                  alt={img.altText ?? "Hero slide"}
-                  fill
-                  className="object-cover"
-
-                  sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
-                />
+            <div key={img.id} className="group relative overflow-hidden rounded-lg border border-border bg-muted">
+              <div className="flex gap-2 p-2">
+                <div className="relative aspect-[16/9] min-w-0 flex-1">
+                  <Image
+                    src={img.imageUrl}
+                    alt={img.altText ?? "Hero slide"}
+                    fill
+                    className="object-cover"
+                    sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
+                  />
+                </div>
+                <MobileCropPreview url={img.mobileImageUrl} alt={img.altText ?? "Hero slide"} />
               </div>
-              <div className="p-3 text-sm font-normal text-foreground flex justify-between">
+              <div className="flex justify-between p-3 text-sm font-normal text-foreground">
                 <span>Slide #{img.id}</span>
-                <span className="capitalize opacity-60 bg-muted-foreground/10 px-2 rounded">{img.storeType}</span>
+                <span className="rounded bg-muted-foreground/10 px-2 capitalize opacity-60">{img.storeType}</span>
               </div>
-              <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
-                <Button
-                  variant="destructive"
-                  size="sm"
-                  onClick={() => handleDelete(img.id)}
-                  disabled={deletingId === img.id}
-                >
+              <div className="absolute inset-0 flex items-center justify-center gap-2 bg-black/50 opacity-0 transition-opacity group-hover:opacity-100">
+                <Button variant="destructive" size="sm" onClick={() => handleDelete(img.id)} disabled={deletingId === img.id}>
                   {deletingId === img.id ? "Deleting…" : "Delete"}
                 </Button>
               </div>
@@ -171,12 +185,15 @@ export function HeroAdminClient({ images: initialImages, initialStoreType }: Her
       )}
 
       {cropFile && (
-        <ImageCropModal
+        <DualImageCropModal
           imageSrc={cropFile.objectUrl}
-          onComplete={handleCropComplete}
+          onComplete={(desktop, mobile) => void handleDualCropComplete(desktop, mobile)}
           onCancel={handleCropCancel}
-          aspect={HERO_ASPECT}
-          title="Crop hero image (matches hero display)"
+          desktopAspect={HERO_DESKTOP_ASPECT}
+          mobileAspect={HERO_MOBILE_ASPECT}
+          desktopLabel="Hero wide"
+          mobileLabel="3:4"
+          title="Crop hero — desktop & mobile"
         />
       )}
     </div>
