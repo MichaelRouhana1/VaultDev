@@ -103,7 +103,8 @@ export function DualImageCropModal({
   confirmLabel = "Confirm",
   disableConfirm = false,
 }: DualImageCropModalProps) {
-  const [rotation, setRotation] = useState(0);
+  const [rotationDesktop, setRotationDesktop] = useState(0);
+  const [rotationMobile, setRotationMobile] = useState(0);
 
   const [cropDesktop, setCropDesktop] = useState({ x: 0, y: 0 });
   const [zoomDesktop, setZoomDesktop] = useState(1);
@@ -128,8 +129,8 @@ export function DualImageCropModal({
     setProcessing(true);
     try {
       const [desktopBlob, mobileBlob] = await Promise.all([
-        getCroppedBlob(imageSrc, croppedAreaPixelsDesktop, rotation),
-        getCroppedBlob(imageSrc, croppedAreaPixelsMobile, rotation),
+        getCroppedBlob(imageSrc, croppedAreaPixelsDesktop, rotationDesktop),
+        getCroppedBlob(imageSrc, croppedAreaPixelsMobile, rotationMobile),
       ]);
       onComplete(desktopBlob, mobileBlob);
     } catch (err) {
@@ -169,42 +170,44 @@ export function DualImageCropModal({
           <div className="flex-shrink-0 border-b border-border px-3 py-3 sm:px-4">{toolbar}</div>
         ) : null}
 
-        <div className="flex flex-shrink-0 flex-col gap-2 border-b border-border bg-muted/30 px-3 py-2 sm:flex-row sm:items-center sm:px-4">
-          <label htmlFor="dual-crop-rotation" className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground sm:w-24 sm:shrink-0">
-            Rotation
-          </label>
-          <input
-            id="dual-crop-rotation"
-            type="range"
-            min={0}
-            max={360}
-            step={1}
-            value={rotation}
-            onChange={(e) => setRotation(Number(e.target.value))}
-            className="h-2 w-full flex-1 cursor-pointer accent-foreground"
-            aria-valuemin={0}
-            aria-valuemax={360}
-            aria-valuenow={rotation}
-          />
-          <span className="w-10 shrink-0 text-right text-xs tabular-nums text-muted-foreground">{rotation}°</span>
-        </div>
-
         <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto p-3 md:flex-row md:gap-4 md:overflow-hidden md:p-4">
           <section className="flex min-h-0 min-w-0 flex-1 flex-col gap-1.5 md:gap-2">
             <p className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
               Desktop — {desktopLabel}
             </p>
+            <div className="flex flex-col gap-2 rounded-md border border-border bg-muted/30 px-2 py-2 sm:flex-row sm:items-center sm:px-3">
+              <label
+                htmlFor="dual-crop-rotation-desktop"
+                className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground sm:w-24 sm:shrink-0"
+              >
+                Rotation
+              </label>
+              <input
+                id="dual-crop-rotation-desktop"
+                type="range"
+                min={0}
+                max={360}
+                step={1}
+                value={rotationDesktop}
+                onChange={(e) => setRotationDesktop(Number(e.target.value))}
+                className="h-2 w-full flex-1 cursor-pointer accent-foreground"
+                aria-valuemin={0}
+                aria-valuemax={360}
+                aria-valuenow={rotationDesktop}
+              />
+              <span className="w-10 shrink-0 text-right text-xs tabular-nums text-muted-foreground">{rotationDesktop}°</span>
+            </div>
             <div className="relative min-h-[200px] flex-1 rounded-md border border-border bg-black/40 md:min-h-0">
               <Cropper
                 image={imageSrc}
                 crop={cropDesktop}
                 zoom={zoomDesktop}
-                rotation={rotation}
+                rotation={rotationDesktop}
                 aspect={desktopAspect}
                 zoomSpeed={0.1}
                 onCropChange={setCropDesktop}
                 onZoomChange={setZoomDesktop}
-                onRotationChange={setRotation}
+                onRotationChange={setRotationDesktop}
                 onCropAreaChange={onCropAreaChangeDesktop}
                 objectFit="contain"
               />
@@ -215,17 +218,39 @@ export function DualImageCropModal({
             <p className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
               Mobile — {mobileLabel}
             </p>
+            <div className="flex flex-col gap-2 rounded-md border border-border bg-muted/30 px-2 py-2 sm:flex-row sm:items-center sm:px-3">
+              <label
+                htmlFor="dual-crop-rotation-mobile"
+                className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground sm:w-24 sm:shrink-0"
+              >
+                Rotation
+              </label>
+              <input
+                id="dual-crop-rotation-mobile"
+                type="range"
+                min={0}
+                max={360}
+                step={1}
+                value={rotationMobile}
+                onChange={(e) => setRotationMobile(Number(e.target.value))}
+                className="h-2 w-full flex-1 cursor-pointer accent-foreground"
+                aria-valuemin={0}
+                aria-valuemax={360}
+                aria-valuenow={rotationMobile}
+              />
+              <span className="w-10 shrink-0 text-right text-xs tabular-nums text-muted-foreground">{rotationMobile}°</span>
+            </div>
             <div className="relative min-h-[200px] flex-1 rounded-md border border-border bg-black/40 md:min-h-0">
               <Cropper
                 image={imageSrc}
                 crop={cropMobile}
                 zoom={zoomMobile}
-                rotation={rotation}
+                rotation={rotationMobile}
                 aspect={mobileAspect}
                 zoomSpeed={0.1}
                 onCropChange={setCropMobile}
                 onZoomChange={setZoomMobile}
-                onRotationChange={setRotation}
+                onRotationChange={setRotationMobile}
                 onCropAreaChange={onCropAreaChangeMobile}
                 objectFit="contain"
               />
