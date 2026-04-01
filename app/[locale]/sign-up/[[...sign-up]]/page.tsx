@@ -1,7 +1,15 @@
 import { SignUp } from "@clerk/nextjs";
 import { mosaikClerkAppearance } from "@/lib/clerk-auth-appearance";
 
-export default function SignUpPage() {
+export default async function SignUpPage({
+  params,
+}: {
+  params: Promise<{ locale: string }>;
+}) {
+  const { locale } = await params;
+  const path = `/${locale}/sign-up`;
+  const accountPath = `/${locale}/account`;
+
   return (
     <div className="relative flex min-h-screen w-full flex-col items-center justify-center overflow-x-hidden bg-gradient-to-br from-zinc-50 via-neutral-50 to-zinc-100 px-4 py-12 font-sans antialiased text-foreground">
       <div
@@ -12,8 +20,8 @@ export default function SignUpPage() {
         <SignUp
           appearance={mosaikClerkAppearance}
           routing="path"
-          path="/sign-up"
-          fallbackRedirectUrl="/account"
+          path={path}
+          fallbackRedirectUrl={accountPath}
         />
       </div>
     </div>

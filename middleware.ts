@@ -134,6 +134,11 @@ const globalAdminLimiter = redis ? new Ratelimit({
 
 const intlMiddleware = createMiddleware(routing);
 
+/**
+ * Path-based `<SignIn path={\`/${locale}/sign-in\`} />` / `<SignUp />` live under each locale segment.
+ * Those routes must stay public: only `account` and `admin` use `auth.protect()` below. If you broaden
+ * matchers, do not match `/{en|fr|ar}/sign-in` or `/{en|fr|ar}/sign-up`.
+ */
 const isProtectedRoute = createRouteMatcher([
   "/en/account(.*)",
   "/fr/account(.*)",
