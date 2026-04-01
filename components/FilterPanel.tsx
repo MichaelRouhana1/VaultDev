@@ -162,6 +162,7 @@ function PriceRangeSection({
           max={bounds.max}
           step={step}
           value={[lo, hi]}
+          minStepsBetweenThumbs={1}
           onValueChange={(next) => {
             const [a, b] = next;
             onChange(a, b);
