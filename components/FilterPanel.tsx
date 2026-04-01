@@ -163,9 +163,16 @@ function PriceRangeSection({
           step={step}
           value={[lo, hi]}
           minStepsBetweenThumbs={1}
-          onValueChange={(next) => {
-            const [a, b] = next;
-            onChange(a, b);
+          onValueChange={([newMin, newMax]) => {
+            if (newMin >= newMax) {
+              if (newMin > lo) {
+                onChange(Math.max(bounds.min, newMax - step), newMax);
+              } else {
+                onChange(newMin, Math.min(bounds.max, newMin + step));
+              }
+            } else {
+              onChange(newMin, newMax);
+            }
           }}
           aria-label={t("priceRangeHeading")}
           className="w-full"
