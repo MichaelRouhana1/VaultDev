@@ -202,7 +202,7 @@ export function ProductCard({
               <button
                 type="button"
                 onClick={goToPrevImage}
-                className={`absolute start-0 top-1/2 -translate-y-1/2 z-10 flex items-center justify-center bg-card/80 dark:bg-card/80 text-foreground opacity-0 group-hover:opacity-100 transition-opacity duration-200 hover:opacity-100 ${compact ? "w-8 h-8" : "w-10 h-10"
+                className={`pointer-events-none absolute start-0 top-1/2 z-10 flex -translate-y-1/2 items-center justify-center bg-card/80 text-foreground opacity-0 transition-opacity duration-200 group-hover:pointer-events-auto group-hover:opacity-100 hover:opacity-100 dark:bg-card/80 ${compact ? "h-8 w-8" : "h-10 w-10"
                   }`}
                 aria-label={t("prevImageAria")}
               >
@@ -223,7 +223,7 @@ export function ProductCard({
               <button
                 type="button"
                 onClick={goToNextImage}
-                className={`absolute end-0 top-1/2 -translate-y-1/2 z-10 flex items-center justify-center bg-card/80 dark:bg-card/80 text-foreground opacity-0 group-hover:opacity-100 transition-opacity duration-200 hover:opacity-100 ${compact ? "w-8 h-8" : "w-10 h-10"
+                className={`pointer-events-none absolute end-0 top-1/2 z-10 flex -translate-y-1/2 items-center justify-center bg-card/80 text-foreground opacity-0 transition-opacity duration-200 group-hover:pointer-events-auto group-hover:opacity-100 hover:opacity-100 dark:bg-card/80 ${compact ? "h-8 w-8" : "h-10 w-10"
                   }`}
                 aria-label={t("nextImageAria")}
               >
@@ -247,7 +247,7 @@ export function ProductCard({
           {/* Size selection overlay - theme-aware for dark mode */}
           {!isOutOfStock && (
             <div
-              className={`absolute inset-x-0 bottom-0 bg-card border-t border-border opacity-0 group-hover:opacity-100 transition-opacity duration-200 ${compact ? "p-2" : "p-4"
+              className={`pointer-events-none absolute inset-x-0 bottom-0 border-t border-border bg-card opacity-0 transition-opacity duration-200 group-hover:pointer-events-auto group-hover:opacity-100 ${compact ? "p-2" : "p-4"
                 }`}
             >
               <p className="text-xs font-medium uppercase tracking-widest text-foreground mb-2">

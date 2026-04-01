@@ -119,10 +119,10 @@ function FilterSection({
               key={value}
               type="button"
               onClick={() => onToggle(value)}
-              className={`rounded-none px-4 py-2 text-xs font-normal uppercase tracking-[0.15em] transition-colors ${
+              className={`rounded-none border px-4 py-2 text-xs font-normal uppercase tracking-[0.15em] transition-colors ${
                 selected.includes(value)
-                  ? "bg-foreground text-background dark:bg-background dark:text-foreground"
-                  : "bg-muted text-foreground hover:bg-muted/80"
+                  ? "border-transparent bg-foreground text-background dark:border-transparent dark:bg-background dark:text-foreground"
+                  : "border-border bg-secondary text-foreground hover:bg-secondary/80 dark:bg-muted dark:hover:bg-muted/80"
               }`}
             >
               {label}
