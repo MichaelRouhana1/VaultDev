@@ -416,6 +416,10 @@
     "mobileCartPickSize": "Choose size to add to bag",
     "selectSizeSheetTitle": "Select size",
     "addedToBag": "Added",
-    "goToBag": "Go to bag"
+    "goToBag": "Go to bag",
+    "colorToggleMore": "+{count}",
+    "mobileBackAria": "Go back",
+    "mobileSearchShopAria": "Browse shop",
+    "mobileAccountAria": "Account"
   }
 }

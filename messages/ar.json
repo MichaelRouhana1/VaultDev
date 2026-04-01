@@ -416,6 +416,10 @@
     "mobileCartPickSize": "اختر المقاس للإضافة إلى الحقيبة",
     "selectSizeSheetTitle": "اختر المقاس",
     "addedToBag": "تمت الإضافة",
-    "goToBag": "الذهاب للحقيبة"
+    "goToBag": "الذهاب للحقيبة",
+    "colorToggleMore": "+{count}",
+    "mobileBackAria": "رجوع",
+    "mobileSearchShopAria": "تصفح المتجر",
+    "mobileAccountAria": "الحساب"
   }
 }

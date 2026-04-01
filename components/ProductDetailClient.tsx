@@ -3,7 +3,7 @@
 import { useState, useCallback, useRef, useEffect, useLayoutEffect, useMemo } from "react";
 import Image from "next/image";
 import { useTranslations } from "next-intl";
-import { useRouter } from "@/i18n/navigation";
+import { Link, useRouter } from "@/i18n/navigation";
 import { useSearchParams } from "next/navigation";
 import { useCart } from "@/context/CartContext";
 import { useCurrency } from "@/context/CurrencyContext";
@@ -23,7 +23,7 @@ import type { ProductVariant, ProductColor, StorefrontProductResolved } from "@/
 import { WishlistBookmarkIcon } from "@/components/WishlistBookmarkIcon";
 import { PRODUCT_STICKY_BUYBAR_CSS_VAR } from "@/lib/product-sticky-buybar";
 import type { EmblaOptionsType } from "embla-carousel";
-import { ShoppingBag } from "lucide-react";
+import { ChevronLeft, Search, ShoppingBag, User } from "lucide-react";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 
 const DEFAULT_SIZES = ["XS", "S", "M", "L", "XL"];
@@ -73,6 +73,7 @@ export function ProductDetailClient({
   const lightboxScrollRef = useRef<HTMLDivElement>(null);
   const dragRef = useRef<{ x: number; y: number; scrollLeft: number; scrollTop: number } | null>(null);
   const similarSectionRef = useRef<HTMLElement | null>(null);
+  const similarSectionMobileRef = useRef<HTMLElement | null>(null);
   const stickyBuyBarRef = useRef<HTMLDivElement | null>(null);
   const [similarSectionInView, setSimilarSectionInView] = useState(false);
   const [stickyBuyPhase, setStickyBuyPhase] = useState<"summary" | "pickSize">("summary");
@@ -82,6 +83,7 @@ export function ProductDetailClient({
     thumb: string | null;
   } | null>(null);
   const [mobileAddedToastVisible, setMobileAddedToastVisible] = useState(false);
+  const [isColorMenuOpen, setIsColorMenuOpen] = useState(false);
 
   const firstColor = colors[0];
   const colorFromUrl = searchParams.get("color");
@@ -124,22 +126,43 @@ export function ProductDetailClient({
     setStickyBuyPhase("summary");
   }, [selectedColor?.id]);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (similarProducts.length === 0) {
       setSimilarSectionInView(false);
       return;
     }
-    const el = similarSectionRef.current;
-    if (!el) return;
     const io = new IntersectionObserver(
       (entries) => {
         setSimilarSectionInView(entries.some((e) => e.isIntersecting));
       },
       { threshold: 0, rootMargin: "0px" },
     );
-    io.observe(el);
-    return () => io.disconnect();
+    const observeBoth = () => {
+      const desktopEl = similarSectionRef.current;
+      const mobileEl = similarSectionMobileRef.current;
+      if (desktopEl) io.observe(desktopEl);
+      if (mobileEl) io.observe(mobileEl);
+    };
+    observeBoth();
+    const raf = requestAnimationFrame(observeBoth);
+    return () => {
+      cancelAnimationFrame(raf);
+      io.disconnect();
+    };
   }, [similarProducts.length]);
+
+  useEffect(() => {
+    const mq = window.matchMedia("(max-width: 767px)");
+    const apply = () => {
+      document.body.style.overflow = mq.matches ? "hidden" : "";
+    };
+    apply();
+    mq.addEventListener("change", apply);
+    return () => {
+      mq.removeEventListener("change", apply);
+      document.body.style.overflow = "";
+    };
+  }, []);
 
   useEffect(() => {
     if (!similarSectionInView) setStickyBuyPhase("summary");
@@ -394,87 +417,259 @@ export function ProductDetailClient({
     <span className="text-sm font-semibold">{formatPrice(displayPrice)}</span>
   );
 
+  const navIconPill =
+    "inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-black/45 text-white shadow-[0_1px_8px_rgba(0,0,0,0.35)] backdrop-blur-sm dark:bg-black/55";
+
   return (
     <main
       className={cn(
-        "w-full max-w-[min(100%,1680px)] mx-auto px-4 sm:px-5 lg:px-6 xl:px-8 py-12 relative",
+        "relative mx-auto w-full max-md:max-w-none md:max-w-[min(100%,1680px)] md:px-5 lg:px-6 xl:px-8 md:py-12",
         showStickyBuyBar && "pb-20 md:pb-[4.75rem]",
       )}
     >
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 lg:gap-20 xl:gap-28 lg:items-start">
-        {/* Image gallery */}
-        <div className="flex flex-col gap-4 lg:min-w-0 lg:pe-3 xl:pe-6 2xl:pe-8">
-          {/* Mobile: one image per view + dots */}
-          <div className="relative min-w-0 w-full md:hidden">
-            {/* Stack: wishlist on top, bag below — high z-index + lower top so tiles stay above carousel paint order and clear the fold */}
-            <div className="pointer-events-none absolute end-4 top-16 z-30 flex flex-col gap-2">
-              <button
-                type="button"
-                onClick={handleWishlistClick}
-                className="pointer-events-auto flex h-10 w-10 items-center justify-center rounded-none border border-border/60 bg-white/95 text-foreground shadow-sm transition-colors hover:bg-white dark:border-border/40 dark:bg-black/75 dark:hover:bg-black/90"
-                aria-label={wishlistState ? t("wishlistRemove") : t("wishlistAdd")}
-              >
-                <WishlistBookmarkIcon active={wishlistState} className="w-5 h-5" />
-              </button>
+      {/* Mobile: full-screen PDP above global nav */}
+      <div className="fixed inset-0 z-[55] flex flex-col overflow-y-auto overscroll-y-contain bg-background md:hidden">
+        <div className="relative w-full shrink-0">
+          <div className="absolute inset-x-0 top-0 z-20 flex items-center justify-between gap-2 px-4 pb-2 pt-[max(0.75rem,env(safe-area-inset-top,0px))]">
+            <button
+              type="button"
+              onClick={() => router.back()}
+              className={navIconPill}
+              aria-label={t("mobileBackAria")}
+            >
+              <ChevronLeft className="h-5 w-5" aria-hidden />
+            </button>
+            <div className="flex items-center gap-2">
+              <Link href={`/${listStoreType}/shop`} className={navIconPill} aria-label={t("mobileSearchShopAria")}>
+                <Search className="h-5 w-5" aria-hidden />
+              </Link>
+              <Link href="/account" className={navIconPill} aria-label={t("mobileAccountAria")}>
+                <User className="h-5 w-5" aria-hidden />
+              </Link>
+            </div>
+          </div>
+          <Carousel setApi={setCarouselApi} opts={mobileCarouselOpts} className="w-full min-w-0">
+            <CarouselContent>
+              {imageUrls.map((url, idx) => {
+                const hasError = imageErrors[idx];
+                const src = !hasError && url ? url : null;
+                return (
+                  <CarouselItem key={idx} className="min-w-0 max-w-full shrink-0 grow-0 basis-full">
+                    <div
+                      className="relative aspect-[2/3] w-full cursor-pointer overflow-hidden bg-muted"
+                      onClick={() => {
+                        setLightboxIndex(idx);
+                        openLightbox();
+                      }}
+                      role="button"
+                      tabIndex={0}
+                      onKeyDown={(e) => e.key === "Enter" && (setLightboxIndex(idx), openLightbox())}
+                      aria-label={t("viewFullImage")}
+                    >
+                      {src ? (
+                        <Image
+                          src={src}
+                          alt={product.description ? `${product.name} - ${product.description}` : product.name}
+                          fill
+                          className="object-cover"
+                          onError={() => handleImageError(idx)}
+                          sizes="100vw"
+                        />
+                      ) : (
+                        <div className="flex h-full w-full items-center justify-center text-sm text-muted-foreground">
+                          {t("noImage")}
+                        </div>
+                      )}
+                    </div>
+                  </CarouselItem>
+                );
+              })}
+            </CarouselContent>
+            <CarouselDots />
+          </Carousel>
+          {colors.length > 1 ? (
+            <div
+              id="mobile-color-menu"
+              className={cn(
+                "border-t border-border bg-background transition-all duration-300 ease-in-out",
+                isColorMenuOpen ? "max-h-40 opacity-100" : "pointer-events-none max-h-0 overflow-hidden opacity-0",
+              )}
+              aria-hidden={!isColorMenuOpen}
+            >
+              <div className="scrollbar-hide flex gap-3 overflow-x-auto px-4 py-3">
+                {colors.map((c) => {
+                  const isSelected = selectedColor?.id === c.id;
+                  const thumb = c.imageUrls?.[0] ?? null;
+                  return (
+                    <button
+                      key={c.id}
+                      type="button"
+                      onClick={() => handleColorSelect(c)}
+                      className={cn(
+                        "shrink-0 rounded-sm border-2 p-0.5 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+                        isSelected ? "border-foreground" : "border-transparent hover:border-foreground/40",
+                      )}
+                      title={c.name}
+                      aria-label={t("selectColorAria", { name: c.name })}
+                      aria-pressed={isSelected}
+                    >
+                      <span
+                        className="block h-10 w-10 bg-muted bg-cover bg-center"
+                        style={
+                          thumb
+                            ? { backgroundImage: `url(${thumb})` }
+                            : { backgroundColor: c.hexCode ?? "var(--muted)" }
+                        }
+                      />
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          ) : null}
+        </div>
+
+        <div className="flex flex-1 flex-col px-4 pb-10 pt-5">
+          <div className="flex items-start justify-between gap-3">
+            <h1 className="text-lg font-normal uppercase tracking-widest text-foreground">{product.name.toUpperCase()}</h1>
+            <div className="flex shrink-0 items-center gap-2">
               <button
                 type="button"
                 onClick={() => hasAnyInStock && setMobileSizeSheetOpen(true)}
                 disabled={!hasAnyInStock}
                 aria-haspopup="dialog"
                 aria-expanded={mobileSizeSheetOpen}
-                className="pointer-events-auto flex h-10 w-10 items-center justify-center rounded-none border border-border/60 bg-white/95 text-foreground shadow-sm transition-colors hover:bg-white disabled:cursor-not-allowed disabled:opacity-45 dark:border-border/40 dark:bg-black/75 dark:hover:bg-black/90"
+                className="text-muted-foreground transition-colors hover:text-foreground disabled:cursor-not-allowed disabled:opacity-40"
                 aria-label={t("mobileCartPickSize")}
               >
                 <ShoppingBag className="h-5 w-5" aria-hidden />
               </button>
+              <button
+                type="button"
+                onClick={handleWishlistClick}
+                className="text-muted-foreground transition-colors hover:text-foreground"
+                aria-label={wishlistState ? t("wishlistRemove") : t("wishlistAdd")}
+              >
+                <WishlistBookmarkIcon active={wishlistState} className="h-5 w-5" />
+              </button>
             </div>
-            <Carousel setApi={setCarouselApi} opts={mobileCarouselOpts} className="w-full min-w-0">
-              <CarouselContent>
-                {imageUrls.map((url, idx) => {
-                  const hasError = imageErrors[idx];
-                  const src = !hasError && url ? url : null;
-                  return (
-                    <CarouselItem
-                      key={idx}
-                      className="min-w-0 max-w-full shrink-0 grow-0 basis-full"
-                    >
-                      <div
-                        className="relative aspect-[2/3] w-full overflow-hidden bg-muted cursor-pointer"
-                        onClick={() => {
-                          setLightboxIndex(idx);
-                          openLightbox();
-                        }}
-                        role="button"
-                        tabIndex={0}
-                        onKeyDown={(e) => e.key === "Enter" && (setLightboxIndex(idx), openLightbox())}
-                        aria-label={t("viewFullImage")}
-                      >
-                        {src ? (
-                          <Image
-                            src={src}
-                            alt={product.description ? `${product.name} - ${product.description}` : product.name}
-                            fill
-                            className="object-cover"
-                            onError={() => handleImageError(idx)}
-
-                            sizes="(max-width: 768px) 100vw, 50vw"
-                          />
-                        ) : (
-                          <div className="flex h-full w-full items-center justify-center text-muted-foreground text-sm">
-                            {t("noImage")}
-                          </div>
-                        )}
-                      </div>
-                    </CarouselItem>
-                  );
-                })}
-              </CarouselContent>
-              <CarouselDots />
-            </Carousel>
           </div>
 
-          {/* Desktop: main image + arrows */}
-          <div className="hidden md:block">
+          {colors.length > 1 ? (
+            <div className="mt-4">
+              <button
+                type="button"
+                onClick={() => setIsColorMenuOpen((o) => !o)}
+                className="flex items-center gap-3 rounded-sm border border-border bg-muted/30 px-3 py-2 text-left transition-colors hover:bg-muted/50"
+                aria-expanded={isColorMenuOpen}
+                aria-controls="mobile-color-menu"
+              >
+                <span
+                  className="block h-8 w-8 shrink-0 bg-muted bg-cover bg-center ring-1 ring-border"
+                  style={
+                    selectedColor?.imageUrls?.[0]
+                      ? { backgroundImage: `url(${selectedColor.imageUrls[0]})` }
+                      : { backgroundColor: selectedColor?.hexCode ?? "var(--muted)" }
+                  }
+                />
+                <span className="text-sm font-medium text-foreground">
+                  {t("colorToggleMore", { count: colors.length - 1 })}
+                </span>
+              </button>
+            </div>
+          ) : colors.length === 0 && product.color ? (
+            <p className="mt-4 text-sm text-muted-foreground">{product.color}</p>
+          ) : null}
+
+          <p className="mt-5 text-lg font-normal text-foreground">
+            {onSale ? (
+              <>
+                <span className="text-muted-foreground line-through">{formatPrice(price)}</span>{" "}
+                <span className="font-medium text-destructive">{formatPrice(displayPrice)}</span>
+              </>
+            ) : (
+              formatPrice(displayPrice)
+            )}
+          </p>
+
+          <div className="mt-6">
+            <p className="mb-2 text-xs font-medium uppercase tracking-widest text-foreground">{t("size")}</p>
+            <div className="flex flex-wrap gap-2">
+              {sizes.map((size) => {
+                const inStock = isSizeInStock(size);
+                const stock = getStockForSize(size);
+                return (
+                  <button
+                    key={size}
+                    type="button"
+                    onClick={() => inStock && setSelectedSize(size)}
+                    disabled={!inStock}
+                    className={cn(
+                      "flex h-8 min-w-[2rem] items-center justify-center rounded-sm border px-2 text-sm font-medium uppercase tracking-wide transition-colors",
+                      !inStock
+                        ? "cursor-not-allowed border-border bg-muted/30 text-muted-foreground opacity-50"
+                        : selectedSize === size
+                          ? "border-foreground bg-foreground text-background"
+                          : "border-border text-foreground hover:border-foreground",
+                    )}
+                    title={
+                      !inStock ? t("outOfStockTitle") : stock > 0 ? t("inStockTitle", { count: stock }) : undefined
+                    }
+                  >
+                    {size}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          {!hasAnyInStock && <p className="mt-4 text-sm text-destructive">{t("allOutOfStock")}</p>}
+
+          <button
+            type="button"
+            onClick={handleAddToBag}
+            disabled={!canAddToCart}
+            className="mt-8 w-full bg-foreground py-4 text-sm font-bold uppercase tracking-widest text-background transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            {t("addToBag")}
+          </button>
+          {!selectedSize && hasAnyInStock && (
+            <p className="mt-2 text-xs text-muted-foreground">{t("selectSizeHint")}</p>
+          )}
+
+          <ProductDetailAccordion
+            productDescription={product.description}
+            accordionCopy={productPageAccordionCopy}
+          />
+
+          {similarProducts.length > 0 ? (
+            <section
+              ref={similarSectionMobileRef}
+              id="similar-items-mobile"
+              className="mt-12 scroll-mt-8 border-t border-border pt-12"
+            >
+              <h2 className="mb-8 text-sm font-medium uppercase tracking-[0.2em] text-foreground">{t("similarItems")}</h2>
+              <div className="grid grid-cols-2 gap-4">
+                {similarProducts.map((p) => (
+                  <div key={p.id} className="min-w-0">
+                    <ProductCard
+                      product={p}
+                      variants={variantsByProductId[p.id] ?? []}
+                      inWishlist={wishlistProductIds.includes(p.id)}
+                      compact
+                    />
+                  </div>
+                ))}
+              </div>
+            </section>
+          ) : null}
+        </div>
+      </div>
+
+      <div className="hidden md:grid md:grid-cols-1 md:gap-12 lg:grid-cols-2 lg:gap-20 xl:gap-28 lg:items-start">
+        {/* Image gallery — desktop */}
+        <div className="flex flex-col gap-4 lg:min-w-0 lg:pe-3 xl:pe-6 2xl:pe-8">
+          <div>
             <div
               className="relative aspect-[2/3] overflow-hidden bg-muted group cursor-pointer"
               onClick={openLightbox}
@@ -541,175 +736,6 @@ export function ProductDetailClient({
               )}
             </div>
 
-            {/* Lightbox overlay */}
-            {lightboxOpen && (
-              <div
-                className="fixed inset-0 z-50 bg-black/90 flex items-center justify-center"
-                aria-modal="true"
-                role="dialog"
-                aria-label={t("galleryAria")}
-              >
-                <button
-                  type="button"
-                  onClick={closeLightbox}
-                  className="absolute end-4 top-4 z-10 flex h-10 w-10 items-center justify-center text-white/80 transition-colors hover:text-white"
-                  aria-label={tCommon("close")}
-                >
-                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                  </svg>
-                </button>
-
-                <div className="flex items-center gap-4 w-full max-w-[95vw] max-h-[90vh] px-4">
-                  {/* Vertical thumbnail strip -- hidden on mobile */}
-                  <div className="hidden md:flex flex-col gap-2 overflow-y-auto max-h-[90vh] py-2 shrink-0 scrollbar-hide w-16">
-                    {imageUrls.map((url, idx) => {
-                      const isSelected = lightboxIndex === idx;
-                      const hasError = imageErrors[idx];
-                      return (
-                        <button
-                          key={idx}
-                          type="button"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setLightboxIndex(idx);
-                            setLightboxZoomed(false);
-                            lightboxScrollRef.current?.scrollTo(0, 0);
-                          }}
-                          className={`flex-shrink-0 w-16 h-20 overflow-hidden transition-all duration-200 ${isSelected
-                            ? "ring-2 ring-white ring-offset-2 ring-offset-black opacity-100"
-                            : "opacity-60 hover:opacity-80 border border-white/20 hover:border-white/40"
-                            }`}
-                        >
-                          {!hasError && url ? (
-                            <Image
-                              src={url}
-                              alt={t("thumbAlt", { index: idx + 1, name: product.name })}
-                              width={64}
-                              height={80}
-                              className="w-full h-full object-cover"
-
-                            />
-                          ) : (
-                            <div className="w-full h-full bg-muted flex items-center justify-center text-muted-foreground text-xs">
-                              —
-                            </div>
-                          )}
-                        </button>
-                      );
-                    })}
-                  </div>
-
-                  {/* Main image area - px-16 reserves safe area for arrows (w-12 = 48px + 16px margin) */}
-                  <div className="relative flex-1 min-w-0 flex items-center justify-center min-h-0 overflow-hidden">
-                    <div
-                      ref={lightboxScrollRef}
-                      className={`w-full h-[85vh] overflow-auto overscroll-contain select-none scrollbar-hide px-16 ${lightboxZoomed
-                        ? "flex items-start justify-start cursor-grab active:cursor-grabbing touch-none"
-                        : "flex items-center justify-center"
-                        }`}
-                      onClick={(e) => e.stopPropagation()}
-                      onMouseDown={(e) => {
-                        e.stopPropagation();
-                        if (lightboxZoomed) handleLightboxDragStart(e.clientX, e.clientY);
-                      }}
-                      onMouseMove={(e) => {
-                        if (dragRef.current) {
-                          e.preventDefault();
-                          handleLightboxDragMove(e.clientX, e.clientY);
-                        }
-                      }}
-                      onMouseUp={() => handleLightboxDragEnd()}
-                      onMouseLeave={() => handleLightboxDragEnd()}
-                      onTouchStart={(e) => {
-                        if (lightboxZoomed && e.touches.length === 1) {
-                          handleLightboxDragStart(e.touches[0].clientX, e.touches[0].clientY);
-                        }
-                      }}
-                      onTouchMove={(e) => {
-                        if (dragRef.current && e.touches.length === 1) {
-                          e.preventDefault();
-                          handleLightboxDragMove(e.touches[0].clientX, e.touches[0].clientY);
-                        }
-                      }}
-                      onTouchEnd={() => handleLightboxDragEnd()}
-                    >
-                      <div
-                        className={`flex items-center justify-center ${lightboxZoomed ? "min-w-[110%] min-h-[110%] shrink-0" : ""}`}
-                      >
-                        {imageUrls[lightboxIndex] && !imageErrors[lightboxIndex] ? (
-                          <Image
-                            src={imageUrls[lightboxIndex]}
-                            alt={t("zoomedAlt", { index: lightboxIndex + 1, name: product.name })}
-                            width={1200}
-                            height={1600}
-                            className={`object-contain select-none pointer-events-none ${lightboxZoomed ? "w-[110%] h-[110%]" : "max-w-full max-h-[85vh]"
-                              }`}
-
-                          />
-                        ) : (
-                          <div className="w-96 h-96 bg-muted flex items-center justify-center text-muted-foreground">
-                            {t("noImage")}
-                          </div>
-                        )}
-                      </div>
-                    </div>
-
-                    {imageUrls.length > 1 && (
-                      <>
-                        <button
-                          type="button"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            lightboxPrev();
-                          }}
-                          className="absolute start-0 top-1/2 z-10 flex h-12 w-12 -translate-y-1/2 items-center justify-center text-white/80 transition-colors hover:text-white"
-                          aria-label={t("prevImage")}
-                        >
-                          <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-                          </svg>
-                        </button>
-                        <button
-                          type="button"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            lightboxNext();
-                          }}
-                          className="absolute end-0 top-1/2 z-10 flex h-12 w-12 -translate-y-1/2 items-center justify-center text-white/80 transition-colors hover:text-white"
-                          aria-label={t("nextImage")}
-                        >
-                          <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                          </svg>
-                        </button>
-                      </>
-                    )}
-                    <button
-                      type="button"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setLightboxZoomed((z) => !z);
-                        requestAnimationFrame(() => lightboxScrollRef.current?.scrollTo(0, 0));
-                      }}
-                      className="absolute bottom-0 end-0 z-10 flex h-12 w-12 items-center justify-center rounded-none bg-white/20 text-white transition-colors hover:bg-white/30"
-                      aria-label={lightboxZoomed ? t("zoomOut") : t("zoomIn")}
-                    >
-                      {lightboxZoomed ? (
-                        <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 12H4" />
-                        </svg>
-                      ) : (
-                        <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-                        </svg>
-                      )}
-                    </button>
-                  </div>
-                </div>
-              </div>
-            )}
-
             {/* Thumbnail grid - desktop only, swaps with main on click */}
             {hasMultipleImages && displayOrder.length > 1 && (
               <div className="grid grid-cols-2 gap-4 mt-4">
@@ -746,8 +772,8 @@ export function ProductDetailClient({
           </div>
         </div>
 
-        {/* Product info */}
-        <div className="flex flex-col lg:min-w-0 lg:ps-2 xl:ps-6 2xl:ps-8">
+        {/* Product info — desktop only */}
+        <div className="hidden md:flex flex-col lg:min-w-0 lg:ps-2 xl:ps-6 2xl:ps-8">
           <div className="flex items-start justify-between gap-4">
             <h1 className="text-xl font-normal text-foreground uppercase tracking-widest">
               {product.name.toUpperCase()}
@@ -876,11 +902,182 @@ export function ProductDetailClient({
         </div>
       </div>
 
+      {lightboxOpen && (
+        <div
+          className="fixed inset-0 z-[200] flex items-center justify-center bg-black/90"
+          aria-modal="true"
+          role="dialog"
+          aria-label={t("galleryAria")}
+        >
+          <button
+            type="button"
+            onClick={closeLightbox}
+            className="absolute end-4 top-4 z-10 flex h-10 w-10 items-center justify-center text-white/80 transition-colors hover:text-white"
+            aria-label={tCommon("close")}
+          >
+            <svg className="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+
+          <div className="flex h-full max-h-[90vh] w-full max-w-[95vw] items-center gap-4 px-4">
+            <div className="scrollbar-hide hidden max-h-[90vh] w-16 shrink-0 flex-col gap-2 overflow-y-auto py-2 md:flex">
+              {imageUrls.map((url, idx) => {
+                const isSelected = lightboxIndex === idx;
+                const hasError = imageErrors[idx];
+                return (
+                  <button
+                    key={idx}
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setLightboxIndex(idx);
+                      setLightboxZoomed(false);
+                      lightboxScrollRef.current?.scrollTo(0, 0);
+                    }}
+                    className={`w-16 flex-shrink-0 overflow-hidden transition-all duration-200 ${isSelected
+                      ? "opacity-100 ring-2 ring-white ring-offset-2 ring-offset-black"
+                      : "border border-white/20 opacity-60 hover:border-white/40 hover:opacity-80"
+                      }`}
+                  >
+                    {!hasError && url ? (
+                      <Image
+                        src={url}
+                        alt={t("thumbAlt", { index: idx + 1, name: product.name })}
+                        width={64}
+                        height={80}
+                        className="h-full w-full object-cover"
+                      />
+                    ) : (
+                      <div className="flex h-20 w-full items-center justify-center bg-muted text-xs text-muted-foreground">
+                        —
+                      </div>
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+
+            <div className="relative flex min-h-0 min-w-0 flex-1 items-center justify-center overflow-hidden">
+              <div
+                ref={lightboxScrollRef}
+                className={cn(
+                  "scrollbar-hide h-[85vh] w-full overflow-auto overscroll-contain px-8 select-none md:px-16",
+                  lightboxZoomed
+                    ? "touch-none flex cursor-grab items-start justify-start active:cursor-grabbing"
+                    : "flex items-center justify-center",
+                )}
+                onClick={(e) => e.stopPropagation()}
+                onMouseDown={(e) => {
+                  e.stopPropagation();
+                  if (lightboxZoomed) handleLightboxDragStart(e.clientX, e.clientY);
+                }}
+                onMouseMove={(e) => {
+                  if (dragRef.current) {
+                    e.preventDefault();
+                    handleLightboxDragMove(e.clientX, e.clientY);
+                  }
+                }}
+                onMouseUp={() => handleLightboxDragEnd()}
+                onMouseLeave={() => handleLightboxDragEnd()}
+                onTouchStart={(e) => {
+                  if (lightboxZoomed && e.touches.length === 1) {
+                    handleLightboxDragStart(e.touches[0].clientX, e.touches[0].clientY);
+                  }
+                }}
+                onTouchMove={(e) => {
+                  if (dragRef.current && e.touches.length === 1) {
+                    e.preventDefault();
+                    handleLightboxDragMove(e.touches[0].clientX, e.touches[0].clientY);
+                  }
+                }}
+                onTouchEnd={() => handleLightboxDragEnd()}
+              >
+                <div
+                  className={cn(
+                    "flex items-center justify-center",
+                    lightboxZoomed && "min-h-[110%] min-w-[110%] shrink-0",
+                  )}
+                >
+                  {imageUrls[lightboxIndex] && !imageErrors[lightboxIndex] ? (
+                    <Image
+                      src={imageUrls[lightboxIndex]}
+                      alt={t("zoomedAlt", { index: lightboxIndex + 1, name: product.name })}
+                      width={1200}
+                      height={1600}
+                      className={cn(
+                        "pointer-events-none select-none object-contain",
+                        lightboxZoomed ? "h-[110%] w-[110%]" : "max-h-[85vh] max-w-full",
+                      )}
+                    />
+                  ) : (
+                    <div className="flex h-96 w-96 items-center justify-center bg-muted text-muted-foreground">
+                      {t("noImage")}
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {imageUrls.length > 1 && (
+                <>
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      lightboxPrev();
+                    }}
+                    className="absolute start-0 top-1/2 z-10 flex h-12 w-12 -translate-y-1/2 items-center justify-center text-white/80 transition-colors hover:text-white"
+                    aria-label={t("prevImage")}
+                  >
+                    <svg className="h-8 w-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+                    </svg>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      lightboxNext();
+                    }}
+                    className="absolute end-0 top-1/2 z-10 flex h-12 w-12 -translate-y-1/2 items-center justify-center text-white/80 transition-colors hover:text-white"
+                    aria-label={t("nextImage")}
+                  >
+                    <svg className="h-8 w-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                    </svg>
+                  </button>
+                </>
+              )}
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setLightboxZoomed((z) => !z);
+                  requestAnimationFrame(() => lightboxScrollRef.current?.scrollTo(0, 0));
+                }}
+                className="absolute bottom-0 end-0 z-10 flex h-12 w-12 items-center justify-center rounded-none bg-white/20 text-white transition-colors hover:bg-white/30"
+                aria-label={lightboxZoomed ? t("zoomOut") : t("zoomIn")}
+              >
+                {lightboxZoomed ? (
+                  <svg className="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 12H4" />
+                  </svg>
+                ) : (
+                  <svg className="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                  </svg>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {similarProducts.length > 0 && (
         <section
           ref={similarSectionRef}
           id="similar-items"
-          className="mt-24 pt-16 border-t border-border scroll-mt-8"
+          className="mt-24 hidden scroll-mt-8 border-t border-border pt-16 md:block"
         >
           <h2 className="mb-8 text-sm font-medium uppercase tracking-[0.2em] text-foreground">
             {t("similarItems")}
@@ -905,7 +1102,7 @@ export function ProductDetailClient({
         ref={stickyBuyBarRef}
         className={cn(
           // Chrome mobile: avoid translucent blur + transform compositing glitches — solid base, blur only as enhancement
-          "fixed inset-x-0 bottom-0 z-40 isolate transform-gpu border-t border-border bg-background shadow-[0_-1px_0_0_var(--border)]",
+          "fixed inset-x-0 bottom-0 z-[70] isolate transform-gpu border-t border-border bg-background shadow-[0_-1px_0_0_var(--border)] md:z-40",
           "supports-[backdrop-filter]:bg-background/92 supports-[backdrop-filter]:backdrop-blur-md",
           "pb-[env(safe-area-inset-bottom,0px)] transition-[transform] duration-300 ease-out [backface-visibility:hidden]",
           "will-change-transform",
@@ -1002,7 +1199,7 @@ export function ProductDetailClient({
                   disabled={!inStock}
                   onClick={() => handleMobileSheetPickSize(size)}
                   className={cn(
-                    "min-h-12 min-w-12 rounded-full px-4 text-xs font-medium uppercase tracking-widest transition-colors",
+                    "min-h-10 min-w-10 rounded-sm px-3 text-sm font-medium uppercase tracking-wide transition-colors",
                     !inStock
                       ? "cursor-not-allowed border border-border bg-muted/30 text-muted-foreground opacity-50"
                       : "border border-border text-foreground hover:border-foreground active:bg-foreground active:text-background",

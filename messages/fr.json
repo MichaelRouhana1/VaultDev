@@ -416,6 +416,10 @@
     "mobileCartPickSize": "Choisir une taille pour le sac",
     "selectSizeSheetTitle": "Choisir la taille",
     "addedToBag": "Ajouté",
-    "goToBag": "Voir le sac"
+    "goToBag": "Voir le sac",
+    "colorToggleMore": "+{count}",
+    "mobileBackAria": "Retour",
+    "mobileSearchShopAria": "Parcourir la boutique",
+    "mobileAccountAria": "Compte"
   }
 }
