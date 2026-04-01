@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
 import { useTranslations } from "next-intl";
+import { Slider } from "@/components/ui/slider";
 import { sortSizes, cn } from "@/lib/utils";
 
 /** Shop listing sort: only price ascending / descending (URL `?sort=price-low` | `price-high`). */
@@ -133,36 +134,6 @@ function FilterSection({
   );
 }
 
-/** Desktop dual range: thin track, 8px thumbs, thumb-only hit testing (stacked inputs). */
-const dualRangeInputClass =
-  "absolute top-1/2 left-0 h-6 w-full -translate-y-1/2 cursor-pointer appearance-none bg-transparent " +
-  "pointer-events-none " +
-  "[&::-webkit-slider-thumb]:pointer-events-auto " +
-  "[&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:relative [&::-webkit-slider-thumb]:z-10 " +
-  "[&::-webkit-slider-thumb]:h-2 [&::-webkit-slider-thumb]:w-2 [&::-webkit-slider-thumb]:rounded-none " +
-  "[&::-webkit-slider-thumb]:border-0 [&::-webkit-slider-thumb]:bg-foreground [&::-webkit-slider-thumb]:cursor-pointer " +
-  "[&::-webkit-slider-thumb]:mt-[-3px] " +
-  "[&::-webkit-slider-runnable-track]:h-0.5 [&::-webkit-slider-runnable-track]:rounded-full " +
-  "[&::-webkit-slider-runnable-track]:bg-transparent " +
-  "[&::-moz-range-thumb]:pointer-events-auto " +
-  "[&::-moz-range-thumb]:h-2 [&::-moz-range-thumb]:w-2 [&::-moz-range-thumb]:rounded-none " +
-  "[&::-moz-range-thumb]:border-0 [&::-moz-range-thumb]:bg-foreground [&::-moz-range-thumb]:cursor-pointer " +
-  "[&::-moz-range-track]:h-0.5 [&::-moz-range-track]:rounded-full [&::-moz-range-track]:bg-transparent";
-
-/**
- * Mobile: one range per row — iOS/WebKit dual stacked sliders often hide thumbs and ignore touches.
- * Foreground thumbs on a muted track; `onInput` + `onChange` for Safari while dragging.
- */
-const mobileSingleRangeClass =
-  "block h-11 w-full cursor-pointer appearance-none bg-transparent touch-manipulation " +
-  "[&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:h-6 [&::-webkit-slider-thumb]:w-6 " +
-  "[&::-webkit-slider-thumb]:rounded-none [&::-webkit-slider-thumb]:border-2 [&::-webkit-slider-thumb]:border-background " +
-  "[&::-webkit-slider-thumb]:bg-foreground " +
-  "[&::-webkit-slider-runnable-track]:h-1.5 [&::-webkit-slider-runnable-track]:rounded-full [&::-webkit-slider-runnable-track]:bg-muted " +
-  "[&::-moz-range-thumb]:h-6 [&::-moz-range-thumb]:w-6 [&::-moz-range-thumb]:rounded-none " +
-  "[&::-moz-range-thumb]:border-2 [&::-moz-range-thumb]:border-background [&::-moz-range-thumb]:bg-foreground " +
-  "[&::-moz-range-track]:h-1.5 [&::-moz-range-track]:rounded-full [&::-moz-range-track]:bg-muted";
-
 function PriceRangeSection({
   bounds,
   valueMin,
@@ -179,90 +150,30 @@ function PriceRangeSection({
   const step = Math.max(0.01, range / 100);
   const clampedMin = Math.max(bounds.min, Math.min(bounds.max, valueMin));
   const clampedMax = Math.max(bounds.min, Math.min(bounds.max, valueMax));
-  const pctMin = ((clampedMin - bounds.min) / range) * 100;
-  const pctMax = ((clampedMax - bounds.min) / range) * 100;
-
-  const setMinFromInput = (raw: string) => {
-    const v = parseFloat(raw);
-    if (Number.isNaN(v)) return;
-    onChange(v, Math.max(v, clampedMax));
-  };
-  const setMaxFromInput = (raw: string) => {
-    const v = parseFloat(raw);
-    if (Number.isNaN(v)) return;
-    onChange(Math.min(v, clampedMin), v);
-  };
+  const [lo, hi] = clampedMin <= clampedMax ? [clampedMin, clampedMax] : [clampedMax, clampedMin];
 
   return (
     <div className="mb-8">
       <h3 className="text-xs font-medium uppercase tracking-[0.2em] text-foreground mb-4">{t("priceRangeHeading")}</h3>
 
-      <div className="space-y-5 md:hidden">
-        <div>
-          <p className="text-xs font-medium uppercase tracking-[0.2em] text-muted-foreground mb-2">{t("priceMinLabel")}</p>
-          <input
-            type="range"
-            min={bounds.min}
-            max={bounds.max}
-            step={step}
-            value={clampedMin}
-            aria-label={t("priceMinLabel")}
-            onChange={(e) => setMinFromInput(e.target.value)}
-            onInput={(e) => setMinFromInput((e.target as HTMLInputElement).value)}
-            className={mobileSingleRangeClass}
-          />
-        </div>
-        <div>
-          <p className="text-xs font-medium uppercase tracking-[0.2em] text-muted-foreground mb-2">{t("priceMaxLabel")}</p>
-          <input
-            type="range"
-            min={bounds.min}
-            max={bounds.max}
-            step={step}
-            value={clampedMax}
-            aria-label={t("priceMaxLabel")}
-            onChange={(e) => setMaxFromInput(e.target.value)}
-            onInput={(e) => setMaxFromInput((e.target as HTMLInputElement).value)}
-            className={mobileSingleRangeClass}
-          />
-        </div>
-      </div>
-
-      <div className="relative hidden h-6 md:block">
-        <div
-          className="pointer-events-none absolute left-0 right-0 top-1/2 h-0.5 -translate-y-1/2 rounded-full border border-border bg-foreground/25"
-          aria-hidden
-        />
-        <div
-          className="pointer-events-none absolute top-1/2 h-0.5 -translate-y-1/2 rounded-full bg-foreground/45"
-          style={{ left: `${pctMin}%`, width: `${Math.max(0, pctMax - pctMin)}%` }}
-          aria-hidden
-        />
-        <input
-          type="range"
+      <div className="w-full min-h-[3.5rem] py-4 md:min-h-0 md:py-2">
+        <Slider
           min={bounds.min}
           max={bounds.max}
           step={step}
-          value={clampedMin}
-          aria-label={t("priceMinLabel")}
-          onChange={(e) => setMinFromInput(e.target.value)}
-          className={`${dualRangeInputClass} z-[2]`}
-        />
-        <input
-          type="range"
-          min={bounds.min}
-          max={bounds.max}
-          step={step}
-          value={clampedMax}
-          aria-label={t("priceMaxLabel")}
-          onChange={(e) => setMaxFromInput(e.target.value)}
-          className={`${dualRangeInputClass} z-[3]`}
+          value={[lo, hi]}
+          onValueChange={(next) => {
+            const [a, b] = next;
+            onChange(a, b);
+          }}
+          aria-label={t("priceRangeHeading")}
+          className="w-full"
         />
       </div>
 
       <div className="mt-3 flex justify-between text-xs text-muted-foreground tabular-nums">
-        <span>${clampedMin.toFixed(0)}</span>
-        <span>${clampedMax.toFixed(0)}</span>
+        <span>${lo.toFixed(0)}</span>
+        <span>${hi.toFixed(0)}</span>
       </div>
     </div>
   );
