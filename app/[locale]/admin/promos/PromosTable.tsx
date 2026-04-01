@@ -45,8 +45,8 @@ export function PromosTable({ promos }: PromosTableProps) {
     p.expiresAt ? new Date(p.expiresAt).toLocaleDateString() : "—";
 
   return (
-    <div className="border border-border rounded-md overflow-x-auto">
-      <table className="w-full text-sm min-w-[700px]">
+    <div className="w-full min-w-0 overflow-x-auto overflow-y-hidden rounded-md border border-border">
+      <table className="w-full min-w-[700px] text-sm">
         <thead>
           <tr className="bg-muted/50">
             <th className="text-left px-4 py-3 font-medium uppercase tracking-wider text-muted-foreground">
@@ -97,21 +97,18 @@ export function PromosTable({ promos }: PromosTableProps) {
                 </td>
                 <td className="px-4 py-3">{expiryLabel(p)}</td>
                 <td className="px-4 py-3 text-right">
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => handleToggle(p.id)}
-                    className="mr-2"
-                  >
-                    {p.isActive ? "Deactivate" : "Activate"}
-                  </Button>
-                  <button
-                    type="button"
-                    onClick={() => handleDelete(p.id, p.code)}
-                    className="text-destructive hover:underline text-sm"
-                  >
-                    Delete
-                  </button>
+                  <div className="flex flex-wrap items-center justify-end gap-2">
+                    <Button variant="ghost" size="sm" onClick={() => handleToggle(p.id)} className="shrink-0">
+                      {p.isActive ? "Deactivate" : "Activate"}
+                    </Button>
+                    <button
+                      type="button"
+                      onClick={() => handleDelete(p.id, p.code)}
+                      className="shrink-0 text-sm text-destructive hover:underline"
+                    >
+                      Delete
+                    </button>
+                  </div>
                 </td>
               </tr>
             ))

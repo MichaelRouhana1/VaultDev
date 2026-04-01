@@ -189,7 +189,7 @@ export function AccountPageClient({
       {isSecurityFullscreen ? (
         <div
           ref={securityPanelTopRef}
-          className="mx-auto w-full max-w-[1600px] scroll-mt-20 px-6 py-6 lg:px-10 lg:py-8"
+          className="mx-auto w-full max-w-[1600px] scroll-mt-20 px-4 py-6 sm:px-6 lg:px-10 lg:py-8"
         >
           <button
             type="button"
@@ -217,13 +217,13 @@ export function AccountPageClient({
           </div>
         </div>
       ) : (
-        <div className="mx-auto flex max-w-[1200px] gap-16 px-6 py-12 lg:gap-24">
+        <div className="mx-auto flex max-w-[1200px] flex-col gap-8 px-4 py-8 sm:px-6 md:flex-row md:gap-12 md:py-12 lg:gap-24">
           {/* Sidebar — hidden on email/password fullscreen */}
-          <aside className="w-[200px] shrink-0 lg:w-[240px]">
-            <h1 className="text-2xl font-bold tracking-tight text-foreground lg:text-3xl">
+          <aside className="w-full shrink-0 md:w-[200px] lg:w-[240px]">
+            <h1 className="text-xl font-bold tracking-tight text-foreground sm:text-2xl lg:text-3xl">
               {vaultTitle}
             </h1>
-            <nav className="mt-12 flex flex-col gap-8">
+            <nav className="mt-6 flex flex-row flex-wrap gap-x-6 gap-y-2 md:mt-12 md:flex-col md:gap-8">
               <button type="button" className={navBtn(panel === "purchases")} onClick={() => setPanel("purchases")}>
                 {t("navPurchases")}
               </button>
@@ -241,7 +241,7 @@ export function AccountPageClient({
             </nav>
           </aside>
 
-          <main className="min-w-0 flex-1">
+          <main className="min-w-0 w-full flex-1 pb-8 md:pb-0">
           {panel === "purchases" && (
             <div>
               {orders.length === 0 ? (
@@ -287,7 +287,7 @@ export function AccountPageClient({
                           key={order.id}
                           className="overflow-hidden rounded-none border border-border bg-card shadow-sm transition-shadow hover:shadow-md"
                         >
-                          <div className="group flex w-full flex-wrap items-start gap-x-3 gap-y-3 px-4 py-4 transition-colors hover:bg-muted/40 md:flex-nowrap md:items-center md:gap-4 md:px-5 md:py-5">
+                          <div className="group flex w-full min-w-0 flex-wrap items-start gap-x-3 gap-y-3 px-4 py-4 transition-colors hover:bg-muted/40 md:flex-nowrap md:items-center md:gap-4 md:px-5 md:py-5">
                             <div className="min-w-0 shrink-0 pt-0.5 md:pt-0">
                               <OrderNumberWithCopy
                                 orderNumber={orderNumberOrFallback(order.orderNumber, order.id)}
@@ -503,12 +503,12 @@ export function AccountPageClient({
           )}
 
           {panel === "details" && (
-            <div className="max-w-2xl space-y-14">
+            <div className="max-w-2xl space-y-10 md:space-y-14">
               <section>
                 <h2 className="text-sm font-semibold uppercase tracking-[0.2em] text-foreground">
                   {t("detailsHeading")}
                 </h2>
-                <div className="mt-8 grid gap-6 sm:grid-cols-2">
+                <div className="mt-6 grid grid-cols-1 gap-6 sm:mt-8 sm:grid-cols-2">
                   <div>
                     <label className={labelClass} htmlFor="acct-first">
                       {t("labelName")}
@@ -538,9 +538,9 @@ export function AccountPageClient({
                 </div>
                 <div className="mt-6">
                   <label className={labelClass}>{t("labelTelephone")}</label>
-                  <div className="flex gap-2">
+                  <div className="flex flex-col gap-2 sm:flex-row">
                     <select
-                      className={cn(inputClass, "w-[100px] shrink-0 cursor-pointer")}
+                      className={cn(inputClass, "w-full shrink-0 cursor-pointer sm:w-[100px]")}
                       value={phoneCountryCode}
                       onChange={(e) => setPhoneCountryCode(e.target.value)}
                       aria-label={t("countryCodeAria")}
@@ -597,7 +597,7 @@ export function AccountPageClient({
                       </span>
                     </div>
                   </div>
-                  <div className="grid gap-6 sm:grid-cols-2">
+                  <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
                     <div>
                       <label className={labelClass} htmlFor="acct-district">
                         {t("labelDistrict")}
@@ -647,7 +647,7 @@ export function AccountPageClient({
                   {t("accountInfoHeading")}
                 </h2>
                 <ul className="mt-6 divide-y divide-border border-t border-border">
-                  <li className="flex items-center gap-4 py-5">
+                  <li className="flex flex-col gap-3 py-5 sm:flex-row sm:items-center sm:gap-4">
                     <Mail className="h-5 w-5 shrink-0 text-foreground" strokeWidth={1.25} aria-hidden />
                     <span className="min-w-0 flex-1 truncate text-sm uppercase tracking-wide text-foreground">
                       {email ?? "—"}
@@ -655,12 +655,12 @@ export function AccountPageClient({
                     <button
                       type="button"
                       onClick={() => setPanel("change-email")}
-                      className="shrink-0 text-xs font-semibold uppercase tracking-widest underline underline-offset-4 hover:opacity-70"
+                      className="w-full shrink-0 text-start text-xs font-semibold uppercase tracking-widest underline underline-offset-4 hover:opacity-70 sm:w-auto sm:text-end"
                     >
                       {t("change")}
                     </button>
                   </li>
-                  <li className="flex items-center gap-4 py-5">
+                  <li className="flex flex-col gap-3 py-5 sm:flex-row sm:items-center sm:gap-4">
                     <Lock className="h-5 w-5 shrink-0 text-foreground" strokeWidth={1.25} aria-hidden />
                     <span className="flex-1 text-sm font-semibold uppercase tracking-wide text-foreground">
                       {t("password")}
@@ -668,12 +668,12 @@ export function AccountPageClient({
                     <button
                       type="button"
                       onClick={() => setPanel("change-password")}
-                      className="shrink-0 text-xs font-semibold uppercase tracking-widest underline underline-offset-4 hover:opacity-70"
+                      className="w-full shrink-0 text-start text-xs font-semibold uppercase tracking-widest underline underline-offset-4 hover:opacity-70 sm:w-auto sm:text-end"
                     >
                       {t("change")}
                     </button>
                   </li>
-                  <li className="flex items-center gap-4 py-5">
+                  <li className="flex flex-col gap-3 py-5 sm:flex-row sm:items-center sm:gap-4">
                     <Trash2 className="h-5 w-5 shrink-0 text-destructive" strokeWidth={1.25} aria-hidden />
                     <DeleteAccountButton variant="link" label={t("deleteAccount")} className="text-destructive" />
                   </li>
@@ -684,7 +684,7 @@ export function AccountPageClient({
                 type="button"
                 onClick={handleSave}
                 disabled={isSaving}
-                className="bg-primary px-14 py-3 text-xs font-semibold uppercase tracking-[0.2em] text-primary-foreground hover:opacity-90 disabled:opacity-50"
+                className="w-full bg-primary px-6 py-3 text-xs font-semibold uppercase tracking-[0.2em] text-primary-foreground hover:opacity-90 disabled:opacity-50 sm:w-auto sm:px-14"
               >
                 {isSaving ? t("saving") : t("save")}
               </button>

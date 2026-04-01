@@ -119,8 +119,8 @@ export function AuditLogTable({
         </div>
       </div>
 
-      <div className="rounded-lg border border-border bg-card">
-        <Table>
+      <div className="w-full min-w-0 overflow-x-auto overflow-y-hidden rounded-lg border border-border bg-card">
+        <Table className="min-w-[640px]">
           <TableHeader>
             <TableRow>
               <TableHead className="w-[180px]">When</TableHead>

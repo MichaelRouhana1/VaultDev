@@ -15,13 +15,10 @@ export function AdminLayoutClient({
 
   return (
     <div className="min-h-screen bg-background">
-      <AdminSidebar
-        open={sidebarOpen}
-        onClose={() => setSidebarOpen(false)}
-      />
-      <div className="pl-0 md:pl-64 min-h-screen flex flex-col">
+      <AdminSidebar open={sidebarOpen} onClose={() => setSidebarOpen(false)} />
+      <div className="flex min-h-screen min-w-0 flex-col pl-0 md:pl-64">
         <AdminHeader onMenuClick={() => setSidebarOpen(true)} initialStore={initialStore} />
-        <main className="p-4 md:p-6">{children}</main>
+        <main className="min-w-0 flex-1 p-4 md:p-6">{children}</main>
       </div>
     </div>
   );

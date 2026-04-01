@@ -220,7 +220,7 @@ export function AccountChangeEmailPanel({ currentEmailLabel, onSuccess }: Props)
           <button
             type="submit"
             disabled={busy}
-            className="bg-primary px-10 py-3 text-xs font-semibold uppercase tracking-[0.2em] text-primary-foreground hover:opacity-90 disabled:opacity-50"
+            className="w-full bg-primary px-6 py-3 text-xs font-semibold uppercase tracking-[0.2em] text-primary-foreground hover:opacity-90 disabled:opacity-50 sm:w-auto sm:px-10"
           >
             {busy ? t("sending") : t("sendCode")}
           </button>
@@ -245,11 +245,11 @@ export function AccountChangeEmailPanel({ currentEmailLabel, onSuccess }: Props)
               disabled={busy}
             />
           </div>
-          <div className="flex flex-wrap gap-3">
+          <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap">
             <button
               type="submit"
               disabled={busy}
-              className="bg-primary px-10 py-3 text-xs font-semibold uppercase tracking-[0.2em] text-primary-foreground hover:opacity-90 disabled:opacity-50"
+              className="w-full bg-primary px-6 py-3 text-xs font-semibold uppercase tracking-[0.2em] text-primary-foreground hover:opacity-90 disabled:opacity-50 sm:w-auto sm:px-10"
             >
               {busy ? t("verifying") : t("verifySubmit")}
             </button>
@@ -257,7 +257,7 @@ export function AccountChangeEmailPanel({ currentEmailLabel, onSuccess }: Props)
               type="button"
               disabled={busy}
               onClick={resetFlow}
-              className="border border-border bg-background px-6 py-3 text-xs font-semibold uppercase tracking-[0.2em] text-foreground hover:bg-muted disabled:opacity-50"
+              className="w-full border border-border bg-background px-6 py-3 text-xs font-semibold uppercase tracking-[0.2em] text-foreground hover:bg-muted disabled:opacity-50 sm:w-auto"
             >
               {t("startOver")}
             </button>

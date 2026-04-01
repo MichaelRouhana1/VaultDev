@@ -59,19 +59,19 @@ export function CustomersTable({
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-wrap gap-4">
+      <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-end">
         <Input
           placeholder="Search by name or email..."
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           onKeyDown={(e) => e.key === "Enter" && handleSearch()}
-          className="max-w-xs"
+          className="w-full sm:max-w-xs"
         />
-        <Button onClick={handleSearch} variant="default">
+        <Button onClick={handleSearch} variant="default" className="w-full shrink-0 sm:w-auto">
           Search
         </Button>
         <Select value={initialSort} onValueChange={handleSortChange}>
-          <SelectTrigger className="w-[220px]">
+          <SelectTrigger className="w-full sm:w-[220px]">
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
@@ -84,8 +84,8 @@ export function CustomersTable({
         </Select>
       </div>
 
-      <div className="border border-border rounded-md overflow-x-auto">
-        <table className="w-full text-sm min-w-[600px]">
+      <div className="w-full min-w-0 overflow-x-auto overflow-y-hidden rounded-md border border-border">
+        <table className="w-full min-w-[600px] text-sm">
           <thead>
             <tr className="bg-muted/50">
               <th className="text-left px-4 py-3 font-medium uppercase tracking-wider text-muted-foreground">
@@ -145,10 +145,10 @@ export function CustomersTable({
                         )
                       : "—"}
                   </td>
-                  <td className="px-4 py-3 text-right">
+                  <td className="whitespace-nowrap px-4 py-3 text-right">
                     <Link
                       href={`/admin/customers/${encodeURIComponent(customer.email)}`}
-                      className="text-foreground hover:underline"
+                      className="inline-block text-foreground hover:underline"
                     >
                       View Details
                     </Link>

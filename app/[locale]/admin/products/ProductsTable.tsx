@@ -410,17 +410,17 @@ export function ProductsTable({
       cell: ({ row }) => {
         const p = row.original;
         return (
-          <div className="flex items-center justify-end gap-2">
+          <div className="flex shrink-0 flex-wrap items-center justify-end gap-2">
             <Link
               href={`/admin/products/${p.id}/edit`}
-              className="text-foreground hover:underline text-sm"
+              className="whitespace-nowrap text-sm text-foreground hover:underline"
             >
               Edit
             </Link>
             <button
               type="button"
               onClick={() => setRowActionsProduct(p)}
-              className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-border text-foreground hover:bg-muted"
+              className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-md border border-border text-foreground hover:bg-muted"
               aria-label={`More actions for ${p.name}`}
             >
               <MoreHorizontal className="h-4 w-4" />
@@ -444,7 +444,7 @@ export function ProductsTable({
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-wrap items-center gap-4">
+      <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center">
         <Input
           placeholder="Search by name..."
           value={query}
@@ -452,7 +452,7 @@ export function ProductsTable({
           onKeyDown={(e) => e.key === "Enter" && handleSearch()}
           className="w-full sm:max-w-xs"
         />
-        <Button onClick={handleSearch} variant="default">
+        <Button onClick={handleSearch} variant="default" className="w-full shrink-0 sm:w-auto">
           Search
         </Button>
         <Select value={category} onValueChange={handleCategoryChange}>
@@ -475,6 +475,7 @@ export function ProductsTable({
           size="sm"
           onClick={handleClearExpiredSales}
           disabled={isClearingExpired}
+          className="w-full shrink-0 sm:w-auto"
         >
           {isClearingExpired ? "Clearing…" : "Clear expired sales"}
         </Button>
@@ -527,8 +528,8 @@ export function ProductsTable({
         </div>
       )}
 
-      <div className="border border-border rounded-md overflow-x-auto">
-        <table className="w-full text-sm min-w-[800px]">
+      <div className="w-full min-w-0 overflow-x-auto overflow-y-hidden rounded-md border border-border">
+        <table className="w-full min-w-[800px] text-sm">
           <thead>
             {table.getHeaderGroups().map((headerGroup) => (
               <tr key={headerGroup.id} className="bg-muted/50">

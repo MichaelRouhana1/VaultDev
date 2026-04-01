@@ -21,6 +21,7 @@ import type { ProductCategory } from "@/actions/categories";
 import type { StoreTypeSlug } from "@/lib/preferred-store";
 import { isStrictStoreLanding, storeSectionFromPathname } from "@/lib/store-nav";
 import { cn } from "@/lib/utils";
+import { isDashboardRole } from "@/lib/clerk-dashboard-role";
 
 function activeStoreFromRoute(
   paramsStore: string | string[] | undefined,
@@ -139,7 +140,7 @@ export function Navbar() {
     }
   };
 
-  const isAdmin = (sessionClaims?.metadata as { role?: string })?.role === "admin";
+  const showDashboardLink = isDashboardRole(sessionClaims?.metadata?.role);
 
   if (pathname?.startsWith("/admin")) return null;
   if (pathname?.startsWith("/sign-in") || pathname?.startsWith("/sign-up")) return null;
@@ -200,7 +201,7 @@ export function Navbar() {
                 )}
               </svg>
             </button>
-            {isAdmin && (
+            {showDashboardLink && (
               <Link
                 href="/admin"
                 className="text-sm font-normal text-foreground hover:opacity-70 transition-opacity hidden sm:inline"
@@ -391,6 +392,18 @@ export function Navbar() {
                 </Link>
               ))}
             </nav>
+
+            {showDashboardLink && (
+              <div className="mt-4 border-t border-border pt-4">
+                <Link
+                  href="/admin"
+                  onClick={() => setBurgerOpen(false)}
+                  className="block py-3 text-sm font-medium uppercase tracking-wider text-foreground transition-colors hover:bg-muted/50"
+                >
+                  {t("dashboard")}
+                </Link>
+              </div>
+            )}
 
             <div className="mt-6 border-t border-border pt-4">
               <button

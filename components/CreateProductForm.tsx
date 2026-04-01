@@ -348,7 +348,7 @@ export function CreateProductForm({
             />
           </div>
 
-          <div className="grid gap-4 sm:grid-cols-2">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <PriceInput />
             <ProductTaxonomyFields
               categoryTrees={categoryTrees}
@@ -384,7 +384,7 @@ export function CreateProductForm({
             </div>
 
             {!hasVariants ? (
-              <div className="grid gap-4 sm:grid-cols-2 pt-2 border-t border-border">
+              <div className="grid grid-cols-1 gap-4 border-t border-border pt-2 sm:grid-cols-2">
                 <div className="space-y-2">
                   <Label htmlFor="defaultSku">SKU</Label>
                   <Input
@@ -427,7 +427,7 @@ export function CreateProductForm({
           </div>
 
           <div className="space-y-4">
-            <div className="flex items-center justify-between gap-4">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
               <div>
                 <h3 className="text-sm font-medium">Colors &amp; images</h3>
                 <p className="text-xs text-muted-foreground">
@@ -437,7 +437,7 @@ export function CreateProductForm({
                 </p>
               </div>
               {canAddAnotherColor ? (
-                <Button type="button" variant="outline" size="sm" onClick={addColor}>
+                <Button type="button" variant="outline" size="sm" className="w-full shrink-0 sm:w-auto" onClick={addColor}>
                   Add color
                 </Button>
               ) : null}
@@ -467,14 +467,14 @@ export function CreateProductForm({
 
           {hasVariants ? (
             <div className="space-y-4 border-t border-border pt-6">
-              <div className="flex items-center justify-between gap-4">
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
                 <div>
                   <h3 className="text-sm font-medium">Options</h3>
                   <p className="text-xs text-muted-foreground">
                     Name each option (e.g. Size) and list values separated by commas (e.g. 32, 34, 36).
                   </p>
                 </div>
-                <Button type="button" variant="outline" size="sm" onClick={addOption}>
+                <Button type="button" variant="outline" size="sm" className="w-full shrink-0 sm:w-auto" onClick={addOption}>
                   Add option
                 </Button>
               </div>
@@ -486,7 +486,7 @@ export function CreateProductForm({
                   {options.map((opt) => (
                     <div
                       key={opt.id}
-                      className="grid gap-3 sm:grid-cols-[1fr_2fr_auto] sm:items-end border border-border rounded-md p-3"
+                      className="grid grid-cols-1 gap-3 border border-border rounded-md p-3 sm:grid-cols-[1fr_2fr_auto] sm:items-end"
                     >
                       <div className="space-y-2">
                         <Label className="text-xs">Option name</Label>
@@ -508,7 +508,7 @@ export function CreateProductForm({
                         type="button"
                         variant="ghost"
                         size="sm"
-                        className="text-destructive"
+                        className="w-full text-destructive sm:w-auto"
                         onClick={() => removeOption(opt.id)}
                       >
                         Remove

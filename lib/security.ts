@@ -7,6 +7,7 @@ import { auth } from "@clerk/nextjs/server";
 import { getLocale } from "next-intl/server";
 import { redirect } from "@/i18n/navigation";
 import { auditLog } from "@/lib/audit";
+import { isDashboardRole } from "@/lib/clerk-dashboard-role";
 
 /** Allowed image extensions and MIME types for product/hero/lookbook uploads */
 export const ALLOWED_IMAGE_EXTENSIONS = ["jpg", "jpeg", "png", "gif", "webp"] as const;
@@ -129,12 +130,12 @@ export type AdminSessionCheck =
   | { ok: false; userId: string | null };
 
 /**
- * True when the user is signed in and `sessionClaims.metadata.role === "admin"`.
+ * True when the user is signed in and `sessionClaims.metadata.role` is `admin` or `superadmin`.
  * Matches middleware and existing server-action checks.
  */
 export async function checkAdminSession(): Promise<AdminSessionCheck> {
   const { userId, sessionClaims } = await auth();
-  if (!userId || sessionClaims?.metadata?.role !== "admin") {
+  if (!userId || !isDashboardRole(sessionClaims?.metadata?.role)) {
     return { ok: false, userId: userId ?? null };
   }
   return { ok: true, userId };

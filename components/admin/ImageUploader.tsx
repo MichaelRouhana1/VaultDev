@@ -101,8 +101,8 @@ export function ImageUploader({
 
     return (
         <div className="border border-border rounded-lg p-4 space-y-4">
-            <div className="flex items-start justify-between gap-4">
-                <div className="flex-1 grid gap-4 sm:grid-cols-2">
+            <div className="flex flex-col items-stretch justify-between gap-4 sm:flex-row sm:items-start">
+                <div className="grid min-w-0 flex-1 grid-cols-1 gap-4 sm:grid-cols-2">
                     <div className="space-y-1.5">
                         <Label htmlFor={`color-name-${String(color.id)}`}>Color name</Label>
                         <Input

@@ -156,7 +156,7 @@ export function AccountChangePasswordPanel({ onSuccess }: Props) {
         <button
           type="submit"
           disabled={busy}
-          className="bg-primary px-10 py-3 text-xs font-semibold uppercase tracking-[0.2em] text-primary-foreground hover:opacity-90 disabled:opacity-50"
+          className="w-full bg-primary px-6 py-3 text-xs font-semibold uppercase tracking-[0.2em] text-primary-foreground hover:opacity-90 disabled:opacity-50 sm:w-auto sm:px-10"
         >
           {busy ? t("submitting") : t("submit")}
         </button>

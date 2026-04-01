@@ -102,8 +102,8 @@ export function VariantMatrixEditor({
           </p>
         </div>
 
-        <div className="rounded-lg border border-border overflow-x-auto">
-          <table className="w-full text-sm">
+        <div className="w-full min-w-0 overflow-x-auto overflow-y-hidden rounded-lg border border-border">
+          <table className="w-full min-w-[720px] text-sm">
             <thead>
               <tr className="border-b border-border bg-muted/60">
                 {optionNamesForKeys.map((name) => (

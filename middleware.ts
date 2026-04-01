@@ -9,6 +9,7 @@ import {
   submitInternalSecurityAuditAsync,
 } from "@/lib/internal-security-audit-ingest";
 import { getInternalApiSecret, MOSAIK_INTERNAL_SECRET_HEADER } from "@/lib/internal-api-secret";
+import { isDashboardRole } from "@/lib/clerk-dashboard-role";
 import { localeSegmentFromPathname } from "@/lib/i18n-locales";
 import { routing } from "@/lib/i18n-routing";
 import { MemorySlidingWindow } from "@/lib/memory-sliding-window";
@@ -175,7 +176,7 @@ export default clerkMiddleware(async (auth, req) => {
   if (isAdminRoute(req)) {
     await auth.protect();
     const { userId, sessionClaims } = await auth();
-    if (sessionClaims?.metadata?.role !== "admin") {
+    if (!isDashboardRole(sessionClaims?.metadata?.role)) {
       const ip =
         req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ??
         req.headers.get("x-real-ip") ??

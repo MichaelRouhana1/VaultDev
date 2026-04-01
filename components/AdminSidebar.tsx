@@ -4,6 +4,7 @@ import { Link } from "@/i18n/navigation";
 import { usePathname } from "@/i18n/navigation";
 import { useTheme } from "next-themes";
 import { SignOutButton } from "@clerk/nextjs";
+import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
 
 const NAV_ITEMS = [
   { label: "Dashboard", href: "/admin" },
@@ -26,7 +27,87 @@ interface AdminSidebarProps {
   onClose?: () => void;
 }
 
-export function AdminSidebar({ open = true, onClose }: AdminSidebarProps) {
+function AdminSidebarNav({
+  pathname,
+  onNavigate,
+  theme,
+  toggleTheme,
+}: {
+  pathname: string | null;
+  onNavigate: () => void;
+  theme: string | undefined;
+  toggleTheme: () => void;
+}) {
+  return (
+    <>
+      <div className="border-b border-border p-6">
+        <Link href="/admin" onClick={onNavigate} className="text-lg font-bold tracking-tight">
+          VAULT Admin
+        </Link>
+      </div>
+      <nav className="flex-1 space-y-1 overflow-y-auto p-4">
+        {NAV_ITEMS.map(({ label, href }) => {
+          const isActive =
+            href === "/admin" ? pathname === "/admin" : pathname?.startsWith(href);
+          return (
+            <Link
+              key={href}
+              href={href}
+              onClick={onNavigate}
+              className={`block px-4 py-3 text-sm font-medium uppercase tracking-wider transition-colors ${
+                isActive
+                  ? "bg-muted text-foreground"
+                  : "text-muted-foreground hover:bg-muted/50 hover:text-foreground"
+              }`}
+            >
+              {label}
+            </Link>
+          );
+        })}
+      </nav>
+      <div className="space-y-1 border-t border-border p-4">
+        <button
+          type="button"
+          onClick={toggleTheme}
+          className="flex w-full items-center gap-2 px-4 py-3 text-left text-sm font-medium uppercase tracking-wider text-muted-foreground transition-colors hover:text-foreground"
+          aria-label={theme === "dark" ? "Switch to light mode" : "Switch to dark mode"}
+        >
+          {theme === "dark" ? (
+            <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={1.5}
+                d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z"
+              />
+            </svg>
+          ) : (
+            <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={1.5}
+                d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z"
+              />
+            </svg>
+          )}
+          {theme === "dark" ? "Light mode" : "Dark mode"}
+        </button>
+        <SignOutButton>
+          <button
+            type="button"
+            onClick={onNavigate}
+            className="flex w-full items-center px-4 py-3 text-left text-sm font-medium uppercase tracking-wider text-muted-foreground transition-colors hover:text-foreground"
+          >
+            Logout
+          </button>
+        </SignOutButton>
+      </div>
+    </>
+  );
+}
+
+export function AdminSidebar({ open = false, onClose }: AdminSidebarProps) {
   const pathname = usePathname();
   const { theme, setTheme } = useTheme();
 
@@ -38,77 +119,31 @@ export function AdminSidebar({ open = true, onClose }: AdminSidebarProps) {
 
   return (
     <>
-      {/* Mobile overlay */}
-      {open && (
-        <div
-          className="fixed inset-0 bg-black/20 z-40 md:hidden"
-          onClick={closeSidebar}
-          aria-hidden
+      {/* Desktop: fixed rail */}
+      <aside className="fixed inset-y-0 left-0 z-40 hidden w-64 flex-col border-r border-border bg-background md:flex">
+        <AdminSidebarNav
+          pathname={pathname}
+          onNavigate={() => {}}
+          theme={theme}
+          toggleTheme={toggleTheme}
         />
-      )}
-
-      {/* Sidebar - always fixed so content isn't pushed down */}
-      <aside
-        className={`fixed inset-y-0 left-0 z-50 w-64 bg-background border-r border-border flex flex-col transform transition-transform duration-200 ease-out ${
-          open ? "translate-x-0" : "-translate-x-full md:translate-x-0"
-        }`}
-      >
-        <div className="p-6 border-b border-border">
-          <Link href="/admin" onClick={closeSidebar} className="text-lg font-bold tracking-tight">
-            VAULT Admin
-          </Link>
-        </div>
-        <nav className="flex-1 p-4 space-y-1 overflow-y-auto">
-          {NAV_ITEMS.map(({ label, href }) => {
-            const isActive =
-              href === "/admin"
-                ? pathname === "/admin"
-                : pathname?.startsWith(href);
-            return (
-              <Link
-                key={href}
-                href={href}
-                onClick={closeSidebar}
-                className={`block px-4 py-3 text-sm font-medium uppercase tracking-wider transition-colors ${
-                  isActive
-                    ? "bg-muted text-foreground"
-                    : "text-muted-foreground hover:text-foreground hover:bg-muted/50"
-                }`}
-              >
-                {label}
-              </Link>
-            );
-          })}
-        </nav>
-        <div className="p-4 border-t border-border space-y-1">
-          <button
-            type="button"
-            onClick={toggleTheme}
-            className="w-full flex items-center gap-2 px-4 py-3 text-sm font-medium uppercase tracking-wider text-muted-foreground hover:text-foreground transition-colors text-left"
-            aria-label={theme === "dark" ? "Switch to light mode" : "Switch to dark mode"}
-          >
-            {theme === "dark" ? (
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z" />
-              </svg>
-            ) : (
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" />
-              </svg>
-            )}
-            {theme === "dark" ? "Light mode" : "Dark mode"}
-          </button>
-          <SignOutButton>
-            <button
-              type="button"
-              onClick={closeSidebar}
-              className="w-full flex items-center px-4 py-3 text-sm font-medium uppercase tracking-wider text-muted-foreground hover:text-foreground transition-colors text-left"
-            >
-              Logout
-            </button>
-          </SignOutButton>
-        </div>
       </aside>
+
+      {/* Mobile: slide-over */}
+      <Sheet open={open} onOpenChange={(isOpen) => !isOpen && onClose?.()}>
+        <SheetContent
+          side="left"
+          className="flex h-full w-[min(100vw,16rem)] max-w-[85vw] flex-col gap-0 border-e-0 p-0 md:hidden"
+        >
+          <SheetTitle className="sr-only">Admin navigation</SheetTitle>
+          <AdminSidebarNav
+            pathname={pathname}
+            onNavigate={closeSidebar}
+            theme={theme}
+            toggleTheme={toggleTheme}
+          />
+        </SheetContent>
+      </Sheet>
     </>
   );
 }
