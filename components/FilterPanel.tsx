@@ -162,17 +162,22 @@ function PriceRangeSection({
           max={bounds.max}
           step={step}
           value={[lo, hi]}
-          minStepsBetweenThumbs={1}
+          minStepsBetweenThumbs={0}
           onValueChange={([newMin, newMax]) => {
-            if (newMin >= newMax) {
-              if (newMin > lo) {
-                onChange(Math.max(bounds.min, newMax - step), newMax);
-              } else {
-                onChange(newMin, Math.min(bounds.max, newMin + step));
+            let finalMin = newMin;
+            let finalMax = newMax;
+
+            if (newMin !== lo && newMax !== hi) {
+              if (newMin === hi) {
+                finalMin = hi;
+                finalMax = hi;
+              } else if (newMax === lo) {
+                finalMin = lo;
+                finalMax = lo;
               }
-            } else {
-              onChange(newMin, newMax);
             }
+
+            onChange(finalMin, finalMax);
           }}
           aria-label={t("priceRangeHeading")}
           className="w-full"
