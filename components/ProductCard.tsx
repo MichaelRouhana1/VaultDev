@@ -363,19 +363,19 @@ export function ProductCard({
             </div>
           )}
 
-          {/* Mobile-only: color tray over image (toggle lives below image in details) */}
+          {/* COLOR TRAY (Slides up OVER the image container from the bottom) */}
           {hasMultipleColors && colors && (
             <div
               id={colorTrayId}
               className={cn(
-                "absolute inset-x-0 bottom-0 z-20 bg-background/95 backdrop-blur-sm border-t border-border shadow-lg transition-all duration-300 md:hidden",
+                "absolute inset-x-0 bottom-0 z-20 border-t border-border bg-background/95 shadow-[0_-4px_16px_rgba(0,0,0,0.12)] backdrop-blur-sm transition-transform duration-300 ease-in-out dark:bg-background/95 dark:shadow-[0_-4px_16px_rgba(0,0,0,0.4)]",
                 isColorTrayOpen
-                  ? "max-h-32 py-3 opacity-100 pointer-events-auto"
-                  : "max-h-0 py-0 opacity-0 pointer-events-none overflow-hidden",
+                  ? "translate-y-0 opacity-100 pointer-events-auto"
+                  : "translate-y-full opacity-0 pointer-events-none",
               )}
               aria-hidden={!isColorTrayOpen}
             >
-              <div className="scrollbar-hide flex gap-3 overflow-x-auto px-3">
+              <div className="scrollbar-hide flex gap-3 overflow-x-auto px-3 py-2.5">
                 {colors.map((color, i) => {
                   const isSelected = i === selectedColorIndex;
                   const thumb = color.imageUrls?.[0] ?? null;
@@ -384,15 +384,17 @@ export function ProductCard({
                       key={color.id}
                       type="button"
                       onClick={(e) => handleColorClick(e, i)}
-                      className="shrink-0 rounded-none border-0 bg-transparent p-0 focus:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                      className="shrink-0 rounded-none border-0 bg-transparent p-0 transition-transform hover:scale-105 focus:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
                       title={color.name}
                       aria-label={tPdp("selectColorAria", { name: color.name })}
                       aria-pressed={isSelected}
                     >
                       <span
                         className={cn(
-                          "relative block size-10 shrink-0 overflow-hidden rounded-sm border border-border bg-muted",
-                          isSelected && "ring-1 ring-foreground ring-offset-1 ring-offset-background",
+                          "relative block overflow-hidden border border-border",
+                          compact ? "h-9 w-9" : "h-10 w-10",
+                          isSelected &&
+                            "ring-1 ring-foreground ring-offset-1 ring-offset-background",
                         )}
                         style={
                           thumb
@@ -401,7 +403,10 @@ export function ProductCard({
                                 backgroundSize: "cover",
                                 backgroundPosition: "center",
                               }
-                            : { backgroundColor: color.hexCode ?? undefined }
+                            : {
+                                backgroundColor:
+                                  color.hexCode ?? "var(--muted)",
+                              }
                         }
                       >
                         {!thumb && !color.hexCode ? (
@@ -415,6 +420,7 @@ export function ProductCard({
             </div>
           )}
         </div>
+        {/* DETAILS SECTION */}
         <div
           className={cn(
             "flex flex-col gap-0.5",
@@ -423,92 +429,68 @@ export function ProductCard({
           )}
         >
           <h2
-            className={`font-light text-foreground truncate ${compact ? "text-xs" : "text-sm"}`}
+            className={`truncate font-light text-foreground ${compact ? "text-xs" : "text-sm"}`}
           >
             {product.name}
           </h2>
-          <div className="flex flex-wrap items-center gap-x-2 gap-y-1.5 min-w-0">
-            <p className="text-xs font-light text-muted-foreground shrink-0">
+
+          <div className="mt-0.5 flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1.5">
+            <p className="shrink-0 text-xs font-light text-muted-foreground">
               {colorLabel}
-              {hasMultipleColors && colors && (
-                <span className="ms-1 text-muted-foreground max-md:hidden">
-                  {t("moreColours", { count: colors.length - 1 })}
-                </span>
-              )}
             </p>
+
+            {/* The unified +N toggle button */}
             {hasMultipleColors && colors && (
-              <div className="hidden md:flex items-center gap-1.5 shrink-0">
-                {colors.map((color, i) => {
-                  const selected = i === selectedColorIndex;
-                  return (
-                    <button
-                      key={color.id}
-                      type="button"
-                      onClick={(e) => handleColorClick(e, i)}
-                      className={cn(
-                        "relative shrink-0 rounded-none border-0 bg-transparent p-0 transition-transform hover:scale-105 focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-1 focus-visible:ring-foreground",
-                        compact ? "h-3 w-3" : "h-4 w-4",
-                      )}
-                      aria-label={t("colorAria", { name: color.name })}
-                      aria-pressed={selected}
-                    >
-                      <span
-                        className={cn(
-                          "relative block size-full overflow-hidden",
-                          selected
-                            ? "ring-1 ring-foreground ring-offset-0.5 ring-offset-background"
-                            : "border border-border",
-                        )}
-                        style={color.hexCode ? { backgroundColor: color.hexCode } : undefined}
-                      >
-                        {!color.hexCode && color.imageUrls?.[0] && (
-                          <span className="absolute inset-0 block overflow-hidden bg-muted">
-                            <Image
-                              src={color.imageUrls[0]}
-                              alt={`${product.name} in ${color.name}`}
-                              fill
-                              className="object-cover"
-                              sizes={compact ? "12px" : "16px"}
-                            />
-                          </span>
-                        )}
-                      </span>
-                    </button>
-                  );
-                })}
-              </div>
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  setIsColorTrayOpen((o) => !o);
+                }}
+                className="flex shrink-0 items-center gap-1.5 border-0 bg-transparent p-0 outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1"
+                aria-expanded={isColorTrayOpen}
+                aria-controls={colorTrayId}
+                aria-label={tPdp("colorHeading", { name: activeColor?.name ?? colorLabel })}
+              >
+                {/* +N Text (NO BORDER) */}
+                <span className="text-xs font-medium text-foreground">
+                  +{colors.length - 1}
+                </span>
+
+                {/* Color Square (WITH BORDER) */}
+                <span
+                  className={cn(
+                    "relative block overflow-hidden border border-border transition-transform hover:scale-105",
+                    compact ? "h-3 w-3" : "h-4 w-4",
+                    isColorTrayOpen &&
+                      "ring-1 ring-foreground ring-offset-1 ring-offset-background",
+                  )}
+                  style={
+                    activeColor?.hexCode
+                      ? { backgroundColor: activeColor.hexCode }
+                      : undefined
+                  }
+                >
+                  {!activeColor?.hexCode && activeColor?.imageUrls?.[0] && (
+                    <Image
+                      src={activeColor.imageUrls[0]}
+                      alt=""
+                      fill
+                      className="object-cover"
+                      sizes={compact ? "12px" : "16px"}
+                    />
+                  )}
+                  {!activeColor?.hexCode &&
+                    !activeColor?.imageUrls?.length && (
+                      <span className="absolute inset-0 block bg-muted" />
+                    )}
+                </span>
+              </button>
             )}
           </div>
-          {hasMultipleColors && colors && (
-            <button
-              type="button"
-              onClick={(e) => {
-                e.preventDefault();
-                e.stopPropagation();
-                setIsColorTrayOpen((o) => !o);
-              }}
-              className="flex md:hidden items-center mt-1 border-0 bg-transparent p-0 shadow-none focus:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
-              aria-expanded={isColorTrayOpen}
-              aria-controls={colorTrayId}
-              aria-label={tPdp("colorHeading", { name: activeColor?.name ?? colorLabel })}
-            >
-              <span className="flex items-center gap-1.5">
-                <span className="text-xs font-semibold tabular-nums text-foreground">
-                  {tPdp("colorToggleMore", { count: colors.length - 1 })}
-                </span>
-                <span
-                  className="size-4 shrink-0 rounded-sm border border-border bg-muted bg-cover bg-center"
-                  style={
-                    activeColor?.imageUrls?.[0]
-                      ? { backgroundImage: `url(${activeColor.imageUrls[0]})` }
-                      : { backgroundColor: activeColor?.hexCode ?? "var(--muted)" }
-                  }
-                  aria-hidden
-                />
-              </span>
-            </button>
-          )}
-          <p className="text-sm font-light text-foreground mt-0.5">
+
+          <p className="mt-0.5 text-sm font-light text-foreground">
             {onSale ? (
               <>
                 <span className="line-through text-muted-foreground">{formatPrice(price)}</span>{" "}
