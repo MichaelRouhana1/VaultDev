@@ -125,7 +125,7 @@ const Carousel = React.forwardRef<
         >
           <div
             ref={carouselRef}
-            className="overflow-hidden"
+            className="min-w-0 w-full overflow-hidden"
           >
             {React.Children.toArray(children)[0]}
           </div>
@@ -145,8 +145,10 @@ const CarouselContent = React.forwardRef<
     ref={ref}
     className={cn(
       "flex",
-      "gap-0",
       "ml-0",
+      "min-w-0",
+      "w-full",
+      "gap-0",
       className
     )}
     style={{ backfaceVisibility: "hidden" }}

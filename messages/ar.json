@@ -412,6 +412,10 @@
     "allOutOfStock": "هذا المنتج غير متوفر حاليًا.",
     "addToBag": "أضف إلى الحقيبة",
     "selectSizeHint": "يرجى اختيار مقاس",
-    "similarItems": "منتجات مشابهة"
+    "similarItems": "منتجات مشابهة",
+    "mobileCartPickSize": "اختر المقاس للإضافة إلى الحقيبة",
+    "selectSizeSheetTitle": "اختر المقاس",
+    "addedToBag": "تمت الإضافة",
+    "goToBag": "الذهاب للحقيبة"
   }
 }

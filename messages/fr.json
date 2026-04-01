@@ -412,6 +412,10 @@
     "allOutOfStock": "Ce produit est actuellement en rupture de stock.",
     "addToBag": "Ajouter au sac",
     "selectSizeHint": "Veuillez choisir une taille",
-    "similarItems": "Articles similaires"
+    "similarItems": "Articles similaires",
+    "mobileCartPickSize": "Choisir une taille pour le sac",
+    "selectSizeSheetTitle": "Choisir la taille",
+    "addedToBag": "Ajouté",
+    "goToBag": "Voir le sac"
   }
 }

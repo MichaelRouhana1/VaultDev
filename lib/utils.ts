@@ -32,6 +32,11 @@ function parsePrice(val: string | number | null | undefined): number {
   return Number.isFinite(n) ? n : 0;
 }
 
+/** Numeric catalog `price` for listing filter/sort (base price, not sale). Parse once per product. */
+export function getProductBasePriceNumber(product: ProductWithPrice): number {
+  return parsePrice(product.price);
+}
+
 function toDecimal(val: number): string {
   return val.toFixed(2);
 }

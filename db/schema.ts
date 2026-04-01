@@ -149,6 +149,8 @@ export const products = pgTable("products", {
   index("products_store_type_visible_archived_idx").on(t.storeType, t.isVisible, t.isArchived),
   index("products_main_category_id_idx").on(t.mainCategoryId),
   index("products_search_vector_idx").using("gin", t.searchVector),
+  index("product_price_idx").on(t.price),
+  index("product_sale_price_idx").on(t.salePrice),
 ]);
 
 // Product colors - each color has its own image gallery

@@ -237,24 +237,32 @@ export const getHomeDiscoverProductsWithFirstImage = cache(
   },
 );
 
+export type ShopListingPriceSort = "price-asc" | "price-desc";
+
 /** Shop grid: store + optional category + optional search. Attribute facets filter on the client. */
 export const getShopProductsForStore = cache(
   async (
     storeType: StoreTypeFilter,
     filters: { categorySlug?: string; searchQuery?: string },
     locale: MosaikLocale,
+    options?: { priceSort?: ShopListingPriceSort },
   ) => {
     const baseFilters = await shopListingFilterSql(storeType, {
       categorySlug: filters.categorySlug,
       searchQuery: filters.searchQuery,
     });
-    const rows = await db
+    const base = db
       .select({
         ...listingProductColumns,
         isArchived: products.isArchived,
       })
       .from(products)
       .where(and(...baseFilters));
+    const rows = await (
+      options?.priceSort === "price-desc"
+        ? base.orderBy(desc(products.price), asc(products.id))
+        : base.orderBy(asc(products.price), asc(products.id))
+    );
     return rows.map((row) => withLocalizedProductCopy(row, locale));
   },
 );

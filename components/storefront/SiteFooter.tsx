@@ -67,6 +67,15 @@ export function SiteFooter() {
     currency,
   });
 
+  const sectionTitleClass =
+    "mb-2.5 text-[0.65rem] font-semibold uppercase tracking-[0.2em] text-foreground md:mb-3 md:text-xs md:tracking-[0.18em]";
+  /** Extra space below each column; list rows stay tight above it. */
+  const sectionBlockClass = "text-start pb-8 md:pb-10 lg:pb-12";
+  const footerLinkClass =
+    "block py-0 text-sm font-normal leading-snug text-foreground underline-offset-4 transition-opacity hover:opacity-70 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2";
+  /** Placeholder rows (no route yet): same contrast as links, no fake “disabled grey”. */
+  const footerStaticClass = "block py-0 text-sm font-normal leading-snug text-foreground";
+
   return (
     <footer
       className="border-t border-border bg-muted/80 backdrop-blur-sm"
@@ -74,63 +83,63 @@ export function SiteFooter() {
         marginBottom: `var(${PRODUCT_STICKY_BUYBAR_CSS_VAR}, 0px)`,
       }}
     >
-      <div className="mx-auto max-w-[1400px] px-6 py-12">
-        <div className="grid grid-cols-1 gap-10 sm:grid-cols-2 md:grid-cols-4 md:gap-12">
-          <div className="text-start">
-            <h3 className="mb-4 text-sm font-medium text-foreground">{t("customerSupport")}</h3>
-            <ul className="space-y-2">
+      <div className="mx-auto max-w-[1400px] px-4 py-8 sm:px-6 sm:py-10 md:py-12">
+        <div className="grid grid-cols-2 gap-x-6 gap-y-2 sm:gap-x-8 sm:gap-y-3 md:grid-cols-4 md:gap-x-10 md:gap-y-6 lg:gap-12">
+          <div className={sectionBlockClass}>
+            <h3 className={sectionTitleClass}>{t("customerSupport")}</h3>
+            <ul className="flex flex-col gap-0.5">
               <li>
-                <Link href="/about" className="text-sm text-foreground hover:opacity-60">
+                <Link href="/about" className={footerLinkClass}>
                   {t("contact")}
                 </Link>
               </li>
               <li>
-                <span className="text-sm text-muted-foreground">{t("shipping")}</span>
+                <span className={footerStaticClass}>{t("shipping")}</span>
               </li>
               <li>
-                <span className="text-sm text-muted-foreground">{t("returns")}</span>
+                <span className={footerStaticClass}>{t("returns")}</span>
               </li>
             </ul>
           </div>
-          <div className="text-start">
-            <h3 className="mb-4 text-sm font-medium text-foreground">{t("company")}</h3>
-            <ul className="space-y-2">
+          <div className={sectionBlockClass}>
+            <h3 className={sectionTitleClass}>{t("company")}</h3>
+            <ul className="flex flex-col gap-0.5">
               <li>
-                <Link href="/about" className="text-sm text-foreground hover:opacity-60">
+                <Link href="/about" className={footerLinkClass}>
                   {t("about")}
                 </Link>
               </li>
               <li>
-                <span className="text-sm text-muted-foreground">{t("careers")}</span>
+                <span className={footerStaticClass}>{t("careers")}</span>
               </li>
             </ul>
           </div>
-          <div className="text-start">
-            <h3 className="mb-4 text-sm font-medium text-foreground">{t("legal")}</h3>
-            <ul className="space-y-2">
+          <div className={sectionBlockClass}>
+            <h3 className={sectionTitleClass}>{t("legal")}</h3>
+            <ul className="flex flex-col gap-0.5">
               <li>
-                <span className="text-sm text-muted-foreground">{t("privacy")}</span>
+                <span className={footerStaticClass}>{t("privacy")}</span>
               </li>
               <li>
-                <span className="text-sm text-muted-foreground">{t("terms")}</span>
+                <span className={footerStaticClass}>{t("terms")}</span>
               </li>
             </ul>
           </div>
-          <div className="text-start">
-            <h3 className="mb-4 text-sm font-medium text-foreground">{t("follow")}</h3>
-            <ul className="space-y-2">
+          <div className={sectionBlockClass}>
+            <h3 className={sectionTitleClass}>{t("follow")}</h3>
+            <ul className="flex flex-col gap-0.5">
               <li>
-                <span className="text-sm text-muted-foreground">{t("instagram")}</span>
+                <span className={footerStaticClass}>{t("instagram")}</span>
               </li>
               <li>
-                <span className="text-sm text-muted-foreground">{t("twitter")}</span>
+                <span className={footerStaticClass}>{t("twitter")}</span>
               </li>
             </ul>
           </div>
         </div>
 
-        <div className="mt-10 flex flex-col items-stretch gap-4 border-t border-border pt-8 sm:flex-row sm:items-center sm:justify-between">
-          <p className="text-center text-sm text-muted-foreground sm:text-start">
+        <div className="mt-8 flex flex-col items-stretch gap-3 border-t border-border pt-6 sm:mt-10 sm:flex-row sm:items-center sm:justify-between sm:gap-4 sm:pt-8">
+          <p className="text-center text-sm text-foreground/80 sm:text-start">
             {t("copyright", { year: new Date().getFullYear() })}
           </p>
           <Button

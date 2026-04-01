@@ -148,6 +148,13 @@
       "when": 1774984547463,
       "tag": "0020_product_localized_columns",
       "breakpoints": true
+    },
+    {
+      "idx": 21,
+      "version": "7",
+      "when": 1775046742909,
+      "tag": "0021_product_price_indexes",
+      "breakpoints": true
     }
   ]
 }

@@ -3,6 +3,7 @@ import { auth } from "@clerk/nextjs/server";
 import { db } from "@/db";
 import { productColors, productVariants, wishlists } from "@/db/schema";
 import { ShopClient } from "@/components/ShopClient";
+import type { ShopSortOption } from "@/components/FilterPanel";
 import { getValidCategorySlugs, getStoreCategorySlugs, getStoreCategories } from "@/actions/categories";
 import {
   getShopProductsForStore,
@@ -58,6 +59,7 @@ export default async function ShopPage({ params, searchParams }: ShopPageProps) 
   const search = await searchParams;
   const cat = search.cat;
   const q = search.q?.trim();
+  const initialSort: ShopSortOption = search.sort === "price-high" ? "price-high" : "price-low";
 
   const [validSlugs, storeSlugs, storeCategories] = await Promise.all([
     getValidCategorySlugs(),
@@ -182,6 +184,7 @@ export default async function ShopPage({ params, searchParams }: ShopPageProps) 
         }
       >
         <ShopClient
+          initialSort={initialSort}
           products={productsWithImages}
           variantsByProductId={variantsByProductId}
           colorsByProductId={colorsByProductId}

@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useMemo, useEffect, useRef, useCallback } from "react";
-import { useRouter } from "@/i18n/navigation";
 import { useSearchParams } from "next/navigation";
 import { ProductCard } from "@/components/ProductCard";
 import { CategoryHeader } from "@/components/CategoryHeader";
@@ -14,7 +13,7 @@ import {
   type ShopSortOption,
   type AttributeFilterSection,
 } from "@/components/FilterPanel";
-import { cn } from "@/lib/utils";
+import { cn, getProductBasePriceNumber } from "@/lib/utils";
 import type { StorefrontProductResolved, ProductVariant, ProductColor } from "@/db/schema";
 import type { ProductCategory } from "@/actions/categories";
 import type { ProductCategoryFilterTags } from "@/actions/storefront-products";
@@ -23,6 +22,8 @@ const PRODUCTS_PER_PAGE = 12;
 const VALID_LEGACY_CATEGORIES = ["CLOTHING", "SHOES", "ACCESSORIES", "BAGS", "OTHER"] as const;
 
 interface ShopClientProps {
+  /** From URL on server render; client updates sort locally (no navigation) for instant reorder like other filters. */
+  initialSort: ShopSortOption;
   products: (StorefrontProductResolved & { categorySlug?: string | null; images?: string[] })[];
   variantsByProductId: Record<number, ProductVariant[]>;
   colorsByProductId?: Record<number, ProductColor[]>;
@@ -42,6 +43,7 @@ interface ShopClientProps {
 }
 
 export function ShopClient({
+  initialSort,
   products,
   variantsByProductId,
   colorsByProductId = {},
@@ -56,11 +58,14 @@ export function ShopClient({
   categoryFilterTags,
   storeType,
 }: ShopClientProps) {
-  const router = useRouter();
   const searchParams = useSearchParams();
   const category = searchParams.get("category");
   const categorySlug = searchParams.get("cat");
-  const sort: ShopSortOption = searchParams.get("sort") === "price-high" ? "price-high" : "price-low";
+
+  const [sort, setSort] = useState<ShopSortOption>(initialSort);
+  useEffect(() => {
+    setSort(initialSort);
+  }, [initialSort]);
 
   const [mobileFilterOpen, setMobileFilterOpen] = useState(false);
   const [desktopFilterOpen, setDesktopFilterOpen] = useState(false);
@@ -77,14 +82,24 @@ export function ShopClient({
   const [visibleCount, setVisibleCount] = useState(PRODUCTS_PER_PAGE);
   const priceInitialized = useRef(false);
 
+  /** Parse base price once per product; reuse for bounds, filter, and sort (no parseFloat in sort comparator). */
+  const productRows = useMemo(
+    () =>
+      products.map((p) => ({
+        product: p,
+        basePrice: getProductBasePriceNumber(p),
+      })),
+    [products],
+  );
+
   const priceBounds = useMemo(() => {
-    if (products.length === 0) return { min: 0, max: 500 };
-    const prices = products.map((p) => parseFloat(String(p.price)));
+    if (productRows.length === 0) return { min: 0, max: 500 };
+    const prices = productRows.map((r) => r.basePrice);
     return {
       min: Math.floor(Math.min(...prices)),
       max: Math.ceil(Math.max(...prices)) || 500,
     };
-  }, [products]);
+  }, [productRows]);
 
   useEffect(() => {
     priceInitialized.current = false;
@@ -106,11 +121,7 @@ export function ShopClient({
   }, [products.length, priceBounds.min, priceBounds.max]);
 
   const handleSortChange = (value: ShopSortOption) => {
-    const params = new URLSearchParams(searchParams.toString());
-    params.set("sort", value);
-    const query = params.toString();
-    const base = `/${storeType}/shop`;
-    router.push(query ? `${base}?${query}` : base);
+    setSort(value);
   };
 
   const toggleAttribute = useCallback((attributeName: string, slug: string) => {
@@ -133,24 +144,21 @@ export function ShopClient({
   }, []);
 
   const filteredAndSorted = useMemo(() => {
-    let list = [...products];
+    let list = [...productRows];
 
     const priceMin = filters.priceMin ?? 0;
     const priceMax = filters.priceMax ?? Infinity;
-    list = list.filter((p) => {
-      const price = parseFloat(String(p.price));
-      return price >= priceMin && price <= priceMax;
-    });
+    list = list.filter(({ basePrice }) => basePrice >= priceMin && basePrice <= priceMax);
 
     if (filters.mainCategory.length > 0) {
-      list = list.filter((p) => {
+      list = list.filter(({ product: p }) => {
         const t = categoryFilterTags[p.id];
         return t != null && filters.mainCategory.includes(t.mainSlug);
       });
     }
 
     if (filters.size.length > 0) {
-      list = list.filter((p) => {
+      list = list.filter(({ product: p }) => {
         const variants = variantsByProductId[p.id] ?? [];
         const availableSizes = variants.filter((v) => v.stock > 0).map((v) => v.size);
         return filters.size.some((s) => availableSizes.includes(s));
@@ -158,7 +166,7 @@ export function ShopClient({
     }
 
     if (filters.color.length > 0) {
-      list = list.filter((p) => {
+      list = list.filter(({ product: p }) => {
         const cols = colorsByProductId[p.id] ?? [];
         const namesLower = cols.map((c) => c.name.toLowerCase());
         return filters.color.some((sel) => namesLower.includes(sel.toLowerCase()));
@@ -169,21 +177,21 @@ export function ShopClient({
       const selected = selectedAttributes[section.name] ?? [];
       if (selected.length === 0) continue;
       const selectedLower = selected.map((s) => s.trim().toLowerCase()).filter(Boolean);
-      list = list.filter((p) => {
+      list = list.filter(({ product: p }) => {
         const productSlugs = (attributeSlugsByProductId[p.id] ?? []).map((s) => s.trim().toLowerCase());
         return selectedLower.some((sel) => productSlugs.includes(sel));
       });
     }
 
     if (sort === "price-low") {
-      list.sort((a, b) => parseFloat(String(a.price)) - parseFloat(String(b.price)));
+      list.sort((a, b) => a.basePrice - b.basePrice);
     } else {
-      list.sort((a, b) => parseFloat(String(b.price)) - parseFloat(String(a.price)));
+      list.sort((a, b) => b.basePrice - a.basePrice);
     }
 
-    return list;
+    return list.map(({ product }) => product);
   }, [
-    products,
+    productRows,
     variantsByProductId,
     colorsByProductId,
     attributeSlugsByProductId,

@@ -1,12 +1,14 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Image from "next/image";
 import { useTranslations } from "next-intl";
 import { Link, usePathname } from "@/i18n/navigation";
 import { useCart } from "@/context/CartContext";
 import { useCurrency } from "@/context/CurrencyContext";
 import { useWishlist } from "@/context/WishlistContext";
+import { ShoppingBag } from "lucide-react";
+import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import {
   cn,
   getProductDisplayPrice,
@@ -19,6 +21,9 @@ import type { ProductVariant, ProductColor } from "@/db/schema";
 import { WishlistBookmarkIcon } from "@/components/WishlistBookmarkIcon";
 
 const DEFAULT_SIZES = ["XS", "S", "M", "L", "XL"];
+
+const MOBILE_ADD_TOAST_MS = 5000;
+const MOBILE_ADD_TOAST_ANIM_MS = 300;
 
 /** PDP URL segment when not inferrable from pathname (e.g. /bag). */
 function storeTypeForProductUrl(product: Pick<Product, "storeType">): "streetwear" | "formal" {
@@ -46,6 +51,7 @@ export function ProductCard({
   isCompactView = false,
 }: ProductCardProps) {
   const t = useTranslations("ProductCard");
+  const tPdp = useTranslations("ProductDetail");
   const pathname = usePathname();
   const { addToCart, openCart } = useCart();
   const { formatPrice } = useCurrency();
@@ -58,6 +64,12 @@ export function ProductCard({
   const wishlistState = hasHydrated ? isInWishlist(product.id) : inWishlist;
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
   const [selectedColorIndex, setSelectedColorIndex] = useState(0);
+  const [mobileSizeSheetOpen, setMobileSizeSheetOpen] = useState(false);
+  const [mobileAddedToast, setMobileAddedToast] = useState<{
+    key: number;
+    thumb: string | null;
+  } | null>(null);
+  const [mobileAddedToastVisible, setMobileAddedToastVisible] = useState(false);
 
   const hasMultipleColors = colors && colors.length > 1;
   const activeColor = colors?.[selectedColorIndex];
@@ -112,12 +124,14 @@ export function ProductCard({
     setCurrentImageIndex(0);
   };
 
-  const handleSizeClick = (e: React.MouseEvent, size: string) => {
-    e.preventDefault();
-    e.stopPropagation();
+  const addLineForSize = (size: string, openBag: boolean) => {
     if (!isSizeInStock(size)) return;
     const colorName = activeColor?.name ?? product.color ?? undefined;
     const productImage = imageUrls[0];
+    const sku =
+      colors && activeColor && colors.length > 1
+        ? `${product.id}-${activeColor.id}-${size}`
+        : undefined;
     addToCart({
       productId: product.id,
       size,
@@ -127,7 +141,63 @@ export function ProductCard({
       productImage,
       productColor: colorName,
       storeTypeForUrl: listStoreType,
+      ...(sku ? { sku } : {}),
     });
+    if (openBag) openCart();
+  };
+
+  const handleSizeClick = (e: React.MouseEvent, size: string) => {
+    e.preventDefault();
+    e.stopPropagation();
+    addLineForSize(size, true);
+  };
+
+  const showMobileAddedToast = () => {
+    const thumb = imageUrls[0] ?? null;
+    setMobileAddedToast((prev) => ({
+      key: (prev?.key ?? 0) + 1,
+      thumb,
+    }));
+  };
+
+  useEffect(() => {
+    if (!mobileAddedToast) return;
+    setMobileAddedToastVisible(false);
+    let raf2 = 0;
+    const raf1 = requestAnimationFrame(() => {
+      raf2 = requestAnimationFrame(() => setMobileAddedToastVisible(true));
+    });
+    const leaveTimer = window.setTimeout(() => {
+      setMobileAddedToastVisible(false);
+    }, MOBILE_ADD_TOAST_MS);
+    const removeTimer = window.setTimeout(() => {
+      setMobileAddedToast(null);
+    }, MOBILE_ADD_TOAST_MS + MOBILE_ADD_TOAST_ANIM_MS);
+    return () => {
+      cancelAnimationFrame(raf1);
+      cancelAnimationFrame(raf2);
+      clearTimeout(leaveTimer);
+      clearTimeout(removeTimer);
+    };
+  }, [mobileAddedToast]);
+
+  const handleMobileSheetPickSize = (size: string) => {
+    if (!isSizeInStock(size)) return;
+    addLineForSize(size, false);
+    setMobileSizeSheetOpen(false);
+    showMobileAddedToast();
+  };
+
+  const handleMobileBagClick = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (isOutOfStock) return;
+    setMobileSizeSheetOpen(true);
+  };
+
+  const handleMobileToastGoToBag = () => {
+    setMobileAddedToast(null);
+    setMobileAddedToastVisible(false);
     openCart();
   };
 
@@ -177,16 +247,30 @@ export function ProductCard({
             </div>
           )}
 
-          {/* Wishlist bookmark */}
-          <button
-            type="button"
-            onClick={handleWishlistClick}
-            className={`absolute top-2 end-2 z-10 flex items-center justify-center bg-card/90 dark:bg-card/90 text-foreground hover:opacity-90 transition-colors ${compact ? "w-8 h-8" : "w-10 h-10"
-              }`}
-            aria-label={wishlistState ? t("removeFromWishlistAria") : t("addToWishlistAria")}
-          >
-            <WishlistBookmarkIcon active={wishlistState} className={compact ? "w-4 h-4" : "w-5 h-5"} />
-          </button>
+          {/* Wishlist + mobile quick-add (bag) */}
+          <div className="absolute top-2 end-2 z-10 flex flex-col gap-2">
+            <button
+              type="button"
+              onClick={handleWishlistClick}
+              className={`flex items-center justify-center bg-card/90 dark:bg-card/90 text-foreground hover:opacity-90 transition-colors ${compact ? "h-8 w-8" : "h-10 w-10"
+                }`}
+              aria-label={wishlistState ? t("removeFromWishlistAria") : t("addToWishlistAria")}
+            >
+              <WishlistBookmarkIcon active={wishlistState} className={compact ? "w-4 h-4" : "w-5 h-5"} />
+            </button>
+            <button
+              type="button"
+              onClick={handleMobileBagClick}
+              disabled={isOutOfStock}
+              aria-haspopup="dialog"
+              aria-expanded={mobileSizeSheetOpen}
+              className={`hidden items-center justify-center bg-card/90 text-foreground transition-colors hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-45 dark:bg-card/90 max-md:flex ${compact ? "h-8 w-8" : "h-10 w-10"
+                }`}
+              aria-label={tPdp("mobileCartPickSize")}
+            >
+              <ShoppingBag className={compact ? "h-4 w-4" : "h-5 w-5"} aria-hidden />
+            </button>
+          </div>
 
           {isOutOfStock && (
             <div className="absolute inset-0 flex items-center justify-center bg-black/20">
@@ -340,6 +424,77 @@ export function ProductCard({
           </p>
         </div>
       </Link>
+
+      <Sheet open={mobileSizeSheetOpen} onOpenChange={setMobileSizeSheetOpen}>
+        <SheetContent side="bottom" className="gap-0 px-6 pb-8 pt-2">
+          <SheetHeader className="border-b border-border pb-4 text-start">
+            <SheetTitle>{tPdp("selectSizeSheetTitle")}</SheetTitle>
+          </SheetHeader>
+          <p className="pt-2 text-sm text-muted-foreground">{product.name}</p>
+          <div className="flex flex-wrap gap-2 pt-4">
+            {sizes.map((size) => {
+              const inStock = isSizeInStock(size);
+              return (
+                <button
+                  key={size}
+                  type="button"
+                  disabled={!inStock}
+                  onClick={() => handleMobileSheetPickSize(size)}
+                  className={cn(
+                    "min-h-12 min-w-12 rounded-full px-4 text-xs font-medium uppercase tracking-widest transition-colors",
+                    !inStock
+                      ? "cursor-not-allowed border border-border bg-muted/30 text-muted-foreground opacity-50"
+                      : "border border-border text-foreground hover:border-foreground active:bg-foreground active:text-background",
+                  )}
+                >
+                  {size}
+                </button>
+              );
+            })}
+          </div>
+        </SheetContent>
+      </Sheet>
+
+      {mobileAddedToast ? (
+        <div
+          className="pointer-events-none fixed inset-x-0 bottom-0 z-[10000] flex justify-center px-4 pb-[max(1rem,env(safe-area-inset-bottom))] md:hidden"
+          role="status"
+          aria-live="polite"
+        >
+          <div
+            className={cn(
+              "pointer-events-auto flex w-full max-w-lg items-center gap-3 border border-border bg-background/95 p-3 shadow-lg backdrop-blur-sm transition-transform duration-300 ease-out",
+              mobileAddedToastVisible ? "translate-y-0" : "translate-y-[calc(100%+2.5rem)]",
+            )}
+          >
+            <div className="flex min-w-0 flex-1 items-center gap-3">
+              <div className="relative h-14 w-11 shrink-0 overflow-hidden bg-muted">
+                {mobileAddedToast.thumb ? (
+                  <Image
+                    src={mobileAddedToast.thumb}
+                    alt=""
+                    fill
+                    className="object-cover"
+                    sizes="56px"
+                  />
+                ) : (
+                  <div className="flex h-full w-full items-center justify-center text-muted-foreground text-xs">
+                    —
+                  </div>
+                )}
+              </div>
+              <p className="text-sm font-medium text-foreground">{tPdp("addedToBag")}</p>
+            </div>
+            <button
+              type="button"
+              onClick={handleMobileToastGoToBag}
+              className="shrink-0 rounded-none border border-foreground bg-transparent px-3 py-2 text-xs font-semibold uppercase tracking-wider text-foreground transition-colors hover:bg-foreground hover:text-background"
+            >
+              {tPdp("goToBag")}
+            </button>
+          </div>
+        </div>
+      ) : null}
     </article>
   );
 }

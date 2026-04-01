@@ -412,6 +412,10 @@
     "allOutOfStock": "This product is currently out of stock.",
     "addToBag": "Add to bag",
     "selectSizeHint": "Please select a size",
-    "similarItems": "Similar Items"
+    "similarItems": "Similar Items",
+    "mobileCartPickSize": "Choose size to add to bag",
+    "selectSizeSheetTitle": "Select size",
+    "addedToBag": "Added",
+    "goToBag": "Go to bag"
   }
 }
