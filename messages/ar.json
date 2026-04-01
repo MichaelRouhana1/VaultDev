@@ -26,7 +26,10 @@
     "themeLightAria": "التبديل إلى الوضع الفاتح",
     "themeDarkAria": "التبديل إلى الوضع الداكن",
     "viewAccountAria": "عرض الملف الشخصي",
-    "viewShoppingBagAria": "عرض حقيبة التسوق"
+    "viewShoppingBagAria": "عرض حقيبة التسوق",
+    "mobileNavTitle": "قائمة التنقل",
+    "mobileSearchPlaceholder": "البحث عن المنتجات…",
+    "mobileSearchSubmitAria": "البحث في المتجر"
   },
   "ProductCard": {
     "noImage": "لا توجد صورة",

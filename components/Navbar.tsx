@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, type FormEvent } from "react";
 import { useLocale, useTranslations } from "next-intl";
 import { Link, usePathname, useRouter } from "@/i18n/navigation";
 import { useParams } from "next/navigation";
@@ -9,6 +9,7 @@ import { useTheme } from "next-themes";
 import { useCart } from "@/context/CartContext";
 import { CartDrawer } from "@/components/CartDrawer";
 import { ShopDrawer } from "@/components/ShopDrawer";
+import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
 import { getStoreCategories } from "@/actions/categories";
 import {
   mosaikClerkUserButtonPopoverElementsDark,
@@ -66,6 +67,10 @@ export function Navbar() {
   const [drawerStoreType, setDrawerStoreType] = useState<StoreTypeSlug | null>(null);
   const [drawerCategories, setDrawerCategories] = useState<ProductCategory[]>([]);
   const [burgerOpen, setBurgerOpen] = useState(false);
+  /** Mobile nav sheet: which store’s categories to show (updates immediately on tab tap). */
+  const [mobileMenuStore, setMobileMenuStore] = useState<StoreTypeSlug>("streetwear");
+  const [mobileMenuCategories, setMobileMenuCategories] = useState<ProductCategory[]>([]);
+  const [mobileSearchQuery, setMobileSearchQuery] = useState("");
 
   const storeType = pathname?.split("/").filter(Boolean)[0];
   const isStoreType = storeType === "streetwear" || storeType === "formal";
@@ -88,6 +93,32 @@ export function Navbar() {
     router.prefetch("/streetwear");
     router.prefetch("/formal");
   }, [router]);
+
+  useEffect(() => {
+    if (!burgerOpen) {
+      setMobileSearchQuery("");
+      return;
+    }
+    const initial: StoreTypeSlug =
+      activeStore === "streetwear" || activeStore === "formal" ? activeStore : "streetwear";
+    setMobileMenuStore(initial);
+    void getStoreCategories(initial).then(setMobileMenuCategories);
+  }, [burgerOpen, activeStore]);
+
+  useEffect(() => {
+    const mq = window.matchMedia("(min-width: 1024px)");
+    const onChange = () => {
+      if (mq.matches) setBurgerOpen(false);
+    };
+    mq.addEventListener("change", onChange);
+    return () => mq.removeEventListener("change", onChange);
+  }, []);
+
+  const handleMobileMenuStoreTab = (slug: StoreTypeSlug) => {
+    setMobileMenuStore(slug);
+    void getStoreCategories(slug).then(setMobileMenuCategories);
+    router.push(`/${slug}`);
+  };
 
   const closeShopDrawer = () => {
     setIsDrawerOpen(false);
@@ -130,6 +161,24 @@ export function Navbar() {
       storeLinkClass(slug),
       "cursor-pointer bg-transparent border-0 p-0 font-inherit text-start hover:opacity-100",
     );
+
+  const mobileMenuTabClass = (slug: StoreTypeSlug) =>
+    cn(
+      "text-xs uppercase tracking-[0.2em] transition-colors bg-transparent border-0 p-0 cursor-pointer whitespace-nowrap",
+      mobileMenuStore === slug
+        ? "font-semibold text-foreground"
+        : "font-normal text-muted-foreground hover:text-foreground/80",
+    );
+
+  const mobileShopBase = `/${mobileMenuStore}/shop`;
+
+  const submitMobileSearch = (e: FormEvent) => {
+    e.preventDefault();
+    const q = mobileSearchQuery.trim();
+    const url = q ? `${mobileShopBase}?${new URLSearchParams({ q })}` : mobileShopBase;
+    router.push(url);
+    setBurgerOpen(false);
+  };
 
   return (
     <nav className="fixed top-0 inset-x-0 z-50 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 border-b border-border">
@@ -269,118 +318,140 @@ export function Navbar() {
         </div>
       </div>
 
-      {burgerOpen && (
-        <>
-          <div
-            className="lg:hidden fixed inset-0 top-14 bg-black/20 z-40"
-            onClick={() => setBurgerOpen(false)}
-            aria-hidden
-          />
-          <div
-            className="lg:hidden absolute top-full inset-x-0 z-50 bg-background border-b border-border shadow-lg max-h-[85vh] overflow-y-auto"
-            role="menu"
-          >
-            <div className="py-4 px-4 space-y-1">
-              <div
-                className="flex flex-col gap-1 border-b border-border pb-3 mb-1"
-                role="navigation"
-                aria-label={t("storeSelectionAria")}
+      <Sheet open={burgerOpen} onOpenChange={setBurgerOpen}>
+        <SheetContent
+          side="left"
+          overlayClassName="lg:hidden"
+          className={cn(
+            "inset-x-0 inset-y-0 flex h-dvh min-h-0 w-full max-w-none flex-col gap-0 rounded-none border-0 p-0 sm:max-w-none lg:hidden",
+          )}
+        >
+          <SheetTitle className="sr-only">{t("mobileNavTitle")}</SheetTitle>
+
+          <div className="flex shrink-0 items-center justify-between gap-3 border-b border-border px-5 py-4">
+            <div
+              className="flex flex-row items-baseline justify-start gap-6"
+              role="tablist"
+              aria-label={t("storeSelectionAria")}
+            >
+              <button
+                type="button"
+                role="tab"
+                aria-selected={mobileMenuStore === "streetwear"}
+                onClick={() => handleMobileMenuStoreTab("streetwear")}
+                className={mobileMenuTabClass("streetwear")}
               >
-                <button
-                  type="button"
-                  onClick={() => {
-                    handleHeaderSectionClick("streetwear");
-                    setBurgerOpen(false);
-                  }}
-                  className={cn(
-                    "flex w-full items-center gap-3 px-4 py-3 text-sm font-medium text-foreground hover:bg-muted/50 rounded-none text-start",
-                    activeStore === "streetwear" && "bg-muted/30",
-                  )}
-                  role="menuitem"
-                >
-                  {t("streetwear")}
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    handleHeaderSectionClick("formal");
-                    setBurgerOpen(false);
-                  }}
-                  className={cn(
-                    "flex w-full items-center gap-3 px-4 py-3 text-sm font-medium text-foreground hover:bg-muted/50 rounded-none text-start",
-                    activeStore === "formal" && "bg-muted/30",
-                  )}
-                  role="menuitem"
-                >
-                  {t("formal")}
-                </button>
-              </div>
+                {t("streetwear")}
+              </button>
+              <button
+                type="button"
+                role="tab"
+                aria-selected={mobileMenuStore === "formal"}
+                onClick={() => handleMobileMenuStoreTab("formal")}
+                className={mobileMenuTabClass("formal")}
+              >
+                {t("formal")}
+              </button>
+            </div>
+            <button
+              type="button"
+              onClick={() => setBurgerOpen(false)}
+              className="shrink-0 p-2 text-foreground hover:opacity-70"
+              aria-label={t("closeMenu")}
+            >
+              <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          </div>
+
+          <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-5 py-4">
+            <nav
+              className="space-y-0.5"
+              role="navigation"
+              aria-label={t("categoryMenuAria", {
+                store: mobileMenuStore === "streetwear" ? t("streetwear") : t("formal"),
+              })}
+            >
               <Link
-                href={isStoreType ? `/${storeType}/shop` : "/shop"}
+                href={mobileShopBase}
                 onClick={() => setBurgerOpen(false)}
-                className="flex items-center gap-3 px-4 py-3 text-sm font-medium text-foreground hover:bg-muted/50"
-                role="menuitem"
+                className="block py-3 text-sm font-medium text-foreground transition-colors hover:bg-muted/50"
               >
-                <svg className="w-5 h-5 shrink-0" fill="none" stroke="currentColor" strokeWidth={1.5} viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z" />
-                </svg>
-                {t("search")}
+                {t("viewAllShop")}
               </Link>
+              {mobileMenuCategories.map((cat) => (
+                <Link
+                  key={cat.id}
+                  href={`${mobileShopBase}?cat=${encodeURIComponent(cat.slug)}`}
+                  onClick={() => setBurgerOpen(false)}
+                  className="block py-3 text-sm font-medium text-foreground transition-colors hover:bg-muted/50"
+                >
+                  {cat.label}
+                </Link>
+              ))}
+            </nav>
+
+            <div className="mt-6 border-t border-border pt-4">
               <button
                 type="button"
                 onClick={toggleTheme}
-                className="flex items-center gap-3 w-full px-4 py-3 text-sm font-medium text-foreground hover:bg-muted/50 text-start"
-                role="menuitem"
+                className="flex w-full items-center gap-3 py-3 text-start text-sm font-medium text-foreground transition-colors hover:bg-muted/50"
                 aria-label={theme === "dark" ? t("themeLightAria") : t("themeDarkAria")}
               >
                 {theme === "dark" ? (
-                  <svg className="w-5 h-5 shrink-0" fill="none" stroke="currentColor" strokeWidth={1.5} viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z" />
+                  <svg className="h-5 w-5 shrink-0" fill="none" stroke="currentColor" strokeWidth={1.5} viewBox="0 0 24 24">
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z"
+                    />
                   </svg>
                 ) : (
-                  <svg className="w-5 h-5 shrink-0" fill="none" stroke="currentColor" strokeWidth={1.5} viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" />
+                  <svg className="h-5 w-5 shrink-0" fill="none" stroke="currentColor" strokeWidth={1.5} viewBox="0 0 24 24">
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z"
+                    />
                   </svg>
                 )}
                 {theme === "dark" ? t("lightMode") : t("darkMode")}
               </button>
-              <Link
-                href="/account"
-                onClick={() => setBurgerOpen(false)}
-                className="flex items-center gap-3 px-4 py-3 text-sm font-medium text-foreground hover:bg-muted/50"
-                role="menuitem"
-              >
-                <svg className="w-5 h-5 shrink-0" fill="none" stroke="currentColor" strokeWidth={1.5} viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 6a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0zM4.501 20.118a7.5 7.5 0 0114.998 0A17.933 17.933 0 0112 21.75c-2.676 0-5.216-.584-7.499-1.632z" />
-                </svg>
-                {t("account")}
-              </Link>
-              <button
-                type="button"
-                onClick={() => {
-                  setCartOpen(true);
-                  setBurgerOpen(false);
-                }}
-                className="flex items-center gap-3 w-full px-4 py-3 text-sm font-medium text-foreground hover:bg-muted/50 text-start"
-                role="menuitem"
-                aria-label={t("viewShoppingBagAria")}
-              >
-                <span className="relative">
-                  <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth={1.5} viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z" />
-                  </svg>
-                  {totalItems > 0 && (
-                    <span className="absolute -top-2 -end-2 flex h-4 w-4 items-center justify-center rounded-full bg-foreground text-background text-[10px] font-medium">
-                      {totalItems > 99 ? "99+" : totalItems}
-                    </span>
-                  )}
-                </span>
-                {totalItems > 0 ? t("bagWithCount", { count: totalItems }) : t("bag")}
-              </button>
             </div>
           </div>
-        </>
-      )}
+
+          <form
+            onSubmit={submitMobileSearch}
+            className="mt-auto shrink-0 border-t border-border bg-background p-4"
+          >
+            <label className="relative block">
+              <span className="sr-only">{t("search")}</span>
+              <span className="pointer-events-none absolute start-3 top-1/2 -translate-y-1/2 text-muted-foreground" aria-hidden>
+                <svg className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth={1.5} viewBox="0 0 24 24">
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z"
+                  />
+                </svg>
+              </span>
+              <input
+                type="search"
+                name="q"
+                value={mobileSearchQuery}
+                onChange={(e) => setMobileSearchQuery(e.target.value)}
+                placeholder={t("mobileSearchPlaceholder")}
+                autoComplete="off"
+                className="w-full rounded-none border border-border bg-background py-2.5 ps-10 pe-3 text-sm text-foreground placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+              />
+            </label>
+            <button type="submit" className="sr-only" tabIndex={-1}>
+              {t("mobileSearchSubmitAria")}
+            </button>
+          </form>
+        </SheetContent>
+      </Sheet>
 
       <ShopDrawer
         isOpen={isDrawerOpen}
