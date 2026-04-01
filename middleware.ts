@@ -279,6 +279,11 @@ export default clerkMiddleware(async (auth, req) => {
     }
   }
 
+  // next-intl redirects unprefixed paths to `/{locale}/...`; that breaks `/api/*` and `/trpc/*`.
+  if (pathname.startsWith("/api/") || pathname.startsWith("/trpc")) {
+    return NextResponse.next();
+  }
+
   const intlResponse = intlMiddleware(req);
 
   const nonce = Buffer.from(crypto.randomUUID()).toString("base64");

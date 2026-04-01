@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { createPortal } from "react-dom";
 import { useTranslations } from "next-intl";
 import { sortSizes, cn } from "@/lib/utils";
 
@@ -132,6 +133,36 @@ function FilterSection({
   );
 }
 
+/** Desktop dual range: thin track, 8px thumbs, thumb-only hit testing (stacked inputs). */
+const dualRangeInputClass =
+  "absolute top-1/2 left-0 h-6 w-full -translate-y-1/2 cursor-pointer appearance-none bg-transparent " +
+  "pointer-events-none " +
+  "[&::-webkit-slider-thumb]:pointer-events-auto " +
+  "[&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:relative [&::-webkit-slider-thumb]:z-10 " +
+  "[&::-webkit-slider-thumb]:h-2 [&::-webkit-slider-thumb]:w-2 [&::-webkit-slider-thumb]:rounded-none " +
+  "[&::-webkit-slider-thumb]:border-0 [&::-webkit-slider-thumb]:bg-foreground [&::-webkit-slider-thumb]:cursor-pointer " +
+  "[&::-webkit-slider-thumb]:mt-[-3px] " +
+  "[&::-webkit-slider-runnable-track]:h-0.5 [&::-webkit-slider-runnable-track]:rounded-full " +
+  "[&::-webkit-slider-runnable-track]:bg-transparent " +
+  "[&::-moz-range-thumb]:pointer-events-auto " +
+  "[&::-moz-range-thumb]:h-2 [&::-moz-range-thumb]:w-2 [&::-moz-range-thumb]:rounded-none " +
+  "[&::-moz-range-thumb]:border-0 [&::-moz-range-thumb]:bg-foreground [&::-moz-range-thumb]:cursor-pointer " +
+  "[&::-moz-range-track]:h-0.5 [&::-moz-range-track]:rounded-full [&::-moz-range-track]:bg-transparent";
+
+/**
+ * Mobile: one range per row — iOS/WebKit dual stacked sliders often hide thumbs and ignore touches.
+ * Foreground thumbs on a muted track; `onInput` + `onChange` for Safari while dragging.
+ */
+const mobileSingleRangeClass =
+  "block h-11 w-full cursor-pointer appearance-none bg-transparent touch-manipulation " +
+  "[&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:h-6 [&::-webkit-slider-thumb]:w-6 " +
+  "[&::-webkit-slider-thumb]:rounded-none [&::-webkit-slider-thumb]:border-2 [&::-webkit-slider-thumb]:border-background " +
+  "[&::-webkit-slider-thumb]:bg-foreground " +
+  "[&::-webkit-slider-runnable-track]:h-1.5 [&::-webkit-slider-runnable-track]:rounded-full [&::-webkit-slider-runnable-track]:bg-muted " +
+  "[&::-moz-range-thumb]:h-6 [&::-moz-range-thumb]:w-6 [&::-moz-range-thumb]:rounded-none " +
+  "[&::-moz-range-thumb]:border-2 [&::-moz-range-thumb]:border-background [&::-moz-range-thumb]:bg-foreground " +
+  "[&::-moz-range-track]:h-1.5 [&::-moz-range-track]:rounded-full [&::-moz-range-track]:bg-muted";
+
 function PriceRangeSection({
   bounds,
   valueMin,
@@ -143,45 +174,95 @@ function PriceRangeSection({
   valueMax: number;
   onChange: (min: number, max: number) => void;
 }) {
+  const t = useTranslations("FilterPanel");
   const range = bounds.max - bounds.min || 1;
   const step = Math.max(0.01, range / 100);
   const clampedMin = Math.max(bounds.min, Math.min(bounds.max, valueMin));
   const clampedMax = Math.max(bounds.min, Math.min(bounds.max, valueMax));
+  const pctMin = ((clampedMin - bounds.min) / range) * 100;
+  const pctMax = ((clampedMax - bounds.min) / range) * 100;
+
+  const setMinFromInput = (raw: string) => {
+    const v = parseFloat(raw);
+    if (Number.isNaN(v)) return;
+    onChange(v, Math.max(v, clampedMax));
+  };
+  const setMaxFromInput = (raw: string) => {
+    const v = parseFloat(raw);
+    if (Number.isNaN(v)) return;
+    onChange(Math.min(v, clampedMin), v);
+  };
 
   return (
     <div className="mb-8">
-      <h3 className="text-xs font-medium uppercase tracking-[0.2em] text-foreground mb-4">Price Range</h3>
-      <div className="space-y-6">
+      <h3 className="text-xs font-medium uppercase tracking-[0.2em] text-foreground mb-4">{t("priceRangeHeading")}</h3>
+
+      <div className="space-y-5 md:hidden">
         <div>
-          <label className="text-xs text-muted-foreground block mb-2">Min: ${clampedMin.toFixed(0)}</label>
+          <p className="text-xs font-medium uppercase tracking-[0.2em] text-muted-foreground mb-2">{t("priceMinLabel")}</p>
           <input
             type="range"
             min={bounds.min}
             max={bounds.max}
             step={step}
             value={clampedMin}
-            onChange={(e) => {
-              const v = parseFloat(e.target.value);
-              onChange(v, Math.max(v, clampedMax));
-            }}
-            className="w-full h-1.5 rounded-full bg-foreground/25 border border-border appearance-none [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-4 [&::-webkit-slider-thumb]:h-4 [&::-webkit-slider-thumb]:rounded-none [&::-webkit-slider-thumb]:bg-foreground [&::-webkit-slider-thumb]:cursor-pointer [&::-webkit-slider-thumb]:-mt-1.5 [&::-moz-range-thumb]:w-4 [&::-moz-range-thumb]:h-4 [&::-moz-range-thumb]:rounded-none [&::-moz-range-thumb]:bg-foreground [&::-moz-range-thumb]:border-0 [&::-moz-range-thumb]:cursor-pointer"
+            aria-label={t("priceMinLabel")}
+            onChange={(e) => setMinFromInput(e.target.value)}
+            onInput={(e) => setMinFromInput((e.target as HTMLInputElement).value)}
+            className={mobileSingleRangeClass}
           />
         </div>
         <div>
-          <label className="text-xs text-muted-foreground block mb-2">Max: ${clampedMax.toFixed(0)}</label>
+          <p className="text-xs font-medium uppercase tracking-[0.2em] text-muted-foreground mb-2">{t("priceMaxLabel")}</p>
           <input
             type="range"
             min={bounds.min}
             max={bounds.max}
             step={step}
             value={clampedMax}
-            onChange={(e) => {
-              const v = parseFloat(e.target.value);
-              onChange(Math.min(v, clampedMin), v);
-            }}
-            className="w-full h-1.5 rounded-full bg-foreground/25 border border-border appearance-none [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-4 [&::-webkit-slider-thumb]:h-4 [&::-webkit-slider-thumb]:rounded-none [&::-webkit-slider-thumb]:bg-foreground [&::-webkit-slider-thumb]:cursor-pointer [&::-webkit-slider-thumb]:-mt-1.5 [&::-moz-range-thumb]:w-4 [&::-moz-range-thumb]:h-4 [&::-moz-range-thumb]:rounded-none [&::-moz-range-thumb]:bg-foreground [&::-moz-range-thumb]:border-0 [&::-moz-range-thumb]:cursor-pointer"
+            aria-label={t("priceMaxLabel")}
+            onChange={(e) => setMaxFromInput(e.target.value)}
+            onInput={(e) => setMaxFromInput((e.target as HTMLInputElement).value)}
+            className={mobileSingleRangeClass}
           />
         </div>
+      </div>
+
+      <div className="relative hidden h-6 md:block">
+        <div
+          className="pointer-events-none absolute left-0 right-0 top-1/2 h-0.5 -translate-y-1/2 rounded-full border border-border bg-foreground/25"
+          aria-hidden
+        />
+        <div
+          className="pointer-events-none absolute top-1/2 h-0.5 -translate-y-1/2 rounded-full bg-foreground/45"
+          style={{ left: `${pctMin}%`, width: `${Math.max(0, pctMax - pctMin)}%` }}
+          aria-hidden
+        />
+        <input
+          type="range"
+          min={bounds.min}
+          max={bounds.max}
+          step={step}
+          value={clampedMin}
+          aria-label={t("priceMinLabel")}
+          onChange={(e) => setMinFromInput(e.target.value)}
+          className={`${dualRangeInputClass} z-[2]`}
+        />
+        <input
+          type="range"
+          min={bounds.min}
+          max={bounds.max}
+          step={step}
+          value={clampedMax}
+          aria-label={t("priceMaxLabel")}
+          onChange={(e) => setMaxFromInput(e.target.value)}
+          className={`${dualRangeInputClass} z-[3]`}
+        />
+      </div>
+
+      <div className="mt-3 flex justify-between text-xs text-muted-foreground tabular-nums">
+        <span>${clampedMin.toFixed(0)}</span>
+        <span>${clampedMax.toFixed(0)}</span>
       </div>
     </div>
   );
@@ -245,10 +326,12 @@ export function FilterPanelContent({
           </svg>
         </button>
       )}
-      <SortBySection sort={sort} onSortChange={onSortChange} />
       {!hideTitle && (
-        <h2 className="text-sm font-medium uppercase tracking-[0.2em] text-foreground mb-8 pr-8 md:pr-0">Filters</h2>
+        <h2 className="pt-6 text-sm font-medium uppercase tracking-[0.2em] text-foreground mb-8 pr-8 md:pr-0">
+          Filters
+        </h2>
       )}
+      <SortBySection sort={sort} onSortChange={onSortChange} />
       <PriceRangeSection
         bounds={priceBounds}
         valueMin={filters.priceMin}
@@ -331,14 +414,35 @@ export function FilterPanel({
   selectedAttributes = {},
   onToggleAttribute,
 }: FilterPanelProps) {
+  const t = useTranslations("FilterPanel");
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
   useEffect(() => {
     const mq = window.matchMedia("(min-width: 768px)");
+    const main = document.getElementById("main-content");
 
-    const syncScrollLock = () => {
+    const syncMobileOverlay = () => {
       if (mq.matches) {
         document.body.style.overflow = "";
-      } else {
-        document.body.style.overflow = isOpen ? "hidden" : "";
+        if (main) {
+          main.removeAttribute("inert");
+          main.style.removeProperty("pointer-events");
+        }
+        return;
+      }
+      document.body.style.overflow = isOpen ? "hidden" : "";
+      if (main) {
+        if (isOpen) {
+          main.setAttribute("inert", "");
+          main.style.pointerEvents = "none";
+        } else {
+          main.removeAttribute("inert");
+          main.style.removeProperty("pointer-events");
+        }
       }
     };
 
@@ -347,35 +451,54 @@ export function FilterPanel({
       onClose();
     };
 
-    syncScrollLock();
+    syncMobileOverlay();
     if (isOpen) document.addEventListener("keydown", onEsc);
-    mq.addEventListener("change", syncScrollLock);
+    mq.addEventListener("change", syncMobileOverlay);
 
     return () => {
       document.removeEventListener("keydown", onEsc);
-      mq.removeEventListener("change", syncScrollLock);
+      mq.removeEventListener("change", syncMobileOverlay);
       document.body.style.overflow = "";
+      if (main) {
+        main.removeAttribute("inert");
+        main.style.removeProperty("pointer-events");
+      }
     };
   }, [isOpen, onClose]);
 
-  return (
+  if (!mounted || typeof document === "undefined") return null;
+
+  return createPortal(
     <div className="md:hidden">
       <div
-        className={`fixed inset-0 z-[60] bg-black/30 transition-opacity duration-200 ${
+        className={`fixed inset-0 z-[9998] bg-black/30 transition-opacity duration-200 ${
           isOpen ? "opacity-100" : "opacity-0 pointer-events-none"
         }`}
         onClick={onClose}
         aria-hidden
       />
       <aside
-        className={`fixed left-0 top-0 bottom-0 w-[320px] max-w-[85vw] z-[61] bg-background shadow-xl overflow-y-auto transition-transform duration-300 ease-out ${
+        className={`fixed inset-0 z-[9999] flex h-[100dvh] min-h-[100dvh] w-full max-w-[100vw] flex-col overflow-hidden overscroll-y-contain bg-background transition-transform duration-300 ease-out ${
           isOpen ? "translate-x-0" : "-translate-x-full"
         }`}
         role="dialog"
         aria-modal={isOpen}
-        aria-label="Filters"
+        aria-label={t("filtersHeading")}
       >
-        <div className="p-6 pt-16">
+        <header className="flex shrink-0 items-center justify-between gap-4 bg-background px-4 pb-4 pt-[max(1rem,env(safe-area-inset-top))] sm:px-6">
+          <h2 className="text-sm font-medium uppercase tracking-[0.2em] text-foreground">{t("filtersHeading")}</h2>
+          <button
+            type="button"
+            onClick={onClose}
+            className="shrink-0 p-2 -m-2 text-foreground hover:opacity-60"
+            aria-label={t("closeDrawerAria")}
+          >
+            <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+        </header>
+        <div className="no-scrollbar min-h-0 flex-1 overflow-y-auto overflow-x-hidden px-4 pb-[max(1.5rem,env(safe-area-inset-bottom))] pt-6 sm:px-6">
           <FilterPanelContent
             filters={filters}
             onFiltersChange={onFiltersChange}
@@ -389,11 +512,11 @@ export function FilterPanel({
             productColorOptions={productColorOptions}
             selectedAttributes={selectedAttributes}
             onToggleAttribute={onToggleAttribute}
-            showCloseButton
-            onClose={onClose}
+            hideTitle
           />
         </div>
       </aside>
-    </div>
+    </div>,
+    document.body,
   );
 }

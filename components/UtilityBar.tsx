@@ -29,7 +29,7 @@ export function UtilityBar({
     );
 
   return (
-    <div className="flex flex-wrap items-center justify-between gap-3 ps-6 pe-6 py-4 w-full">
+    <div className="flex flex-wrap items-center justify-between gap-2 px-4 py-2 w-full sm:px-5 sm:py-2.5 md:px-6 md:py-3">
       <div className="flex items-center gap-3 min-w-0">
         <button
           type="button"

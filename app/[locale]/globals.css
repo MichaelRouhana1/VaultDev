@@ -53,6 +53,17 @@
   height: 0 !important;
 }
 
+/* Filter drawers: keep scroll behavior, hide scrollbar chrome */
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+  width: 0 !important;
+  height: 0 !important;
+}
+
 @custom-variant dark (&:is(.dark *));
 
 @theme inline {

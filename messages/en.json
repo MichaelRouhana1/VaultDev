@@ -59,9 +59,14 @@
     "localeAr": "العربية"
   },
   "FilterPanel": {
+    "filtersHeading": "Filters",
+    "closeDrawerAria": "Close filters",
     "sortByHeading": "Sort by",
     "sortPriceLowToHigh": "Price low to high",
-    "sortPriceHighToLow": "Price high to low"
+    "sortPriceHighToLow": "Price high to low",
+    "priceRangeHeading": "Price range",
+    "priceMinLabel": "Minimum",
+    "priceMaxLabel": "Maximum"
   },
   "Common": {
     "brand": "VAULT",

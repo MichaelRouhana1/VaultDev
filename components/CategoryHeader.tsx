@@ -2,21 +2,29 @@
 
 import { useTranslations } from "next-intl";
 
-const CATEGORY_KEYS: Record<string, { label: string; subtitle: string }> = {
-  CLOTHING: { label: "clothingLabel", subtitle: "clothingSubtitle" },
-  SHOES: { label: "shoesLabel", subtitle: "shoesSubtitle" },
-  ACCESSORIES: { label: "accessoriesLabel", subtitle: "accessoriesSubtitle" },
-  BAGS: { label: "bagsLabel", subtitle: "bagsSubtitle" },
-  OTHER: { label: "otherLabel", subtitle: "otherSubtitle" },
+const CATEGORY_KEYS: Record<string, "clothingLabel" | "shoesLabel" | "accessoriesLabel" | "bagsLabel" | "otherLabel"> = {
+  CLOTHING: "clothingLabel",
+  SHOES: "shoesLabel",
+  ACCESSORIES: "accessoriesLabel",
+  BAGS: "bagsLabel",
+  OTHER: "otherLabel",
 };
 
-const SLUG_KEYS: Record<string, { label: string; subtitle: string }> = {
-  jeans: { label: "jeansLabel", subtitle: "jeansSubtitle" },
-  trousers: { label: "trousersLabel", subtitle: "trousersSubtitle" },
-  shirts: { label: "shirtsLabel", subtitle: "shirtsSubtitle" },
-  tshirts: { label: "tshirtsLabel", subtitle: "tshirtsSubtitle" },
-  hoodies: { label: "hoodiesLabel", subtitle: "hoodiesSubtitle" },
-  jackets: { label: "jacketsLabel", subtitle: "jacketsSubtitle" },
+const SLUG_KEYS: Record<
+  string,
+  | "jeansLabel"
+  | "trousersLabel"
+  | "shirtsLabel"
+  | "tshirtsLabel"
+  | "hoodiesLabel"
+  | "jacketsLabel"
+> = {
+  jeans: "jeansLabel",
+  trousers: "trousersLabel",
+  shirts: "shirtsLabel",
+  tshirts: "tshirtsLabel",
+  hoodies: "hoodiesLabel",
+  jackets: "jacketsLabel",
 };
 
 interface CategoryHeaderProps {
@@ -37,22 +45,20 @@ export function CategoryHeader({
 
   if (viewAllListing) {
     return (
-      <header className="border-b border-border px-6 py-12 text-center">
+      <header className="px-3 py-3 text-center sm:px-4 sm:py-4 md:px-5">
         <h1 className="text-3xl font-bold text-foreground uppercase tracking-[0.2em]">{t("viewAllHeading")}</h1>
       </header>
     );
   }
 
-  const slugConfig = categorySlug && !categoryLabel ? SLUG_KEYS[categorySlug] : null;
-  const categoryConfig = category ? CATEGORY_KEYS[category] : null;
-  const config = slugConfig ?? categoryConfig;
-  const label = categoryLabel ?? (config ? t(config.label as "clothingLabel") : t("shopDefault"));
-  const subtitle = config ? t(config.subtitle as "clothingSubtitle") : t("defaultSubtitle");
+  const slugKey = categorySlug && !categoryLabel ? SLUG_KEYS[categorySlug] : null;
+  const categoryKey = category ? CATEGORY_KEYS[category] : null;
+  const labelKey = slugKey ?? categoryKey;
+  const label = categoryLabel ?? (labelKey ? t(labelKey) : t("shopDefault"));
 
   return (
-    <header className="border-b border-border px-6 py-12 text-center">
+    <header className="px-3 py-3 text-center sm:px-4 sm:py-4 md:px-5">
       <h1 className="text-3xl font-bold text-foreground">{label}</h1>
-      <p className="mt-2 text-sm font-light text-muted-foreground">{subtitle}</p>
     </header>
   );
 }

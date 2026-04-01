@@ -228,7 +228,7 @@ export function ShopClient({
         viewAllListing={viewAllListing}
       />
 
-      <div className="sticky top-14 z-30 bg-background border-b border-border">
+      <div className="sticky top-14 z-30 bg-background">
         <UtilityBar
           onMobileFiltersOpen={() => setMobileFilterOpen(true)}
           onDesktopFiltersToggle={() => setDesktopFilterOpen((o) => !o)}
@@ -252,12 +252,12 @@ export function ShopClient({
         selectedAttributes={selectedAttributes}
         onToggleAttribute={toggleAttribute}
       />
-      <div className="flex relative w-full items-start gap-x-4 px-4 py-5 sm:px-5 sm:py-6 md:gap-x-6 md:px-6 md:py-8">
+      <div className="flex relative w-full items-start gap-x-4 px-4 pt-2 pb-5 sm:px-5 sm:pt-3 sm:pb-6 md:gap-x-6 md:px-6 md:pt-4 md:pb-8">
         <aside
           className={cn(
             "hidden md:block shrink-0 self-start transition-[width,opacity] duration-300 ease-in-out",
             desktopFilterOpen
-              ? "w-[250px] lg:w-[280px] opacity-100 sticky top-32 z-20 max-h-[calc(100vh-8rem)] overflow-y-auto overflow-x-hidden overscroll-y-contain border-r border-border"
+              ? "no-scrollbar w-[250px] lg:w-[280px] opacity-100 sticky top-32 z-20 max-h-[calc(100vh-8rem)] overflow-y-auto overflow-x-hidden overscroll-y-contain border-r border-border"
               : "w-0 opacity-0 m-0 p-0 pointer-events-none overflow-hidden",
           )}
           aria-hidden={!desktopFilterOpen}
