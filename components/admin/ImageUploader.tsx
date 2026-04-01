@@ -7,6 +7,7 @@ import { ImageCropModal } from "@/components/ImageCropModal";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
+import { AdminHexColorField } from "@/components/admin/AdminHexColorField";
 import { cn } from "@/lib/utils";
 import { ensureBrowserDisplayableImage } from "@/lib/ensureBrowserDisplayableImage";
 import { toast } from "sonner";
@@ -114,22 +115,12 @@ export function ImageUploader({
                     </div>
                     <div className="space-y-1.5">
                         <Label htmlFor={`color-hex-${color.id}`}>Hex code</Label>
-                        <div className="flex gap-2 items-center">
-                            <input
-                                type="color"
-                                aria-label={`Choose hex code for ${color.name}`}
-                                value={color.hexCode}
-                                onChange={(e) => onUpdate({ hexCode: e.target.value })}
-                                className="h-10 w-14 cursor-pointer rounded border border-input bg-transparent p-1"
-                            />
-                            <Input
-                                id={`color-hex-${String(color.id)}`}
-                                value={color.hexCode}
-                                onChange={(e) => onUpdate({ hexCode: e.target.value })}
-                                placeholder="#000000"
-                                className="font-mono"
-                            />
-                        </div>
+                        <AdminHexColorField
+                            id={`color-hex-${String(color.id)}`}
+                            value={color.hexCode}
+                            onChange={(hex) => onUpdate({ hexCode: hex })}
+                            colorLabel={color.name || "variant"}
+                        />
                     </div>
                 </div>
                 {canRemove && (
