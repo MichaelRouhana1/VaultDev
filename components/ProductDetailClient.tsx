@@ -23,7 +23,7 @@ import type { ProductVariant, ProductColor, StorefrontProductResolved } from "@/
 import { WishlistBookmarkIcon } from "@/components/WishlistBookmarkIcon";
 import { PRODUCT_STICKY_BUYBAR_CSS_VAR } from "@/lib/product-sticky-buybar";
 import type { EmblaOptionsType } from "embla-carousel";
-import { ChevronLeft, Search, User } from "lucide-react";
+import { ChevronLeft, Search, ShoppingBag, User } from "lucide-react";
 
 const DEFAULT_SIZES = ["XS", "S", "M", "L", "XL"];
 
@@ -164,6 +164,7 @@ export function ProductDetailClient({
     (color: ProductColor) => {
       setSelectedColorState(color);
       setSelectedSize(null);
+      setIsColorMenuOpen(false);
       const params = new URLSearchParams(searchParams.toString());
       params.set("color", color.name);
       router.replace(`?${params.toString()}`, { scroll: false });
@@ -391,7 +392,7 @@ export function ProductDetailClient({
     >
       {/* Mobile: full-screen PDP above global nav */}
       <div className="fixed inset-0 z-[55] flex flex-col overflow-y-auto overscroll-y-contain bg-background md:hidden">
-        <div className="relative w-full shrink-0">
+        <div className="relative w-full shrink-0 overflow-hidden">
           <div className="absolute inset-x-0 top-0 z-20 flex items-center justify-between gap-2 px-4 pb-2 pt-[max(0.75rem,env(safe-area-inset-top,0px))]">
             <button
               type="button"
@@ -408,9 +409,17 @@ export function ProductDetailClient({
               <Link href="/account" className={navIconPill} aria-label={t("mobileAccountAria")}>
                 <User className="h-5 w-5" aria-hidden />
               </Link>
+              <button
+                type="button"
+                onClick={() => openCart()}
+                className={navIconPill}
+                aria-label={tCommon("viewShoppingBagAria")}
+              >
+                <ShoppingBag className="h-5 w-5" aria-hidden />
+              </button>
             </div>
           </div>
-          <Carousel setApi={setCarouselApi} opts={mobileCarouselOpts} className="w-full min-w-0">
+          <Carousel setApi={setCarouselApi} opts={mobileCarouselOpts} className="relative z-0 w-full min-w-0">
             <CarouselContent>
               {imageUrls.map((url, idx) => {
                 const hasError = imageErrors[idx];
@@ -447,7 +456,7 @@ export function ProductDetailClient({
                 );
               })}
             </CarouselContent>
-            <div className="pointer-events-none absolute inset-x-0 bottom-0 z-10 flex items-end justify-between gap-2 bg-gradient-to-t from-black/55 via-black/15 to-transparent px-4 pb-[max(0.75rem,env(safe-area-inset-bottom,0px))] pt-14">
+            <div className="pointer-events-none absolute inset-x-0 bottom-0 z-[15] flex items-end justify-between gap-2 bg-gradient-to-t from-black/55 via-black/15 to-transparent px-4 pb-[max(0.75rem,env(safe-area-inset-bottom,0px))] pt-14">
               <span className="h-10 w-10 shrink-0" aria-hidden />
               <div className="pointer-events-auto flex min-w-0 flex-1 justify-center">
                 <CarouselDots variant="onImage" className="mt-0" />
@@ -470,8 +479,10 @@ export function ProductDetailClient({
             <div
               id="mobile-color-menu"
               className={cn(
-                "border-t border-border bg-background transition-all duration-300 ease-in-out",
-                isColorMenuOpen ? "max-h-40 opacity-100" : "pointer-events-none max-h-0 overflow-hidden opacity-0",
+                "absolute inset-x-0 bottom-0 z-[30] border-t border-border bg-background/95 shadow-[0_-4px_16px_rgba(0,0,0,0.12)] backdrop-blur-sm transition-transform duration-300 ease-in-out dark:bg-background/95 dark:shadow-[0_-4px_16px_rgba(0,0,0,0.4)]",
+                isColorMenuOpen
+                  ? "translate-y-0 opacity-100 pointer-events-auto"
+                  : "translate-y-full opacity-0 pointer-events-none",
               )}
               aria-hidden={!isColorMenuOpen}
             >
@@ -484,16 +495,17 @@ export function ProductDetailClient({
                       key={c.id}
                       type="button"
                       onClick={() => handleColorSelect(c)}
-                      className={cn(
-                        "shrink-0 rounded-sm border-2 p-0.5 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-ring",
-                        isSelected ? "border-foreground" : "border-transparent hover:border-foreground/40",
-                      )}
+                      className="shrink-0 rounded-none border-0 bg-transparent p-0 transition-transform hover:scale-105 focus:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
                       title={c.name}
                       aria-label={t("selectColorAria", { name: c.name })}
                       aria-pressed={isSelected}
                     >
                       <span
-                        className="block h-10 w-10 bg-muted bg-cover bg-center"
+                        className={cn(
+                          "relative block h-10 w-10 overflow-hidden border border-border bg-muted bg-cover bg-center",
+                          isSelected &&
+                            "ring-1 ring-foreground ring-offset-1 ring-offset-background",
+                        )}
                         style={
                           thumb
                             ? { backgroundImage: `url(${thumb})` }
@@ -517,21 +529,27 @@ export function ProductDetailClient({
               <button
                 type="button"
                 onClick={() => setIsColorMenuOpen((o) => !o)}
-                className="flex shrink-0 items-center gap-2 rounded-sm border border-border bg-muted/40 px-2 py-1.5 text-left transition-colors hover:bg-muted/60"
+                className="flex shrink-0 items-center gap-1.5 border-0 bg-transparent p-0 text-left outline-none transition-opacity hover:opacity-90 focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
                 aria-expanded={isColorMenuOpen}
                 aria-controls="mobile-color-menu"
+                aria-label={t("colorHeading", { name: selectedColor?.name ?? "" })}
               >
+                <span className="text-sm font-semibold tabular-nums leading-none text-foreground">
+                  {t("colorToggleMore", { count: colors.length - 1 })}
+                </span>
                 <span
-                  className="block h-7 w-7 shrink-0 bg-muted bg-cover bg-center ring-1 ring-border"
+                  className={cn(
+                    "relative block h-7 w-7 shrink-0 overflow-hidden border border-border bg-muted bg-cover bg-center",
+                    isColorMenuOpen &&
+                      "ring-1 ring-foreground ring-offset-1 ring-offset-background",
+                  )}
                   style={
                     selectedColor?.imageUrls?.[0]
                       ? { backgroundImage: `url(${selectedColor.imageUrls[0]})` }
                       : { backgroundColor: selectedColor?.hexCode ?? "var(--muted)" }
                   }
+                  aria-hidden
                 />
-                <span className="text-sm font-semibold tabular-nums text-foreground">
-                  {t("colorToggleMore", { count: colors.length - 1 })}
-                </span>
               </button>
             ) : null}
           </div>

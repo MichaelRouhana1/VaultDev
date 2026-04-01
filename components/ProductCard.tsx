@@ -368,14 +368,14 @@ export function ProductCard({
             <div
               id={colorTrayId}
               className={cn(
-                "absolute inset-x-0 bottom-0 z-20 border-t border-border bg-background/95 shadow-[0_-4px_16px_rgba(0,0,0,0.12)] backdrop-blur-sm transition-transform duration-300 ease-in-out dark:bg-background/95 dark:shadow-[0_-4px_16px_rgba(0,0,0,0.4)]",
+                "absolute inset-x-0 bottom-0 z-[30] border-t border-border bg-background/95 shadow-[0_-4px_16px_rgba(0,0,0,0.12)] backdrop-blur-sm transition-transform duration-300 ease-in-out dark:bg-background/95 dark:shadow-[0_-4px_16px_rgba(0,0,0,0.4)]",
                 isColorTrayOpen
                   ? "translate-y-0 opacity-100 pointer-events-auto"
                   : "translate-y-full opacity-0 pointer-events-none",
               )}
               aria-hidden={!isColorTrayOpen}
             >
-              <div className="scrollbar-hide flex gap-3 overflow-x-auto px-3 py-2.5">
+              <div className="scrollbar-hide flex gap-1.5 overflow-x-auto px-2 py-1.5">
                 {colors.map((color, i) => {
                   const isSelected = i === selectedColorIndex;
                   const thumb = color.imageUrls?.[0] ?? null;
@@ -384,17 +384,17 @@ export function ProductCard({
                       key={color.id}
                       type="button"
                       onClick={(e) => handleColorClick(e, i)}
-                      className="shrink-0 rounded-none border-0 bg-transparent p-0 transition-transform hover:scale-105 focus:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                      className="shrink-0 rounded-none border-0 bg-transparent p-px transition-transform hover:scale-105 focus:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1"
                       title={color.name}
                       aria-label={tPdp("selectColorAria", { name: color.name })}
                       aria-pressed={isSelected}
                     >
                       <span
                         className={cn(
-                          "relative block overflow-hidden border border-border",
-                          compact ? "h-9 w-9" : "h-10 w-10",
+                          "relative block overflow-hidden rounded-sm border border-border",
+                          compact ? "h-4 w-4" : "h-5 w-5",
                           isSelected &&
-                            "ring-1 ring-foreground ring-offset-1 ring-offset-background",
+                            "ring-1 ring-foreground ring-offset-0.5 ring-offset-background",
                         )}
                         style={
                           thumb
@@ -448,7 +448,7 @@ export function ProductCard({
                   e.stopPropagation();
                   setIsColorTrayOpen((o) => !o);
                 }}
-                className="flex shrink-0 items-center gap-1.5 border-0 bg-transparent p-0 outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1"
+                className="flex shrink-0 items-center gap-1.5 border-0 bg-transparent p-0 shadow-none outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1"
                 aria-expanded={isColorTrayOpen}
                 aria-controls={colorTrayId}
                 aria-label={tPdp("colorHeading", { name: activeColor?.name ?? colorLabel })}
