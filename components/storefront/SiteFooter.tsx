@@ -3,6 +3,7 @@
 import { useState, useTransition, useCallback } from "react";
 import { useLocale, useTranslations } from "next-intl";
 import { Globe } from "lucide-react";
+import { usePathname as useNextPathname } from "next/navigation";
 import { Link, usePathname, useRouter } from "@/i18n/navigation";
 import type { MosaikLocale } from "@/lib/i18n-locales";
 import { MOSAIK_LOCALES } from "@/lib/i18n-locales";
@@ -34,6 +35,7 @@ export function SiteFooter() {
   const locale = useLocale() as MosaikLocale;
   const router = useRouter();
   const pathname = usePathname();
+  const nextPathname = useNextPathname();
   const { currency, setCurrency } = useCurrency();
   const [sheetOpen, setSheetOpen] = useState(false);
   const [draftLocale, setDraftLocale] = useState<MosaikLocale>(locale);
@@ -67,8 +69,8 @@ export function SiteFooter() {
     currency,
   });
 
-  /** `usePathname()` is locale-stripped (e.g. `/search`, not `/en/search`). */
-  if (pathname === "/search" || pathname.startsWith("/search/")) {
+  /** Locale-prefixed routes (e.g. `/en/search`) still contain `/search`. */
+  if (nextPathname.includes("/search")) {
     return null;
   }
 

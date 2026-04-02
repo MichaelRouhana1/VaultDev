@@ -1,6 +1,7 @@
 "use client";
 
 import {
+  Fragment,
   useCallback,
   useEffect,
   useLayoutEffect,
@@ -9,7 +10,6 @@ import {
   useState,
   useTransition,
 } from "react";
-import { useSearchParams } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { ChevronUp } from "lucide-react";
 import { usePathname, useRouter } from "@/i18n/navigation";
@@ -18,7 +18,6 @@ import { UtilityBar } from "@/components/UtilityBar";
 import {
   FilterPanel,
   FilterPanelContent,
-  type AttributeFilterSection,
   type FilterState,
   type ShopSortOption,
 } from "@/components/FilterPanel";
@@ -26,59 +25,69 @@ import { cn, getProductBasePriceNumber } from "@/lib/utils";
 import type { ProductColor, ProductVariant } from "@/db/schema";
 import type { MosaikLocale } from "@/lib/i18n-locales";
 import {
-  loadSearchRecommendations,
-  loadSearchResultsBundle,
   loadSearchResultsMore,
+  type SearchListingProduct,
+  type SearchPageFilterContext,
 } from "@/actions/search-page-data";
 
-const SCROLL_TOP_THRESHOLD_PX = 600;
-/** Sentinel sits on the first tile of the 2nd-to-last row in a 4-column grid (8 tiles from the end). */
+const EMPTY_SEARCH_FILTERS: SearchPageFilterContext = {
+  attributeSectionsForFilters: [],
+  filterVariantSizes: [],
+  filterProductColorNames: [],
+  categoryFilterTags: {},
+  attributeSlugsByProductId: {},
+  storeMainCategories: [],
+};
+
+const SCROLL_TOP_THRESHOLD_PX = 800;
+/** Invisible trigger sits immediately before the product index that is 8 tiles from the end (2 rows in a 4-col grid). */
 const SENTINEL_OFFSET_FROM_END = 8;
-
-type SearchRecommendationsPayload = Awaited<ReturnType<typeof loadSearchRecommendations>>;
-type SearchResultsPayload = Awaited<ReturnType<typeof loadSearchResultsBundle>>;
-type SearchListingProduct = SearchResultsPayload["products"][number];
-
-function SearchProductSkeletonGrid({
-  count,
-  className,
-}: {
-  count: number;
-  className?: string;
-}) {
-  return (
-    <div className={cn("grid grid-cols-2 gap-4 sm:gap-6 md:grid-cols-4 lg:gap-8", className)} aria-hidden>
-      {Array.from({ length: count }, (_, i) => (
-        <div key={i} className="min-w-0 aspect-[3/4] animate-pulse bg-muted/35" />
-      ))}
-    </div>
-  );
-}
 
 export interface SearchClientProps {
   locale: MosaikLocale;
-  initialQuery: string;
   wishlistProductIds: number[];
+  /** Current `?q=` value from the server (URL-driven). */
+  searchQuery: string;
+  /** Total FTS hits for the current query (0 when browsing). */
+  totalCount: number;
+  /** First page of search results (up to 40), hydrated for cards. */
+  initialProducts: SearchListingProduct[];
+  /** Empty-state grid (max 40), hydrated for cards. */
+  recommendedProducts: SearchListingProduct[];
+  initialVariantsByProductId: Record<number, ProductVariant[]>;
+  initialColorsByProductId: Record<number, ProductColor[]>;
+  recommendedVariantsByProductId: Record<number, ProductVariant[]>;
+  recommendedColorsByProductId: Record<number, ProductColor[]>;
+  /** Facets / filter metadata when `searchQuery` is non-empty. */
+  searchFilters: SearchPageFilterContext | null;
 }
 
-export function SearchClient({ locale, initialQuery, wishlistProductIds }: SearchClientProps) {
+export function SearchClient({
+  locale,
+  wishlistProductIds,
+  searchQuery,
+  totalCount,
+  initialProducts,
+  recommendedProducts,
+  initialVariantsByProductId,
+  initialColorsByProductId,
+  recommendedVariantsByProductId,
+  recommendedColorsByProductId,
+  searchFilters,
+}: SearchClientProps) {
   const t = useTranslations("Search");
   const router = useRouter();
   const pathname = usePathname();
-  const searchParams = useSearchParams();
-  const qFromUrl = (searchParams.get("q") ?? "").trim();
-  const hasSearched = qFromUrl.length > 0;
 
-  const [inputValue, setInputValue] = useState(initialQuery);
+  const hasSearch = searchQuery.trim().length > 0;
+
+  const [inputValue, setInputValue] = useState(searchQuery);
   useEffect(() => {
-    setInputValue(qFromUrl);
-  }, [qFromUrl]);
+    setInputValue(searchQuery);
+  }, [searchQuery]);
 
   const [, startNavTransition] = useTransition();
-  const [isRecPending, startRecTransition] = useTransition();
   const [, startAppendTransition] = useTransition();
-
-  const [recommended, setRecommended] = useState<SearchRecommendationsPayload | null>(null);
 
   const [sort, setSort] = useState<ShopSortOption>("price-low");
   const [mobileFilterOpen, setMobileFilterOpen] = useState(false);
@@ -93,32 +102,34 @@ export function SearchClient({ locale, initialQuery, wishlistProductIds }: Searc
   const [selectedAttributes, setSelectedAttributes] = useState<Record<string, string[]>>({});
   const priceInitialized = useRef(false);
 
-  const [searchProducts, setSearchProducts] = useState<SearchListingProduct[]>([]);
-  const [searchTotalCount, setSearchTotalCount] = useState(0);
-  const [searchVariantsByProductId, setSearchVariantsByProductId] = useState<Record<number, ProductVariant[]>>(
-    {},
+  const [searchProducts, setSearchProducts] = useState<SearchListingProduct[]>(() => initialProducts);
+  const [searchVariantsByProductId, setSearchVariantsByProductId] = useState<
+    Record<number, ProductVariant[]>
+  >(() => initialVariantsByProductId);
+  const [searchColorsByProductId, setSearchColorsByProductId] = useState<Record<number, ProductColor[]>>(
+    () => initialColorsByProductId,
   );
-  const [searchColorsByProductId, setSearchColorsByProductId] = useState<Record<number, ProductColor[]>>({});
-  const [attributeSectionsForFilters, setAttributeSectionsForFilters] = useState<AttributeFilterSection[]>([]);
-  const [filterVariantSizes, setFilterVariantSizes] = useState<string[]>([]);
-  const [filterProductColorNames, setFilterProductColorNames] = useState<string[]>([]);
-  const [categoryFilterTags, setCategoryFilterTags] = useState<SearchResultsPayload["categoryFilterTags"]>({});
-  const [attributeSlugsByProductId, setAttributeSlugsByProductId] = useState<Record<number, string[]>>({});
-  const [storeMainCategories, setStoreMainCategories] = useState<SearchResultsPayload["storeMainCategories"]>([]);
 
-  const [isSearchFetchLoading, setIsSearchFetchLoading] = useState(false);
+  const facet = searchFilters ?? EMPTY_SEARCH_FILTERS;
+  const [attributeSectionsForFilters] = useState(() => facet.attributeSectionsForFilters);
+  const [filterVariantSizes] = useState(() => facet.filterVariantSizes);
+  const [filterProductColorNames] = useState(() => facet.filterProductColorNames);
+  const [categoryFilterTags, setCategoryFilterTags] = useState(() => facet.categoryFilterTags);
+  const [attributeSlugsByProductId, setAttributeSlugsByProductId] = useState(
+    () => facet.attributeSlugsByProductId,
+  );
+  const [storeMainCategories] = useState(() => facet.storeMainCategories);
+
   const [isLoadingMore, setIsLoadingMore] = useState(false);
 
-  const qRef = useRef(qFromUrl);
   const localeRef = useRef(locale);
-  const searchProductsLenRef = useRef(0);
-  const searchTotalCountRef = useRef(0);
+  const queryRef = useRef(searchQuery);
+  const searchProductsLenRef = useRef(searchProducts.length);
   const fetchMoreGuardRef = useRef(false);
 
-  qRef.current = qFromUrl;
   localeRef.current = locale;
+  queryRef.current = searchQuery;
   searchProductsLenRef.current = searchProducts.length;
-  searchTotalCountRef.current = searchTotalCount;
 
   const sentinelRef = useRef<HTMLDivElement | null>(null);
   const loadMoreFromObserverRef = useRef<() => void>(() => {});
@@ -136,83 +147,15 @@ export function SearchClient({ locale, initialQuery, wishlistProductIds }: Searc
     window.scrollTo({ top: 0, behavior: "instant" as ScrollBehavior });
   }, []);
 
-  useEffect(() => {
-    if (hasSearched) return;
-    let cancelled = false;
-    void (async () => {
-      const data = await loadSearchRecommendations(locale);
-      if (cancelled) return;
-      startRecTransition(() => setRecommended(data));
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [hasSearched, locale]);
-
-  useEffect(() => {
-    if (!hasSearched) {
-      setSearchProducts([]);
-      setSearchTotalCount(0);
-      setSearchVariantsByProductId({});
-      setSearchColorsByProductId({});
-      setAttributeSectionsForFilters([]);
-      setFilterVariantSizes([]);
-      setFilterProductColorNames([]);
-      setCategoryFilterTags({});
-      setAttributeSlugsByProductId({});
-      setStoreMainCategories([]);
-      setSelectedAttributes({});
-      setIsSearchFetchLoading(false);
-      setIsLoadingMore(false);
-      fetchMoreGuardRef.current = false;
-      priceInitialized.current = false;
-      return;
-    }
-
-    let cancelled = false;
-    setIsSearchFetchLoading(true);
-    fetchMoreGuardRef.current = false;
-
-    void (async () => {
-      try {
-        const data = await loadSearchResultsBundle(qFromUrl, locale);
-        if (cancelled) return;
-        startRecTransition(() => {
-          setSearchProducts(data.products);
-          setSearchTotalCount(data.totalCount);
-          setSearchVariantsByProductId(data.variantsByProductId);
-          setSearchColorsByProductId(data.colorsByProductId);
-          setAttributeSectionsForFilters(data.attributeSectionsForFilters);
-          setFilterVariantSizes(data.filterVariantSizes);
-          setFilterProductColorNames(data.filterProductColorNames);
-          setCategoryFilterTags(data.categoryFilterTags);
-          setAttributeSlugsByProductId(data.attributeSlugsByProductId);
-          setStoreMainCategories(data.storeMainCategories);
-          priceInitialized.current = false;
-          setSelectedAttributes({});
-        });
-      } finally {
-        if (!cancelled) setIsSearchFetchLoading(false);
-      }
-    })();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [hasSearched, qFromUrl, locale]);
-
   const loadNextPage = useCallback(async () => {
-    if (fetchMoreGuardRef.current) return;
+    if (!hasSearch || fetchMoreGuardRef.current) return;
     const offset = searchProductsLenRef.current;
-    const total = searchTotalCountRef.current;
-    const q = qRef.current;
-    const loc = localeRef.current;
-    if (offset >= total || total === 0 || !q) return;
+    if (offset >= totalCount || totalCount === 0) return;
 
     fetchMoreGuardRef.current = true;
     setIsLoadingMore(true);
     try {
-      const chunk = await loadSearchResultsMore(q, loc, offset);
+      const chunk = await loadSearchResultsMore(queryRef.current.trim(), localeRef.current, offset);
       startAppendTransition(() => {
         setSearchProducts((prev) => {
           const seen = new Set(prev.map((p) => p.id));
@@ -236,7 +179,7 @@ export function SearchClient({ locale, initialQuery, wishlistProductIds }: Searc
         fetchMoreGuardRef.current = false;
       });
     }
-  }, []);
+  }, [hasSearch, totalCount]);
 
   loadMoreFromObserverRef.current = () => {
     void loadNextPage();
@@ -262,18 +205,17 @@ export function SearchClient({ locale, initialQuery, wishlistProductIds }: Searc
 
   useEffect(() => {
     priceInitialized.current = false;
-  }, [qFromUrl]);
+  }, [searchQuery]);
 
   useEffect(() => {
-    if (searchProducts.length > 0 && priceBounds.max > 0 && !priceInitialized.current) {
-      priceInitialized.current = true;
-      setFilters((prev) => ({
-        ...prev,
-        priceMin: priceBounds.min,
-        priceMax: priceBounds.max,
-      }));
-    }
-  }, [searchProducts.length, priceBounds.min, priceBounds.max]);
+    if (!hasSearch || searchProducts.length === 0 || priceBounds.max <= 0 || priceInitialized.current) return;
+    priceInitialized.current = true;
+    setFilters((prev) => ({
+      ...prev,
+      priceMin: priceBounds.min,
+      priceMax: priceBounds.max,
+    }));
+  }, [hasSearch, searchProducts.length, priceBounds.min, priceBounds.max]);
 
   const toggleAttribute = useCallback((attributeName: string, slug: string) => {
     const trimmed = slug.trim();
@@ -295,6 +237,7 @@ export function SearchClient({ locale, initialQuery, wishlistProductIds }: Searc
   }, []);
 
   const filteredAndSorted = useMemo(() => {
+    if (!hasSearch) return [];
     let list = [...productRows];
 
     const priceMin = filters.priceMin ?? 0;
@@ -342,6 +285,7 @@ export function SearchClient({ locale, initialQuery, wishlistProductIds }: Searc
 
     return list.map(({ product }) => product);
   }, [
+    hasSearch,
     productRows,
     searchVariantsByProductId,
     searchColorsByProductId,
@@ -353,32 +297,33 @@ export function SearchClient({ locale, initialQuery, wishlistProductIds }: Searc
     categoryFilterTags,
   ]);
 
-  const hasMoreServer = searchProducts.length < searchTotalCount && searchTotalCount > 0;
+  const hasMoreServer = hasSearch && searchProducts.length < totalCount && totalCount > 0;
 
-  const sentinelIndex = useMemo(() => {
-    const n = filteredAndSorted.length;
-    if (n === 0) return -1;
-    return n >= SENTINEL_OFFSET_FROM_END ? n - SENTINEL_OFFSET_FROM_END : n - 1;
-  }, [filteredAndSorted]);
+  const triggerInsertIndex = useMemo(
+    () => (filteredAndSorted.length === 0 ? -1 : Math.max(0, filteredAndSorted.length - SENTINEL_OFFSET_FROM_END)),
+    [filteredAndSorted.length],
+  );
 
-  const sentinelProductId = sentinelIndex >= 0 ? filteredAndSorted[sentinelIndex]?.id : undefined;
+  const triggerKey =
+    triggerInsertIndex >= 0 && filteredAndSorted[triggerInsertIndex]
+      ? filteredAndSorted[triggerInsertIndex].id
+      : "none";
 
   useLayoutEffect(() => {
     const node = sentinelRef.current;
-    if (!node || !hasMoreServer || isLoadingMore || isSearchFetchLoading || sentinelIndex < 0) return;
+    if (!node || !hasMoreServer || isLoadingMore || triggerInsertIndex < 0) return;
 
     const io = new IntersectionObserver(
       (entries) => {
-        const visible = entries.some((e) => e.isIntersecting);
-        if (!visible) return;
+        if (!entries.some((e) => e.isIntersecting)) return;
         loadMoreFromObserverRef.current();
       },
-      { root: null, rootMargin: "120px", threshold: 0 },
+      { root: null, rootMargin: "160px", threshold: 0 },
     );
 
     io.observe(node);
     return () => io.disconnect();
-  }, [sentinelProductId, hasMoreServer, isLoadingMore, isSearchFetchLoading, sentinelIndex]);
+  }, [triggerKey, hasMoreServer, isLoadingMore, triggerInsertIndex]);
 
   const mainCategoryOptions = useMemo(
     () => storeMainCategories.map((c) => ({ value: c.slug, label: c.label })),
@@ -395,8 +340,6 @@ export function SearchClient({ locale, initialQuery, wishlistProductIds }: Searc
       router.replace(href, { scroll: false });
     });
   };
-
-  const searchListAwaitingFirstPaint = hasSearched && isSearchFetchLoading && searchProducts.length === 0;
 
   return (
     <main id="main-content" className="w-full min-h-screen bg-background">
@@ -437,28 +380,21 @@ export function SearchClient({ locale, initialQuery, wishlistProductIds }: Searc
         </form>
       </div>
 
-      {!hasSearched ? (
-        <section className="px-4 pb-10 sm:px-5 md:px-6 md:pb-12" aria-busy={isRecPending}>
+      {!hasSearch ? (
+        <section className="px-4 pb-10 sm:px-5 md:px-6 md:pb-12">
           <h2 className="mb-6 text-center text-[10px] font-bold uppercase tracking-[0.2em] text-muted-foreground">
             {t("thingsYouMightLike")}
           </h2>
-          {recommended == null ? (
-            <SearchProductSkeletonGrid count={10} className="md:grid-cols-5" />
-          ) : recommended.products.length === 0 ? (
+          {recommendedProducts.length === 0 ? (
             <p className="py-16 text-center text-sm font-light text-muted-foreground">{t("noRecommendations")}</p>
           ) : (
-            <div
-              className={cn(
-                "grid grid-cols-2 gap-4 sm:gap-5 md:grid-cols-5 md:gap-4 lg:gap-6",
-                isRecPending && "opacity-60 pointer-events-none transition-opacity",
-              )}
-            >
-              {recommended.products.map((product) => (
+            <div className="grid grid-cols-2 gap-4 sm:gap-5 md:grid-cols-5 md:gap-4 lg:gap-6">
+              {recommendedProducts.map((product) => (
                 <div key={product.id} className="min-w-0">
                   <ProductCard
                     product={product}
-                    variants={recommended.variantsByProductId[product.id] ?? []}
-                    colors={recommended.colorsByProductId[product.id]}
+                    variants={recommendedVariantsByProductId[product.id] ?? []}
+                    colors={recommendedColorsByProductId[product.id]}
                     inWishlist={wishlistProductIds.includes(product.id)}
                   />
                 </div>
@@ -472,7 +408,7 @@ export function SearchClient({ locale, initialQuery, wishlistProductIds }: Searc
             <UtilityBar
               onMobileFiltersOpen={() => setMobileFilterOpen(true)}
               onDesktopFiltersToggle={() => setDesktopFilterOpen((o) => !o)}
-              totalResultCount={searchTotalCount}
+              totalResultCount={totalCount}
             />
           </div>
           <FilterPanel
@@ -519,17 +455,9 @@ export function SearchClient({ locale, initialQuery, wishlistProductIds }: Searc
                 />
               </div>
             </aside>
-            <div
-              className="flex-1 min-w-0 transition-all duration-300 ease-in-out"
-              aria-busy={searchListAwaitingFirstPaint || isLoadingMore}
-            >
-              {searchTotalCount === 0 && !isSearchFetchLoading ? (
+            <div className="flex-1 min-w-0 transition-all duration-300 ease-in-out" aria-busy={isLoadingMore}>
+              {totalCount === 0 ? (
                 <p className="py-16 text-center text-sm font-light text-muted-foreground">{t("noResults")}</p>
-              ) : searchListAwaitingFirstPaint ? (
-                <SearchProductSkeletonGrid
-                  count={8}
-                  className={cn(desktopFilterOpen ? "gap-2 sm:gap-4 lg:gap-3" : undefined)}
-                />
               ) : filteredAndSorted.length === 0 ? (
                 <p className="py-16 text-center text-sm font-light text-muted-foreground">{t("noFilterMatch")}</p>
               ) : (
@@ -541,18 +469,23 @@ export function SearchClient({ locale, initialQuery, wishlistProductIds }: Searc
                     )}
                   >
                     {filteredAndSorted.map((product, i) => (
-                      <div
-                        key={product.id}
-                        ref={i === sentinelIndex ? sentinelRef : undefined}
-                        className="min-w-0"
-                      >
-                        <ProductCard
-                          product={product}
-                          variants={searchVariantsByProductId[product.id] ?? []}
-                          colors={searchColorsByProductId[product.id]}
-                          inWishlist={wishlistProductIds.includes(product.id)}
-                        />
-                      </div>
+                      <Fragment key={product.id}>
+                        {i === triggerInsertIndex ? (
+                          <div
+                            ref={sentinelRef}
+                            className="col-span-2 md:col-span-4 h-px min-h-px w-full overflow-hidden opacity-0"
+                            aria-hidden
+                          />
+                        ) : null}
+                        <div className="min-w-0">
+                          <ProductCard
+                            product={product}
+                            variants={searchVariantsByProductId[product.id] ?? []}
+                            colors={searchColorsByProductId[product.id]}
+                            inWishlist={wishlistProductIds.includes(product.id)}
+                          />
+                        </div>
+                      </Fragment>
                     ))}
                   </div>
                   {isLoadingMore ? (

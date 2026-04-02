@@ -73,8 +73,6 @@ export function Navbar() {
   const [mobileMenuCategories, setMobileMenuCategories] = useState<ProductCategory[]>([]);
   const [mobileSearchQuery, setMobileSearchQuery] = useState("");
 
-  const storeType = pathname?.split("/").filter(Boolean)[0];
-  const isStoreType = storeType === "streetwear" || storeType === "formal";
   const activeStore = activeStoreFromRoute(params.storeType, pathname);
 
   const toggleTheme = () => {
@@ -176,7 +174,7 @@ export function Navbar() {
   const submitMobileSearch = (e: FormEvent) => {
     e.preventDefault();
     const q = mobileSearchQuery.trim();
-    const url = q ? `${mobileShopBase}?${new URLSearchParams({ q })}` : mobileShopBase;
+    const url = q ? `/search?${new URLSearchParams({ q }).toString()}` : "/search";
     router.push(url);
     setBurgerOpen(false);
   };
@@ -243,7 +241,7 @@ export function Navbar() {
 
           <div className="flex items-center gap-3 lg:gap-6 shrink-0">
             <Link
-              href={isStoreType ? `/${storeType}/shop` : "/shop"}
+              href="/search"
               className="hidden lg:inline text-sm font-normal text-foreground hover:opacity-70 transition-opacity"
             >
               {t("search")}

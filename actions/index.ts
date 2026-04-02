@@ -41,3 +41,6 @@ export {
 
 export { getRecommendedSearchProducts, getPaginatedSearchResults } from "./search";
 export type { SearchResultsFilters, SearchProductRow } from "./search";
+
+export { getRecommendedProducts, getSearchResults } from "./search-page-data";
+export type { SearchProductCardRow } from "./search-page-data";
