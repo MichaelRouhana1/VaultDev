@@ -24,6 +24,7 @@ import {
   withLocalizedProductCopy,
 } from "@/lib/storefront-product-locale";
 import { buildProductSearchWhere } from "@/lib/product-search";
+import { listingProductColumns } from "@/lib/storefront-listing-columns";
 import { conditionProductsMatchCategorySlug } from "@/lib/shop-category-filter";
 export type StoreTypeFilter = "streetwear" | "formal";
 
@@ -152,27 +153,6 @@ function rethrowDbWithPgMessage(e: unknown): never {
   }
   throw e;
 }
-
-const listingProductColumns = {
-  id: products.id,
-  name: products.name,
-  nameEn: products.nameEn,
-  nameFr: products.nameFr,
-  nameAr: products.nameAr,
-  description: products.description,
-  descriptionEn: products.descriptionEn,
-  descriptionFr: products.descriptionFr,
-  descriptionAr: products.descriptionAr,
-  price: products.price,
-  salePrice: products.salePrice,
-  saleStartsAt: products.saleStartsAt,
-  saleEndsAt: products.saleEndsAt,
-  isSaleActive: products.isSaleActive,
-  color: products.color,
-  isVisible: products.isVisible,
-  storeType: products.storeType,
-  mainCategoryId: products.mainCategoryId,
-} as const;
 
 /** Home “discover” strip: visible products for store + first color image + main category slug. */
 export const getHomeDiscoverProductsWithFirstImage = cache(

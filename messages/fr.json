@@ -59,7 +59,8 @@
     "sortNameDesc": "Nom : Z à A",
     "localeEn": "English",
     "localeFr": "Français",
-    "localeAr": "العربية"
+    "localeAr": "العربية",
+    "resultsFound": "{count, plural, one {# résultat trouvé} other {# résultats trouvés}}"
   },
   "FilterPanel": {
     "filtersHeading": "Filtres",
@@ -81,6 +82,18 @@
   },
   "Layout": {
     "skipToContent": "Aller au contenu"
+  },
+  "Search": {
+    "title": "Recherche",
+    "placeholder": "Rechercher des produits…",
+    "thingsYouMightLike": "Vous aimerez peut-être",
+    "noRecommendations": "Aucun produit à afficher pour le moment.",
+    "noResults": "Aucun produit ne correspond à votre recherche.",
+    "noFilterMatch": "Aucun produit ne correspond à vos filtres.",
+    "showingFirstN": "Affichage des {n} premiers résultats. Affinez votre recherche pour affiner.",
+    "loadMore": "Charger plus",
+    "scrollToTopAria": "Aller en haut de la page",
+    "loadingMore": "Chargement de résultats"
   },
   "Landing": {
     "selectStyle": "Choisissez votre style",

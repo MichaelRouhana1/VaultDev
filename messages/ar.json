@@ -59,7 +59,8 @@
     "sortNameDesc": "الاسم: ي-أ",
     "localeEn": "English",
     "localeFr": "Français",
-    "localeAr": "العربية"
+    "localeAr": "العربية",
+    "resultsFound": "{count, plural, one {نتيجة واحدة} other {# نتائج}}"
   },
   "FilterPanel": {
     "filtersHeading": "عوامل التصفية",
@@ -81,6 +82,18 @@
   },
   "Layout": {
     "skipToContent": "تخطي إلى المحتوى"
+  },
+  "Search": {
+    "title": "بحث",
+    "placeholder": "ابحث عن المنتجات…",
+    "thingsYouMightLike": "قد يعجبك أيضًا",
+    "noRecommendations": "لا توجد منتجات لعرضها بعد.",
+    "noResults": "لا توجد منتجات تطابق بحثك.",
+    "noFilterMatch": "لا توجد منتجات تطابق عوامل التصفية.",
+    "showingFirstN": "عرض أول {n} نتيجة. صفِّ بحثك لتضييق النتائج.",
+    "loadMore": "تحميل المزيد",
+    "scrollToTopAria": "الانتقال إلى أعلى الصفحة",
+    "loadingMore": "جاري تحميل المزيد"
   },
   "Landing": {
     "selectStyle": "اختر أسلوبك",

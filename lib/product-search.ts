@@ -9,6 +9,11 @@ const MIN_QUERY_LENGTH = 2;
  * - Keeps only alphanumeric, hyphen, underscore per token
  * - Appends :* to each token for prefix matching (e.g. "denim jac" → "denim:* & jac:*")
  */
+/** Exposed for search ranking / server actions that need the same tsquery string as `buildProductSearchWhere`. */
+export function getFormattedPrefixTsquery(input: string): string | null {
+  return formatPrefixQuery(input);
+}
+
 function formatPrefixQuery(input: string): string | null {
   const trimmed = input.trim();
   if (!trimmed || trimmed.length < MIN_QUERY_LENGTH) return null;

@@ -67,6 +67,11 @@ export function SiteFooter() {
     currency,
   });
 
+  /** `usePathname()` is locale-stripped (e.g. `/search`, not `/en/search`). */
+  if (pathname === "/search" || pathname.startsWith("/search/")) {
+    return null;
+  }
+
   const sectionTitleClass =
     "mb-2.5 text-[0.65rem] font-semibold uppercase tracking-[0.2em] text-foreground md:mb-3 md:text-xs md:tracking-[0.18em]";
   /** Extra space below each column; list rows stay tight above it. */

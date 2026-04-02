@@ -10,17 +10,22 @@ interface UtilityBarProps {
   onMobileFiltersOpen: () => void;
   /** Toggles the inline filter sidebar (`md` and above). */
   onDesktopFiltersToggle: () => void;
-  viewMode: ShopGridViewMode;
-  onViewModeChange: (mode: ShopGridViewMode) => void;
+  /** Shop grid density (+/−). Omitted when `totalResultCount` is set (search bar). */
+  viewMode?: ShopGridViewMode;
+  onViewModeChange?: (mode: ShopGridViewMode) => void;
+  /** When set, replaces the view density controls with this count (e.g. search results). */
+  totalResultCount?: number;
 }
 
 export function UtilityBar({
   onMobileFiltersOpen,
   onDesktopFiltersToggle,
-  viewMode,
+  viewMode = "default",
   onViewModeChange,
+  totalResultCount,
 }: UtilityBarProps) {
   const t = useTranslations("UtilityBar");
+  const showResultCount = typeof totalResultCount === "number";
 
   const toggleBtnClass = (active: boolean) =>
     cn(
@@ -46,27 +51,33 @@ export function UtilityBar({
           {t("filters")}
         </button>
       </div>
-      <div className="flex items-center gap-2 shrink-0" role="group" aria-label={t("viewGroupAria")}>
-        <span className="text-xs font-medium uppercase tracking-[0.2em] text-foreground">{t("viewLabel")}</span>
-        <button
-          type="button"
-          aria-pressed={viewMode === "default"}
-          aria-label={t("viewDefaultAria")}
-          onClick={() => onViewModeChange("default")}
-          className={toggleBtnClass(viewMode === "default")}
-        >
-          -
-        </button>
-        <button
-          type="button"
-          aria-pressed={viewMode === "compact"}
-          aria-label={t("viewCompactAria")}
-          onClick={() => onViewModeChange("compact")}
-          className={toggleBtnClass(viewMode === "compact")}
-        >
-          +
-        </button>
-      </div>
+      {showResultCount ? (
+        <p className="text-xs font-medium uppercase tracking-[0.2em] text-muted-foreground tabular-nums shrink-0">
+          {t("resultsFound", { count: totalResultCount })}
+        </p>
+      ) : (
+        <div className="flex items-center gap-2 shrink-0" role="group" aria-label={t("viewGroupAria")}>
+          <span className="text-xs font-medium uppercase tracking-[0.2em] text-foreground">{t("viewLabel")}</span>
+          <button
+            type="button"
+            aria-pressed={viewMode === "default"}
+            aria-label={t("viewDefaultAria")}
+            onClick={() => onViewModeChange?.("default")}
+            className={toggleBtnClass(viewMode === "default")}
+          >
+            -
+          </button>
+          <button
+            type="button"
+            aria-pressed={viewMode === "compact"}
+            aria-label={t("viewCompactAria")}
+            onClick={() => onViewModeChange?.("compact")}
+            className={toggleBtnClass(viewMode === "compact")}
+          >
+            +
+          </button>
+        </div>
+      )}
     </div>
   );
 }

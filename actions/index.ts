@@ -38,3 +38,6 @@ export {
   getProductCategoryFilterTagsByProductIds,
   getProductAttributeValueSlugsByProductIds,
 } from "./storefront-products";
+
+export { getRecommendedSearchProducts, getPaginatedSearchResults } from "./search";
+export type { SearchResultsFilters, SearchProductRow } from "./search";
