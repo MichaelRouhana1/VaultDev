@@ -15,6 +15,7 @@ import { z } from "zod";
 import { categorySchema } from "@/lib/schemas";
 import { logger } from "@/lib/logger";
 import { requireAdmin } from "@/lib/security";
+import { revalidateStorefrontCategoriesCache } from "@/lib/revalidate-storefront-categories";
 /** Valid `?cat=` slugs: main categories only. */
 export const getValidCategorySlugs = cache(async (): Promise<string[]> => {
   const catRows = await db.select({ slug: categories.slug }).from(categories);
@@ -28,20 +29,6 @@ export const getStoreCategorySlugs = cache(async (storeType: string): Promise<st
     .from(categories)
     .where(inArray(categories.storeType, st));
   return catRows.map((c) => c.slug);
-});
-
-/** Main categories for nav / shop (not store roots). */
-export const getStoreCategories = cache(async (storeType: string): Promise<ProductCategory[]> => {
-  return db
-    .select()
-    .from(categories)
-    .where(
-      and(
-        eq(categories.level, "main"),
-        inArray(categories.storeType, [storeType, "both"] as ("streetwear" | "formal" | "both")[]),
-      ),
-    )
-    .orderBy(asc(categories.sortOrder), asc(categories.id));
 });
 
 export const getCategories = cache(async (storeType?: string): Promise<ProductCategory[]> => {
@@ -173,6 +160,7 @@ export async function createCategory(formData: FormData): Promise<{ success?: bo
     storeType,
   });
   auditLog({ userId: userId!, action: "category.create", target: slug, details: { label } });
+  revalidateStorefrontCategoriesCache();
   return {};
 }
 
@@ -257,6 +245,7 @@ export async function updateCategory(
     })
     .where(eq(categories.id, validId));
   auditLog({ userId: userId!, action: "category.update", target: String(validId), details: { slug, label } });
+  revalidateStorefrontCategoriesCache();
   return {};
 }
 
@@ -275,5 +264,6 @@ export async function deleteCategory(id: number): Promise<{ error?: string }> {
 
   await db.delete(categories).where(eq(categories.id, validId));
   auditLog({ userId: userId!, action: "category.delete", target: String(validId), details: { slug: existing.slug } });
+  revalidateStorefrontCategoriesCache();
   return {};
 }

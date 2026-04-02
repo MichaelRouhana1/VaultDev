@@ -11,10 +11,10 @@ import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import type { HeroImage } from "@/db/schema";
 
-/** Matches hero carousel: width / 75vh. From user's viewport ~1567×544: aspect ≈ 2.88. Use 72/25 ≈ 2.88 */
-const HERO_DESKTOP_ASPECT = 72 / 25;
-/** Mobile hero block (storefront): measured ~349.09×323.57 CSS px → width/height ≈ 1.078 */
-const HERO_MOBILE_ASPECT = 349.09 / 323.57;
+/** Base ratio from ~1567×544 art; scaled for storefront `md:h-[78vh]` (75vh reference). */
+const HERO_DESKTOP_ASPECT = (72 / 25) * (75 / 78);
+/** Measured mobile frame ~349×323 at 50vh min-height; scaled for `min-h-[52vh]`. */
+const HERO_MOBILE_ASPECT = (349.09 / 323.57) * (50 / 52);
 
 function MobileCropPreview({ url, alt }: { url: string | null | undefined; alt: string }) {
   if (!url) {
@@ -165,7 +165,7 @@ export function HeroAdminClient({ images: initialImages, initialStoreType }: Her
           {images.map((img) => (
             <div key={img.id} className="group relative overflow-hidden rounded-lg border border-border bg-muted">
               <div className="flex gap-2 p-2">
-                <div className="relative aspect-[16/9] min-w-0 flex-1">
+                <div className="relative min-w-0 flex-1" style={{ aspectRatio: HERO_DESKTOP_ASPECT }}>
                   <Image
                     src={img.imageUrl}
                     alt={img.altText ?? "Hero slide"}
@@ -198,7 +198,7 @@ export function HeroAdminClient({ images: initialImages, initialStoreType }: Her
           desktopAspect={HERO_DESKTOP_ASPECT}
           mobileAspect={HERO_MOBILE_ASPECT}
           desktopLabel="Hero wide"
-          mobileLabel="≈1.08:1 (mobile hero)"
+          mobileLabel="Mobile hero (52vh min)"
           title="Crop hero — desktop & mobile"
         />
       )}

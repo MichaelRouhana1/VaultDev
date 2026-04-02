@@ -25,6 +25,13 @@ const DEFAULT_SIZES = ["XS", "S", "M", "L", "XL"];
 const MOBILE_ADD_TOAST_MS = 5000;
 const MOBILE_ADD_TOAST_ANIM_MS = 300;
 
+/** Aligns with Tailwind `lg:` — listing card color tray is mobile/tablet only. */
+const DESKTOP_MIN_WIDTH_MQ = "(min-width: 1024px)";
+
+function isDesktopViewport(): boolean {
+  return typeof window !== "undefined" && window.matchMedia(DESKTOP_MIN_WIDTH_MQ).matches;
+}
+
 /** PDP URL segment when not inferrable from pathname (e.g. /bag). */
 function storeTypeForProductUrl(product: Pick<Product, "storeType">): "streetwear" | "formal" {
   if (product.storeType === "formal") return "formal";
@@ -71,6 +78,17 @@ export function ProductCard({
   } | null>(null);
   const [mobileAddedToastVisible, setMobileAddedToastVisible] = useState(false);
   const [isColorTrayOpen, setIsColorTrayOpen] = useState(false);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const mq = window.matchMedia(DESKTOP_MIN_WIDTH_MQ);
+    const closeIfDesktop = () => {
+      if (mq.matches) setIsColorTrayOpen(false);
+    };
+    closeIfDesktop();
+    mq.addEventListener("change", closeIfDesktop);
+    return () => mq.removeEventListener("change", closeIfDesktop);
+  }, []);
 
   const hasMultipleColors = colors && colors.length > 1;
   const colorTrayId = `product-card-colors-${product.id}`;
@@ -368,7 +386,7 @@ export function ProductCard({
             <div
               id={colorTrayId}
               className={cn(
-                "absolute inset-x-0 bottom-0 z-[30] border-t border-border bg-background/95 shadow-[0_-4px_16px_rgba(0,0,0,0.12)] backdrop-blur-sm transition-transform duration-300 ease-in-out dark:bg-background/95 dark:shadow-[0_-4px_16px_rgba(0,0,0,0.4)]",
+                "absolute inset-x-0 bottom-0 z-[30] border-t border-border bg-background/95 shadow-[0_-4px_16px_rgba(0,0,0,0.12)] backdrop-blur-sm transition-transform duration-300 ease-in-out dark:bg-background/95 dark:shadow-[0_-4px_16px_rgba(0,0,0,0.4)] lg:hidden",
                 isColorTrayOpen
                   ? "translate-y-0 opacity-100 pointer-events-auto"
                   : "translate-y-full opacity-0 pointer-events-none",
@@ -446,11 +464,12 @@ export function ProductCard({
                 onClick={(e) => {
                   e.preventDefault();
                   e.stopPropagation();
+                  if (isDesktopViewport()) return;
                   setIsColorTrayOpen((o) => !o);
                 }}
-                className="flex shrink-0 items-center gap-1.5 border-0 bg-transparent p-0 shadow-none outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1"
-                aria-expanded={isColorTrayOpen}
-                aria-controls={colorTrayId}
+                className="flex shrink-0 items-center gap-1.5 border-0 bg-transparent p-0 shadow-none outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 lg:cursor-default"
+                aria-expanded={isDesktopViewport() ? false : isColorTrayOpen}
+                aria-controls={isDesktopViewport() ? undefined : colorTrayId}
                 aria-label={tPdp("colorHeading", { name: activeColor?.name ?? colorLabel })}
               >
                 {/* +N Text (NO BORDER) */}

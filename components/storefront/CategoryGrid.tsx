@@ -25,12 +25,8 @@ export function CategoryGrid({ categories, storeSlugs, storeType }: CategoryGrid
                             sizes="(max-width: 768px) 50vw, (max-width: 1024px) 50vw, 33vw"
                             className="h-full w-full object-cover transition-transform duration-200 ease-out group-hover:scale-[1.02]"
                         />
-                        <div
-                            className="pointer-events-none absolute inset-x-0 bottom-0 h-1/2 bg-gradient-to-t from-black/75 via-black/35 to-transparent"
-                            aria-hidden
-                        />
                         <p
-                            className="absolute bottom-3 left-3 max-w-[calc(100%-1.5rem)] text-left line-clamp-2 text-xs font-medium leading-snug text-white opacity-95 transition-opacity group-hover:opacity-100 md:bottom-4 md:left-4 md:max-w-[calc(100%-2rem)] md:line-clamp-none md:text-sm"
+                            className="absolute bottom-3 left-3 max-w-[calc(100%-1.5rem)] text-left line-clamp-2 text-[1.125rem] font-medium leading-snug text-white transition-opacity group-hover:opacity-100 md:bottom-4 md:left-4 md:max-w-[calc(100%-2rem)] md:line-clamp-none"
                             style={{
                                 textShadow:
                                     "0 1px 2px rgb(0 0 0 / 0.9), 0 2px 10px rgb(0 0 0 / 0.6), 0 0 1px rgb(0 0 0 / 1)",

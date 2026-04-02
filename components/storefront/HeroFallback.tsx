@@ -8,7 +8,7 @@ interface HeroFallbackProps {
 
 export function HeroFallback({ storeType, fallbackImage }: HeroFallbackProps) {
     return (
-        <section className="w-full min-h-[50vh] sm:min-h-[60vh] md:h-[75vh] flex items-center justify-center relative overflow-hidden">
+        <section className="w-full min-h-[52vh] sm:min-h-[62vh] md:h-[78vh] flex items-center justify-center relative overflow-hidden">
             <Image
                 src={fallbackImage}
                 alt=""

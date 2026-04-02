@@ -4,7 +4,8 @@ import { db } from "@/db";
 import { productColors, productVariants, wishlists } from "@/db/schema";
 import { ShopClient } from "@/components/ShopClient";
 import type { ShopSortOption } from "@/components/FilterPanel";
-import { getValidCategorySlugs, getStoreCategorySlugs, getStoreCategories } from "@/actions/categories";
+import { getValidCategorySlugs, getStoreCategorySlugs } from "@/actions/categories";
+import { getStoreCategories } from "@/lib/storefront-categories";
 import {
   getShopProductsForStore,
   getShopAttributeFacetsForListingContext,

@@ -3,7 +3,7 @@
 import { and, asc, desc, eq, inArray, sql } from "drizzle-orm";
 import type { AttributeFilterSection } from "@/components/FilterPanel";
 import type { ProductCategory } from "@/actions/categories";
-import { getStoreCategories } from "@/actions/categories";
+import { getStoreCategories } from "@/lib/storefront-categories";
 import type { MosaikLocale } from "@/lib/i18n-locales";
 import {
   getProductAttributeValueSlugsByProductIds,

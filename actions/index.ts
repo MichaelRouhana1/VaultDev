@@ -8,10 +8,11 @@
 export {
   getValidCategorySlugs,
   getStoreCategorySlugs,
-  getStoreCategories,
   getCategories,
   getCategoriesForHome,
 } from "./categories";
+
+export { getStoreCategories, STOREFRONT_CATEGORIES_CACHE_TAG } from "@/lib/storefront-categories";
 
 export {
   getAttributesWithValues,
