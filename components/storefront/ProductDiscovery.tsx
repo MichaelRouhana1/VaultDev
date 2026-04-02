@@ -25,7 +25,7 @@ interface ProductDiscoveryProps {
 export function ProductDiscovery({ products, currentStoreType, fallbackImage }: ProductDiscoveryProps) {
     const { formatPrice } = useCurrency();
     return (
-        <section className="py-24 px-6 bg-background">
+        <section className="px-6 pt-10 pb-24 bg-background md:pt-14">
             <h2 className="text-sm font-medium text-foreground tracking-[0.2em] uppercase mb-12 text-center">
                 Discover
             </h2>
