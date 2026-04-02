@@ -11,7 +11,7 @@ import {
   useTransition,
 } from "react";
 import { useTranslations } from "next-intl";
-import { ChevronUp } from "lucide-react";
+import { ChevronUp, X } from "lucide-react";
 import { usePathname, useRouter } from "@/i18n/navigation";
 import { ProductCard } from "@/components/ProductCard";
 import { UtilityBar } from "@/components/UtilityBar";
@@ -42,6 +42,9 @@ const EMPTY_SEARCH_FILTERS: SearchPageFilterContext = {
 const SCROLL_TOP_THRESHOLD_PX = 800;
 /** Invisible trigger sits immediately before the product index that is 8 tiles from the end (2 rows in a 4-col grid). */
 const SENTINEL_OFFSET_FROM_END = 8;
+
+const RECENT_SEARCHES_STORAGE_KEY = "mosaik_recent_searches";
+const RECENT_SEARCHES_MAX = 6;
 
 export interface SearchClientProps {
   locale: MosaikLocale;
@@ -82,9 +85,56 @@ export function SearchClient({
   const hasSearch = searchQuery.trim().length > 0;
 
   const [inputValue, setInputValue] = useState(searchQuery);
+  const [recentSearches, setRecentSearches] = useState<string[]>([]);
+
   useEffect(() => {
     setInputValue(searchQuery);
   }, [searchQuery]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    try {
+      const raw = localStorage.getItem(RECENT_SEARCHES_STORAGE_KEY);
+      if (!raw) return;
+      const parsed = JSON.parse(raw) as unknown;
+      if (Array.isArray(parsed) && parsed.every((item): item is string => typeof item === "string")) {
+        setRecentSearches(parsed.slice(0, RECENT_SEARCHES_MAX));
+      }
+    } catch {
+      /* ignore corrupt storage */
+    }
+  }, []);
+
+  const saveSearchTerm = useCallback((term: string) => {
+    const trimmed = term.trim();
+    if (!trimmed || typeof window === "undefined") return;
+
+    setRecentSearches((prev) => {
+      const lower = trimmed.toLowerCase();
+      const without = prev.filter((t) => t.toLowerCase() !== lower);
+      const next = [trimmed, ...without].slice(0, RECENT_SEARCHES_MAX);
+      try {
+        localStorage.setItem(RECENT_SEARCHES_STORAGE_KEY, JSON.stringify(next));
+      } catch {
+        /* quota / private mode */
+      }
+      return next;
+    });
+  }, []);
+
+  const removeRecentSearch = useCallback((term: string) => {
+    if (typeof window === "undefined") return;
+    const lower = term.toLowerCase();
+    setRecentSearches((prev) => {
+      const next = prev.filter((t) => t.toLowerCase() !== lower);
+      try {
+        localStorage.setItem(RECENT_SEARCHES_STORAGE_KEY, JSON.stringify(next));
+      } catch {
+        /* */
+      }
+      return next;
+    });
+  }, []);
 
   const [, startNavTransition] = useTransition();
   const [, startAppendTransition] = useTransition();
@@ -335,11 +385,25 @@ export function SearchClient({
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     const trimmed = inputValue.trim();
+    if (trimmed) saveSearchTerm(trimmed);
     startNavTransition(() => {
       const href = trimmed ? `${pathname}?q=${encodeURIComponent(trimmed)}` : pathname;
       router.replace(href, { scroll: false });
     });
   };
+
+  const navigateToRecentSearch = useCallback(
+    (term: string) => {
+      const trimmed = term.trim();
+      if (!trimmed) return;
+      setInputValue(trimmed);
+      saveSearchTerm(trimmed);
+      startNavTransition(() => {
+        router.replace(`${pathname}?q=${encodeURIComponent(trimmed)}`, { scroll: false });
+      });
+    },
+    [pathname, router, saveSearchTerm, startNavTransition],
+  );
 
   return (
     <main id="main-content" className="w-full min-h-screen bg-background">
@@ -378,6 +442,51 @@ export function SearchClient({
             )}
           />
         </form>
+
+        {recentSearches.length > 0 ? (
+          <div className="mx-auto mt-4 w-full max-w-2xl">
+            <p className="mb-2 text-[10px] font-bold uppercase tracking-[0.2em] text-foreground">
+              {t("recentlySearched")}
+            </p>
+            <div className="flex flex-wrap gap-2">
+              {recentSearches.map((term, i) => (
+                <div
+                  key={`${i}-${term}`}
+                  className="inline-flex items-stretch rounded-none border border-border bg-background"
+                >
+                  <button
+                    type="button"
+                    onClick={() => navigateToRecentSearch(term)}
+                    className={cn(
+                      "border-0 bg-transparent px-2 py-1 text-left text-xs font-bold uppercase tracking-wide text-foreground",
+                      "transition-colors hover:bg-muted/60",
+                      "focus-visible:z-[1] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-0",
+                    )}
+                    aria-label={t("recentSearchChipAria", { term })}
+                  >
+                    {term}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      removeRecentSearch(term);
+                    }}
+                    className={cn(
+                      "flex shrink-0 items-center justify-center border-0 bg-transparent px-1.5 py-1 text-foreground",
+                      "transition-colors hover:bg-muted/60",
+                      "focus-visible:z-[1] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-0",
+                    )}
+                    aria-label={t("recentSearchRemoveAria", { term })}
+                  >
+                    <X className="h-3 w-3" strokeWidth={2.25} aria-hidden />
+                  </button>
+                </div>
+              ))}
+            </div>
+          </div>
+        ) : null}
       </div>
 
       {!hasSearch ? (

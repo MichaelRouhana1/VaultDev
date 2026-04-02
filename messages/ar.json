@@ -93,7 +93,10 @@
     "showingFirstN": "عرض أول {n} نتيجة. صفِّ بحثك لتضييق النتائج.",
     "loadMore": "تحميل المزيد",
     "scrollToTopAria": "الانتقال إلى أعلى الصفحة",
-    "loadingMore": "جاري تحميل المزيد"
+    "loadingMore": "جاري تحميل المزيد",
+    "recentlySearched": "عمليات البحث الأخيرة",
+    "recentSearchChipAria": "البحث عن {term}",
+    "recentSearchRemoveAria": "إزالة {term} من عمليات البحث الأخيرة"
   },
   "Landing": {
     "selectStyle": "اختر أسلوبك",

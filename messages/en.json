@@ -93,7 +93,10 @@
     "showingFirstN": "Showing the first {n} matches. Refine your search to narrow results.",
     "loadMore": "Load more",
     "scrollToTopAria": "Jump to top of page",
-    "loadingMore": "Loading more results"
+    "loadingMore": "Loading more results",
+    "recentlySearched": "Recently searched",
+    "recentSearchChipAria": "Search for {term}",
+    "recentSearchRemoveAria": "Remove {term} from recent searches"
   },
   "Landing": {
     "selectStyle": "Select Your Style",

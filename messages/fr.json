@@ -93,7 +93,10 @@
     "showingFirstN": "Affichage des {n} premiers résultats. Affinez votre recherche pour affiner.",
     "loadMore": "Charger plus",
     "scrollToTopAria": "Aller en haut de la page",
-    "loadingMore": "Chargement de résultats"
+    "loadingMore": "Chargement de résultats",
+    "recentlySearched": "Recherches récentes",
+    "recentSearchChipAria": "Rechercher {term}",
+    "recentSearchRemoveAria": "Retirer {term} des recherches récentes"
   },
   "Landing": {
     "selectStyle": "Choisissez votre style",
