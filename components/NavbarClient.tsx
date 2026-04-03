@@ -21,6 +21,7 @@ import type { StoreTypeSlug } from "@/lib/preferred-store";
 import { isStrictStoreLanding, storeSectionFromPathname } from "@/lib/store-nav";
 import { cn } from "@/lib/utils";
 import { isDashboardRole } from "@/lib/clerk-dashboard-role";
+import { useShopListingNav } from "@/components/storefront/ShopListingNavContext";
 
 function subscribeMaxLg(callback: () => void) {
   const mq = window.matchMedia("(max-width: 1023px)");
@@ -181,6 +182,7 @@ export function NavbarClient({ streetwearCategories, formalCategories }: NavbarC
   };
 
   const showDashboardLink = isDashboardRole(sessionClaims?.metadata?.role);
+  const shopNav = useShopListingNav();
 
   if (pathname?.startsWith("/admin")) return null;
   if (pathname?.startsWith("/sign-in") || pathname?.startsWith("/sign-up")) return null;
@@ -437,22 +439,28 @@ export function NavbarClient({ streetwearCategories, formalCategories }: NavbarC
                 </span>
                 {t("search")}
               </Link>
-              <Link
-                href={mobileShopBase}
-                onClick={() => setBurgerOpen(false)}
-                className="block py-3 text-base font-medium text-foreground transition-colors hover:bg-muted/50"
+              <button
+                type="button"
+                onClick={() => {
+                  setBurgerOpen(false);
+                  shopNav?.startShopNavigation(mobileShopBase);
+                }}
+                className="block w-full py-3 text-start text-base font-medium text-foreground transition-colors hover:bg-muted/50"
               >
                 {t("viewAllShop")}
-              </Link>
+              </button>
               {mobileMenuCategories.map((cat) => (
-                <Link
+                <button
                   key={cat.id}
-                  href={`${mobileShopBase}?cat=${encodeURIComponent(cat.slug)}`}
-                  onClick={() => setBurgerOpen(false)}
-                  className="block py-3 text-base font-medium text-foreground transition-colors hover:bg-muted/50"
+                  type="button"
+                  onClick={() => {
+                    setBurgerOpen(false);
+                    shopNav?.startShopNavigation(`${mobileShopBase}?cat=${encodeURIComponent(cat.slug)}`);
+                  }}
+                  className="block w-full py-3 text-start text-base font-medium text-foreground transition-colors hover:bg-muted/50"
                 >
                   {cat.label}
-                </Link>
+                </button>
               ))}
             </nav>
 

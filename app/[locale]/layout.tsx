@@ -17,6 +17,7 @@ import { isMosaikLocale } from "@/lib/i18n-locales";
 import { routing } from "@/lib/i18n-routing";
 import { getTranslations } from "next-intl/server";
 import { SiteFooter } from "@/components/storefront/SiteFooter";
+import { ShopListingNavProvider } from "@/components/storefront/ShopListingNavContext";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -72,16 +73,18 @@ export default async function LocaleLayout({
                 <WishlistSyncProvider />
                 <CurrencyProvider>
                   <CartProvider>
-                    <a
-                      href="#main-content"
-                      className="sr-only focus:not-sr-only focus:absolute focus:z-[100] focus:p-4 focus:bg-background focus:text-foreground"
-                    >
-                      {tLayout("skipToContent")}
-                    </a>
-                    <Navbar />
-                    <div id="main-content">{children}</div>
-                    <SiteFooter />
-                    <Toaster richColors position="top-right" />
+                    <ShopListingNavProvider>
+                      <a
+                        href="#main-content"
+                        className="sr-only focus:not-sr-only focus:absolute focus:z-[100] focus:p-4 focus:bg-background focus:text-foreground"
+                      >
+                        {tLayout("skipToContent")}
+                      </a>
+                      <Navbar />
+                      <div id="main-content">{children}</div>
+                      <SiteFooter />
+                      <Toaster richColors position="top-right" />
+                    </ShopListingNavProvider>
                   </CartProvider>
                 </CurrencyProvider>
               </WishlistProvider>

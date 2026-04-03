@@ -3,9 +3,9 @@
 import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import { useTranslations } from "next-intl";
-import { Link } from "@/i18n/navigation";
 import type { ProductCategory } from "@/actions/categories";
 import type { StoreTypeSlug } from "@/lib/preferred-store";
+import { useShopListingNav } from "@/components/storefront/ShopListingNavContext";
 
 interface ShopDrawerProps {
   isOpen: boolean;
@@ -24,6 +24,7 @@ export function ShopDrawer({
   const [mounted, setMounted] = useState(false);
   const t = useTranslations("Navbar");
   const baseUrl = `/${storeType}/shop`;
+  const shopNav = useShopListingNav();
 
   useEffect(() => {
     setMounted(true);
@@ -92,22 +93,28 @@ export function ShopDrawer({
               store: storeType === "streetwear" ? t("streetwear") : t("formal"),
             })}
           >
-            <Link
-              href={baseUrl}
-              onClick={onClose}
-              className="block px-4 py-3 text-sm font-medium text-foreground hover:bg-muted/50 rounded-none"
+            <button
+              type="button"
+              onClick={() => {
+                onClose();
+                shopNav?.startShopNavigation(baseUrl);
+              }}
+              className="block w-full px-4 py-3 text-start text-sm font-medium text-foreground hover:bg-muted/50 rounded-none"
             >
               {t("viewAllShop")}
-            </Link>
+            </button>
             {categories.map((cat) => (
-              <Link
+              <button
                 key={cat.id}
-                href={`${baseUrl}?cat=${cat.slug}`}
-                onClick={onClose}
-                className="block px-4 py-3 text-sm font-medium text-foreground hover:bg-muted/50 rounded-none"
+                type="button"
+                onClick={() => {
+                  onClose();
+                  shopNav?.startShopNavigation(`${baseUrl}?cat=${encodeURIComponent(cat.slug)}`);
+                }}
+                className="block w-full px-4 py-3 text-start text-sm font-medium text-foreground hover:bg-muted/50 rounded-none"
               >
                 {cat.label}
-              </Link>
+              </button>
             ))}
           </nav>
         </div>

@@ -17,6 +17,7 @@ import {
   getProductAttributeValueSlugsByProductIds,
 } from "@/actions/storefront-products";
 import { storefrontLocaleFromParam } from "@/lib/storefront-product-locale";
+import { shopListingNavKeyFromState } from "@/lib/shop-listing-nav-key";
 import { notFound } from "next/navigation";
 
 interface ShopPageProps {
@@ -164,6 +165,12 @@ export default async function ShopPage({ params, searchParams }: ShopPageProps) 
   const categoryLabel =
     catFilter && cat ? (storeCategories.find((c) => c.slug === cat)?.label ?? null) : null;
 
+  const listingNavKey = shopListingNavKeyFromState({
+    categorySlug: catFilter && cat ? cat : null,
+    sort: initialSort,
+    searchQuery: q ?? "",
+  });
+
   let wishlistProductIds: number[] = [];
   const { userId } = await auth();
   if (userId) {
@@ -177,6 +184,7 @@ export default async function ShopPage({ params, searchParams }: ShopPageProps) 
   return (
     <div className="pt-14">
       <ShopClient
+        listingNavKey={listingNavKey}
         initialSort={initialSort}
         products={productsWithImages}
         variantsByProductId={variantsByProductId}

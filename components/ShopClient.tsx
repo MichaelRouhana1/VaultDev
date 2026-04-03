@@ -2,6 +2,9 @@
 
 import { useState, useMemo, useEffect, useRef, useCallback } from "react";
 import { useSearchParams } from "next/navigation";
+import { shopListingNavKeyFromSearchParams } from "@/lib/shop-listing-nav-key";
+import { useShopListingNav } from "@/components/storefront/ShopListingNavContext";
+import ShopListingSkeleton from "@/components/storefront/ShopListingSkeleton";
 import { ProductCard } from "@/components/ProductCard";
 import { CategoryHeader } from "@/components/CategoryHeader";
 import { UtilityBar } from "@/components/UtilityBar";
@@ -22,6 +25,8 @@ const PRODUCTS_PER_PAGE = 12;
 const VALID_LEGACY_CATEGORIES = ["CLOTHING", "SHOES", "ACCESSORIES", "BAGS", "OTHER"] as const;
 
 interface ShopClientProps {
+  /** Serialized listing identity from the server (cat / sort / q); when client URL differs, show loading skeleton. */
+  listingNavKey: string;
   /** From URL on server render; client updates sort locally (no navigation) for instant reorder like other filters. */
   initialSort: ShopSortOption;
   products: (StorefrontProductResolved & { categorySlug?: string | null; images?: string[] })[];
@@ -43,6 +48,7 @@ interface ShopClientProps {
 }
 
 export function ShopClient({
+  listingNavKey,
   initialSort,
   products,
   variantsByProductId,
@@ -226,6 +232,19 @@ export function ShopClient({
   }, [shopFilterContext, storeMainCategories, categorySlug]);
 
   const viewAllListing = !categorySlug && !validCategory;
+
+  const shopNav = useShopListingNav();
+  const listingKeyFromUrl = useMemo(
+    () => shopListingNavKeyFromSearchParams(searchParams),
+    [searchParams],
+  );
+  const listingUrlAheadOfServer = listingKeyFromUrl !== listingNavKey;
+  const showShopListingSkeleton =
+    (shopNav?.isShopNavPending ?? false) || listingUrlAheadOfServer;
+
+  if (showShopListingSkeleton) {
+    return <ShopListingSkeleton />;
+  }
 
   return (
     <div className="w-full min-h-screen bg-background">
