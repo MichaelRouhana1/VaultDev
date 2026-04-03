@@ -17,7 +17,6 @@ import {
   getProductAttributeValueSlugsByProductIds,
 } from "@/actions/storefront-products";
 import { storefrontLocaleFromParam } from "@/lib/storefront-product-locale";
-import { Suspense } from "react";
 import { notFound } from "next/navigation";
 
 interface ShopPageProps {
@@ -177,30 +176,22 @@ export default async function ShopPage({ params, searchParams }: ShopPageProps) 
 
   return (
     <div className="pt-14">
-      <Suspense
-        fallback={
-          <div className="flex items-center justify-center min-h-[400px]">
-            <div className="w-12 h-12 border-4 border-muted border-t-foreground animate-spin rounded-full" />
-          </div>
-        }
-      >
-        <ShopClient
-          initialSort={initialSort}
-          products={productsWithImages}
-          variantsByProductId={variantsByProductId}
-          colorsByProductId={colorsByProductId}
-          attributeSlugsByProductId={attributeSlugsByProductId}
-          wishlistProductIds={wishlistProductIds}
-          categoryLabel={categoryLabel}
-          storeMainCategories={storeCategories}
-          attributeSectionsForFilters={attributeSectionsForFilters}
-          filterVariantSizes={filterVariantSizes}
-          filterProductColorNames={filterProductColorNames}
-          shopFilterContext={shopFilterContext}
-          categoryFilterTags={categoryFilterTags}
-          storeType={storeType}
-        />
-      </Suspense>
+      <ShopClient
+        initialSort={initialSort}
+        products={productsWithImages}
+        variantsByProductId={variantsByProductId}
+        colorsByProductId={colorsByProductId}
+        attributeSlugsByProductId={attributeSlugsByProductId}
+        wishlistProductIds={wishlistProductIds}
+        categoryLabel={categoryLabel}
+        storeMainCategories={storeCategories}
+        attributeSectionsForFilters={attributeSectionsForFilters}
+        filterVariantSizes={filterVariantSizes}
+        filterProductColorNames={filterProductColorNames}
+        shopFilterContext={shopFilterContext}
+        categoryFilterTags={categoryFilterTags}
+        storeType={storeType}
+      />
     </div>
   );
 }
