@@ -29,6 +29,7 @@ import {
   type SearchListingProduct,
   type SearchPageFilterContext,
 } from "@/actions/search-page-data";
+import SearchSkeleton from "@/components/storefront/SearchSkeleton";
 
 const EMPTY_SEARCH_FILTERS: SearchPageFilterContext = {
   attributeSectionsForFilters: [],
@@ -136,7 +137,7 @@ export function SearchClient({
     });
   }, []);
 
-  const [, startNavTransition] = useTransition();
+  const [isSearchNavPending, startNavTransition] = useTransition();
   const [, startAppendTransition] = useTransition();
 
   const [sort, setSort] = useState<ShopSortOption>("price-low");
@@ -404,6 +405,10 @@ export function SearchClient({
     },
     [pathname, router, saveSearchTerm, startNavTransition],
   );
+
+  if (isSearchNavPending) {
+    return <SearchSkeleton query={inputValue} />;
+  }
 
   return (
     <main id="main-content" className="w-full min-h-screen bg-background">
