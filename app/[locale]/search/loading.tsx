@@ -74,15 +74,15 @@ function SearchLoadingLayout({ query }: { query: string }) {
           <div className="mt-4 min-w-0 flex-1 md:mt-0">
             <div className="grid grid-cols-2 gap-4 sm:gap-6 md:grid-cols-4 lg:gap-8">
               {Array.from({ length: 8 }).map((_, i) => (
-                <div key={i} className="flex flex-col gap-3">
+                <div key={i} className="flex w-full flex-col items-start gap-3">
                   {/* Image Placeholder */}
-                  <ShimmerBlock className="aspect-[3/4] w-full" />
+                  <ShimmerBlock className="aspect-[3/4] w-full self-stretch" />
 
-                  {/* Text: name → color → price (matches ProductCard order) */}
-                  <div className="space-y-2">
-                    <ShimmerBlock className="h-3 w-full" />
-                    <ShimmerBlock className="h-3 w-2/3" />
-                    <ShimmerBlock className="h-3 w-1/3" />
+                  {/* Text: name → color → price (items-start so widths are not stretched) */}
+                  <div className="flex w-full flex-col items-start gap-2">
+                    <ShimmerBlock className="h-3 w-[92%]" />
+                    <ShimmerBlock className="h-3 w-[48%]" />
+                    <ShimmerBlock className="h-3 w-[28%]" />
                   </div>
                 </div>
               ))}
