@@ -8,8 +8,8 @@ import { cn } from "@/lib/utils";
 // Reusable component for the Bershka left-to-right sweeping effect
 function ShimmerBlock({ className }: { className?: string }) {
   return (
-    <div className={cn("relative overflow-hidden bg-gray-200 dark:bg-gray-800", className)}>
-      <div className="absolute inset-0 -translate-x-full animate-shimmer bg-gradient-to-r from-transparent via-white/60 to-transparent dark:via-white/10" />
+    <div className={cn("relative overflow-hidden rounded-none bg-gray-200 dark:bg-gray-800", className)}>
+      <div className="absolute inset-0 animate-shimmer bg-gradient-to-r from-transparent via-white/60 to-transparent dark:via-white/10" />
     </div>
   );
 }
@@ -53,18 +53,18 @@ function SearchLoadingLayout({ query }: { query: string }) {
           {/* Desktop Filter Sidebar Skeleton */}
           <aside className="hidden w-[250px] shrink-0 space-y-8 pt-5 md:block lg:w-[280px]">
             <div>
-              <ShimmerBlock className="mb-4 h-4 w-24 rounded" />
+              <ShimmerBlock className="mb-4 h-4 w-24" />
               <div className="space-y-3">
                 {[1, 2, 3, 4].map((i) => (
-                  <ShimmerBlock key={i} className="h-3 w-full rounded" />
+                  <ShimmerBlock key={i} className="h-3 w-full" />
                 ))}
               </div>
             </div>
             <div>
-              <ShimmerBlock className="mb-4 h-4 w-20 rounded" />
+              <ShimmerBlock className="mb-4 h-4 w-20" />
               <div className="space-y-3">
                 {[1, 2, 3].map((i) => (
-                  <ShimmerBlock key={i} className="h-3 w-5/6 rounded" />
+                  <ShimmerBlock key={i} className="h-3 w-5/6" />
                 ))}
               </div>
             </div>
@@ -76,12 +76,13 @@ function SearchLoadingLayout({ query }: { query: string }) {
               {Array.from({ length: 8 }).map((_, i) => (
                 <div key={i} className="flex flex-col gap-3">
                   {/* Image Placeholder */}
-                  <ShimmerBlock className="aspect-[3/4] w-full rounded-sm" />
+                  <ShimmerBlock className="aspect-[3/4] w-full" />
 
-                  {/* Text Placeholders */}
+                  {/* Text: name → color → price (matches ProductCard order) */}
                   <div className="space-y-2">
-                    <ShimmerBlock className="h-3 w-3/4 rounded" />
-                    <ShimmerBlock className="h-3 w-1/4 rounded" />
+                    <ShimmerBlock className="h-3 w-full" />
+                    <ShimmerBlock className="h-3 w-2/3" />
+                    <ShimmerBlock className="h-3 w-1/3" />
                   </div>
                 </div>
               ))}

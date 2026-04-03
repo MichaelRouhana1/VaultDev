@@ -278,15 +278,19 @@
 }
 
 @layer utilities {
+  /* Sweep fully across, hold off-screen, then loop (avoids a “cut off mid-sweep” feel). */
   @keyframes shimmer {
     0% {
       transform: translateX(-100%);
+    }
+    55% {
+      transform: translateX(100%);
     }
     100% {
       transform: translateX(100%);
     }
   }
   .animate-shimmer {
-    animation: shimmer 1.5s infinite linear;
+    animation: shimmer 3.2s infinite ease-in-out;
   }
 }
