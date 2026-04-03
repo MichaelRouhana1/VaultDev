@@ -49,8 +49,9 @@ export const mosaikClerkUserButtonVariablesDark: NonNullable<Appearance["variabl
 };
 
 /**
- * Clerk SignIn / SignUp (and global ClerkProvider default) — modern card, soft shadow,
- * rounded controls, comfortable spacing. Uses theme `primary` for focus rings where Tailwind resolves it.
+ * Clerk SignIn / SignUp (+ ClerkProvider default) — white, flat, minimal.
+ * Colors match `globals.css` `:root`: foreground/card #111 / #fff, border #e5e5e5, soft fill #F4F4F4, radius 0.625rem.
+ * (Use static Tailwind arbitrary classes so the compiler retains them.)
  */
 export const mosaikClerkAppearance: Appearance = {
   variables: {
@@ -60,12 +61,12 @@ export const mosaikClerkAppearance: Appearance = {
     colorWarning: "#a16207",
     colorText: "#111111",
     colorTextOnPrimaryBackground: "#ffffff",
-    colorTextSecondary: "#71717a",
+    colorTextSecondary: "#737373",
     colorBackground: "#ffffff",
     colorInputText: "#111111",
     colorInputBackground: "#ffffff",
-    colorNeutral: "#e4e4e7",
-    borderRadius: "0.5rem",
+    colorNeutral: "#e5e5e5",
+    borderRadius: "0.625rem",
     fontFamily: "var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif",
     fontWeight: {
       bold: "600",
@@ -75,39 +76,39 @@ export const mosaikClerkAppearance: Appearance = {
   elements: {
     rootBox: "w-full flex justify-center",
     card:
-      "w-full max-w-[26rem] !rounded-2xl !border !border-solid !border-zinc-200/80 !bg-white !p-8 !shadow-xl !shadow-zinc-900/5 sm:!p-10",
+      "w-full max-w-[24rem] !rounded-[0.625rem] !border !border-solid !border-[#e5e5e5] !bg-white !p-6 !shadow-none sm:!p-8",
     headerTitle:
-      "!text-[#111111] !font-semibold !tracking-tight !text-xl !leading-tight !mb-1.5 sm:!text-[1.35rem]",
-    headerSubtitle: "!text-zinc-500 !text-sm !font-normal !leading-relaxed",
+      "!text-[#111111] !font-semibold !tracking-normal !text-lg !leading-snug !mb-1 sm:!text-xl",
+    headerSubtitle: "!text-[#737373] !text-sm !font-normal !leading-relaxed",
     socialButtonsBlockButton:
-      "!rounded-lg !border !border-solid !border-zinc-200 !bg-white !text-[#111111] !shadow-sm transition-all duration-200 hover:!border-zinc-300 hover:!bg-zinc-50",
+      "!rounded-[0.625rem] !border !border-solid !border-[#e5e5e5] !bg-white !text-[#111111] !shadow-none transition-colors hover:!bg-[#F4F4F4]",
     socialButtonsBlockButtonText: "!font-medium !text-[#111111]",
     socialButtonsProviderIcon: "!text-[#111111]",
-    dividerLine: "!bg-zinc-200/80",
-    dividerText: "!text-zinc-400 !text-xs !font-medium !uppercase !tracking-wider",
-    formFieldLabel:
-      "!text-zinc-500 !text-xs !font-medium !uppercase !tracking-wider",
+    dividerLine: "!bg-[#e5e5e5]",
+    dividerText: "!text-[#737373] !text-xs !font-normal !normal-case !tracking-normal",
+    formFieldLabel: "!text-[#111111] !text-sm !font-medium !normal-case !tracking-normal",
     formFieldInput:
-      "!rounded-lg !border !border-solid !border-zinc-200 !bg-white !text-[#111111] !shadow-sm transition-shadow duration-200 !outline-none focus:!border-transparent focus:!ring-2 focus:!ring-primary/25 focus:!ring-offset-0",
-    formFieldInputShowPasswordButton: "!text-zinc-600 hover:!text-[#111111]",
+      "!rounded-[0.625rem] !border !border-solid !border-[#e5e5e5] !bg-white !text-[#111111] !shadow-none !outline-none transition-[box-shadow,border-color] focus:!border-[#111111] focus:!ring-1 focus:!ring-[#111111]/15 focus:!ring-offset-0",
+    formFieldInputShowPasswordButton: "!text-[#737373] hover:!text-[#111111]",
     formButtonPrimary:
-      "!rounded-lg !border-0 !bg-[#111111] !text-white !font-semibold !text-sm !shadow-md !shadow-zinc-900/10 transition-all duration-200 hover:!opacity-90 hover:!-translate-y-0.5 active:!translate-y-0",
+      "!rounded-[0.625rem] !border-0 !bg-[#111111] !text-white !font-medium !text-sm !shadow-none transition-opacity hover:!opacity-90",
     formButtonReset:
-      "!rounded-lg !border !border-solid !border-zinc-200 !bg-white !text-[#111111] !shadow-sm transition-all duration-200 hover:!bg-zinc-50",
-    footerActionLink: "!font-medium !text-[#111111] !underline underline-offset-4 hover:!text-zinc-700",
-    footerActionText: "!text-zinc-500",
+      "!rounded-[0.625rem] !border !border-solid !border-[#e5e5e5] !bg-white !text-[#111111] !shadow-none transition-colors hover:!bg-[#F4F4F4]",
+    footerActionLink:
+      "!font-medium !text-[#111111] !underline underline-offset-4 hover:!opacity-80",
+    footerActionText: "!text-[#737373]",
     identityPreviewText: "!text-[#111111]",
     identityPreviewEditButton: "!text-[#111111]",
     formFieldErrorText: "!text-red-600 !text-sm",
-    formFieldSuccessText: "!text-zinc-600 !text-sm",
+    formFieldSuccessText: "!text-[#737373] !text-sm",
     alertText: "!text-[#111111]",
     otpCodeFieldInput:
-      "!rounded-lg !border !border-solid !border-zinc-200 !bg-white !shadow-sm !outline-none focus:!border-transparent focus:!ring-2 focus:!ring-primary/25 focus:!ring-offset-0",
-    navbarButton: "!rounded-lg",
+      "!rounded-[0.625rem] !border !border-solid !border-[#e5e5e5] !bg-white !shadow-none !outline-none focus:!border-[#111111] focus:!ring-1 focus:!ring-[#111111]/15",
+    navbarButton: "!rounded-[0.625rem]",
     badge:
-      "!rounded-lg !border !border-zinc-200 !bg-zinc-50 !text-[#111111] !text-xs",
+      "!rounded-[0.625rem] !border !border-[#e5e5e5] !bg-[#F4F4F4] !text-[#111111] !text-xs",
     alternativeMethodsBlockButton:
-      "!rounded-lg !border !border-zinc-200 !bg-white !text-[#111111] !shadow-sm transition-all duration-200 hover:!bg-zinc-50",
+      "!rounded-[0.625rem] !border !border-[#e5e5e5] !bg-white !text-[#111111] !shadow-none hover:!bg-[#F4F4F4]",
     formResendCodeLink: "!text-[#111111] !font-medium !underline",
     spinnerIcon: "!text-[#111111]",
   },

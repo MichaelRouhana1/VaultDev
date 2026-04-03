@@ -1,10 +1,12 @@
 "use client";
 
-import { useState, useMemo, useEffect, useRef, useCallback } from "react";
+import { useState, useMemo, useEffect, useLayoutEffect, useRef, useCallback } from "react";
 import { useSearchParams } from "next/navigation";
 import { shopListingNavKeyFromSearchParams } from "@/lib/shop-listing-nav-key";
 import { useShopListingNav } from "@/components/storefront/ShopListingNavContext";
-import ShopListingSkeleton from "@/components/storefront/ShopListingSkeleton";
+import ShopListingSkeleton, {
+  scrollShopListingShellToTop,
+} from "@/components/storefront/ShopListingSkeleton";
 import { ProductCard } from "@/components/ProductCard";
 import { CategoryHeader } from "@/components/CategoryHeader";
 import { UtilityBar } from "@/components/UtilityBar";
@@ -239,9 +241,9 @@ export function ShopClient({
     [searchParams],
   );
 
-  /** `router.push` inside `startTransition` can skip scroll restoration; also covers Link from a scrolled store home. */
-  useEffect(() => {
-    window.scrollTo({ top: 0, left: 0, behavior: "instant" as ScrollBehavior });
+  /** Listing identity change: scroll before paint so we never flash content (or skeleton) at the old offset. */
+  useLayoutEffect(() => {
+    scrollShopListingShellToTop();
   }, [listingKeyFromUrl]);
 
   const listingUrlAheadOfServer = listingKeyFromUrl !== listingNavKey;

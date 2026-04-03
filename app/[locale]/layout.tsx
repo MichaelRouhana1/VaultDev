@@ -61,10 +61,13 @@ export default async function LocaleLayout({
     <html lang={locale} dir="ltr" suppressHydrationWarning>
       <body className={`${geistSans.variable} ${geistMono.variable} antialiased`}>
         <NextIntlClientProvider messages={messages}>
+          {/* Clerk: keep sign-in/up on this app so `mosaikClerkAppearance` applies (env-only URLs are easy to drop when editing .env for Supabase). */}
           <ClerkProvider
             dynamic
             nonce={nonce}
             appearance={mosaikClerkAppearance}
+            signInUrl={`/${locale}/sign-in`}
+            signUpUrl={`/${locale}/sign-up`}
             signInFallbackRedirectUrl={`/${locale}/account`}
             signUpFallbackRedirectUrl={`/${locale}/account`}
           >
