@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { createPortal } from "react-dom";
 import { useTranslations } from "next-intl";
 import { Link } from "@/i18n/navigation";
 import Image from "next/image";
@@ -12,6 +13,7 @@ import { useAuth } from "@clerk/nextjs";
 import { useWishlist } from "@/context/WishlistContext";
 import { getWishlistProductsData } from "@/actions/getWishlistProductsData";
 import { ProductCard } from "@/components/ProductCard";
+import { cn } from "@/lib/utils";
 import type { Product, ProductColor, ProductVariant } from "@/db/schema";
 
 const FREE_DELIVERY_THRESHOLD = 100;
@@ -46,6 +48,11 @@ export function CartClient({
   const [guestColorsByProductId, setGuestColorsByProductId] = useState<
     Record<number, ProductColor[]>
   >({});
+  const [bagSummaryPortalReady, setBagSummaryPortalReady] = useState(false);
+
+  useEffect(() => {
+    setBagSummaryPortalReady(true);
+  }, []);
 
   useEffect(() => {
     const tab = searchParams.get("tab");
@@ -104,14 +111,75 @@ export function CartClient({
     router.push(`/checkout?cart=${encodeURIComponent(JSON.stringify(cart))}`);
   };
 
+  const showBagFixedSummary = activeTab === "bag" && items.length > 0;
+
+  const bagOrderSummaryNode = showBagFixedSummary ? (
+    <div className="pointer-events-none fixed inset-x-0 bottom-0 z-[100]">
+      <div className="pointer-events-auto border-t border-border bg-background/95 px-4 pt-3 pb-[max(0.5rem,env(safe-area-inset-bottom))] shadow-[0_-6px_24px_rgba(0,0,0,0.1)] backdrop-blur-md dark:shadow-[0_-6px_24px_rgba(0,0,0,0.35)] sm:px-6 sm:pt-3.5">
+        <div className="mx-auto w-full max-w-[1400px] border-border bg-card/50">
+          <h2 className="mb-2 pt-2 text-xs font-medium uppercase tracking-widest text-foreground sm:mb-2.5 sm:pt-3 sm:text-sm lg:pt-4 lg:text-base">
+            {t("orderSummary")}
+          </h2>
+
+          {!qualifiesForFreeDelivery && amountToFreeDelivery > 0 && (
+            <div className="mb-2 flex items-start gap-2 border border-blue-200/50 bg-blue-50 p-2.5 dark:border-blue-800/30 dark:bg-blue-950/30 sm:mb-2.5 sm:p-3 lg:mb-3">
+              <svg
+                className="mt-0.5 h-4 w-4 shrink-0 text-blue-600 dark:text-blue-400 sm:h-5 sm:w-5"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                />
+              </svg>
+              <p className="text-xs leading-snug text-blue-800 dark:text-blue-200 sm:text-sm">
+                {t("addMoreFree", { amount: formatPrice(amountToFreeDelivery) })}
+              </p>
+            </div>
+          )}
+
+          {qualifiesForFreeDelivery && (
+            <p className="mb-2 text-xs leading-snug text-green-700 dark:text-green-400 sm:mb-2.5 sm:text-sm lg:mb-3">
+              {t("freeDelivery")}
+            </p>
+          )}
+
+          <div className="flex items-center justify-between border-b border-t border-border py-2.5 sm:py-3 lg:py-3.5">
+            <span className="text-sm text-muted-foreground lg:text-base">{t("totalVat")}</span>
+            <span className="text-lg font-semibold tabular-nums text-foreground lg:text-xl">
+              {formatPrice(totalPrice)}
+            </span>
+          </div>
+
+          <button
+            type="button"
+            onClick={handleProcessOrder}
+            className="mt-2.5 w-full bg-primary py-3 text-xs font-medium uppercase tracking-widest text-primary-foreground transition-opacity hover:opacity-90 sm:mt-3 sm:py-3.5 sm:text-sm lg:mt-4 lg:py-4"
+          >
+            {t("processOrder")}
+          </button>
+
+          <label className="mt-4 flex cursor-pointer items-center gap-2 sm:mt-5 lg:mt-6">
+            <input type="checkbox" className="rounded border-border" />
+            <span className="text-xs text-muted-foreground sm:text-sm">{t("promoCheckbox")}</span>
+          </label>
+        </div>
+      </div>
+    </div>
+  ) : null;
+
   return (
-    <div className="mx-auto w-full max-w-[1400px] px-6 py-12">
+    <div className="mx-auto w-full max-w-[1400px] px-6 pt-4 pb-12 sm:pt-5">
       <h1 className="sr-only">{t("srTitle")}</h1>
-      <div className="mb-12 flex gap-8 border-b border-border">
+      <div className="mb-3 flex gap-4 border-b border-border sm:mb-4 sm:gap-6">
         <button
           type="button"
           onClick={() => setActiveTab("bag")}
-          className={`-mb-px pb-4 text-sm font-medium uppercase tracking-widest transition-colors ${
+          className={`-mb-px pb-1 text-sm font-medium uppercase tracking-widest transition-colors sm:pb-1.5 ${
             activeTab === "bag"
               ? "border-b-2 border-foreground text-foreground"
               : "text-muted-foreground hover:text-foreground"
@@ -122,7 +190,7 @@ export function CartClient({
         <button
           type="button"
           onClick={() => setActiveTab("favorites")}
-          className={`-mb-px pb-4 text-sm font-medium uppercase tracking-widest transition-colors ${
+          className={`-mb-px pb-1 text-sm font-medium uppercase tracking-widest transition-colors sm:pb-1.5 ${
             activeTab === "favorites"
               ? "border-b-2 border-foreground text-foreground"
               : "text-muted-foreground hover:text-foreground"
@@ -147,17 +215,22 @@ export function CartClient({
               </Link>
             </div>
           ) : (
-            <div className="grid grid-cols-1 lg:grid-cols-[1fr_minmax(340px,400px)] gap-8 lg:gap-12">
-              {/* Product grid - 4 per row */}
-              <div className="min-w-0 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-6">
+            <div>
+              {/* One row per line: thumbnail left, details + qty right — bottom padding for fixed summary */}
+              <div
+                className={cn(
+                  "flex min-w-0 flex-col gap-[1.125rem] sm:gap-6",
+                  showBagFixedSummary && "pb-[min(52vh,21rem)] sm:pb-52",
+                )}
+              >
                 {items.map((item) => (
                   <div
                     key={item.sku}
-                    className="flex flex-col bg-card/50 border border-border p-4"
+                    className="flex flex-row gap-[1.125rem] border border-border bg-card/50 p-3 sm:gap-6 sm:p-[1.125rem]"
                   >
                     <Link
                       href={`/${item.storeTypeForUrl ?? "streetwear"}/product/${item.productId}`}
-                      className="aspect-[3/4] overflow-hidden bg-muted relative block"
+                      className="relative aspect-[3/4] w-[8.25rem] shrink-0 overflow-hidden bg-muted sm:w-[10.5rem]"
                     >
                       {item.productImage ? (
                         <Image
@@ -165,119 +238,70 @@ export function CartClient({
                           alt={item.productColor ? `${item.productName} in ${item.productColor}` : item.productName}
                           fill
                           className="object-cover"
-
-                          sizes="(max-width: 768px) 50vw, 25vw"
+                          sizes="(max-width: 640px) 198px, 252px"
                         />
                       ) : (
-                        <div className="flex h-full w-full items-center justify-center text-muted-foreground text-sm">
+                        <div className="flex h-full w-full items-center justify-center text-base text-muted-foreground">
                           —
                         </div>
                       )}
                     </Link>
-                    <Link
-                      href={`/${item.storeTypeForUrl ?? "streetwear"}/product/${item.productId}`}
-                      className="text-sm font-medium text-foreground hover:opacity-60 mt-3 line-clamp-2"
-                    >
-                      {item.productName}
-                    </Link>
-                    <p className="text-sm font-semibold text-foreground mt-1">
-                      {formatPrice(item.priceAtPurchase)}
-                    </p>
-                    {(item.productColor || item.size) && (
-                      <p className="text-xs text-muted-foreground mt-0.5">
-                        {item.size && <span>{item.size}</span>}
-                        {item.productColor && item.size && " · "}
-                        {item.productColor && <span>{item.productColor}</span>}
-                      </p>
-                    )}
-                    <div className="flex items-center gap-2 mt-4">
-                      <button
-                        type="button"
-                        onClick={() =>
-                          updateQuantity(item.sku, item.quantity - 1)
-                        }
-                        className="w-9 h-9 flex items-center justify-center border border-border text-foreground font-medium hover:bg-muted transition-colors"
-                        aria-label={t("decreaseQty")}
-                      >
-                        −
-                      </button>
-                      <span className="w-8 text-center text-sm font-medium text-foreground">
-                        {item.quantity}
-                      </span>
-                      <button
-                        type="button"
-                        onClick={() =>
-                          updateQuantity(item.sku, item.quantity + 1)
-                        }
-                        className="w-9 h-9 flex items-center justify-center border border-border text-foreground font-medium hover:bg-muted transition-colors"
-                        aria-label={t("increaseQty")}
-                      >
-                        +
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => removeFromCart(item.sku)}
-                        className="ms-auto text-xs text-muted-foreground hover:text-destructive"
-                      >
-                        {t("remove")}
-                      </button>
+                    <div className="flex min-w-0 flex-1 flex-col justify-between gap-3 py-1">
+                      <div className="min-w-0">
+                        <Link
+                          href={`/${item.storeTypeForUrl ?? "streetwear"}/product/${item.productId}`}
+                          className="line-clamp-2 text-base font-medium leading-snug text-foreground hover:opacity-60 sm:text-lg"
+                        >
+                          {item.productName}
+                        </Link>
+                        <p className="mt-1.5 text-base font-semibold text-foreground sm:text-lg">
+                          {formatPrice(item.priceAtPurchase)}
+                        </p>
+                        {(item.productColor || item.size) && (
+                          <p className="mt-1 text-sm text-muted-foreground sm:text-base">
+                            {item.size && <span>{item.size}</span>}
+                            {item.productColor && item.size && " · "}
+                            {item.productColor && <span>{item.productColor}</span>}
+                          </p>
+                        )}
+                      </div>
+                      <div className="flex min-w-0 items-center justify-between gap-2">
+                        <div className="flex shrink-0 items-center gap-1 sm:gap-1.5">
+                          <button
+                            type="button"
+                            onClick={() =>
+                              updateQuantity(item.sku, item.quantity - 1)
+                            }
+                            className="inline-flex size-9 shrink-0 items-center justify-center rounded-none border border-border text-sm text-foreground transition-colors hover:bg-muted sm:size-10 sm:text-base"
+                            aria-label={t("decreaseQty")}
+                          >
+                            −
+                          </button>
+                          <span className="w-7 min-w-0 shrink-0 text-center text-sm font-medium tabular-nums text-foreground sm:w-8 sm:text-base">
+                            {item.quantity}
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() =>
+                              updateQuantity(item.sku, item.quantity + 1)
+                            }
+                            className="inline-flex size-9 shrink-0 items-center justify-center rounded-none border border-border text-sm text-foreground transition-colors hover:bg-muted sm:size-10 sm:text-base"
+                            aria-label={t("increaseQty")}
+                          >
+                            +
+                          </button>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => removeFromCart(item.sku)}
+                          className="shrink-0 ps-1 text-end text-xs text-muted-foreground hover:text-destructive sm:text-sm"
+                        >
+                          {t("remove")}
+                        </button>
+                      </div>
                     </div>
                   </div>
                 ))}
-              </div>
-
-              {/* Right: Order summary */}
-              <div>
-                <div className="sticky top-24 border border-border p-6 bg-card/50">
-                  <h2 className="mb-4 text-sm font-medium uppercase tracking-widest text-foreground">
-                    {t("orderSummary")}
-                  </h2>
-
-                  {!qualifiesForFreeDelivery && amountToFreeDelivery > 0 && (
-                    <div className="flex items-start gap-2 mb-4 p-3 bg-blue-50 dark:bg-blue-950/30 border border-blue-200/50 dark:border-blue-800/30">
-                      <svg
-                        className="w-5 h-5 text-blue-600 dark:text-blue-400 flex-shrink-0 mt-0.5"
-                        fill="none"
-                        stroke="currentColor"
-                        viewBox="0 0 24 24"
-                      >
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth={2}
-                          d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
-                        />
-                      </svg>
-                      <p className="text-xs text-blue-800 dark:text-blue-200">
-                        {t("addMoreFree", { amount: formatPrice(amountToFreeDelivery) })}
-                      </p>
-                    </div>
-                  )}
-
-                  {qualifiesForFreeDelivery && (
-                    <p className="mb-4 text-xs text-green-700 dark:text-green-400">{t("freeDelivery")}</p>
-                  )}
-
-                  <div className="flex items-center justify-between border-b border-t border-border py-4">
-                    <span className="text-sm text-muted-foreground">{t("totalVat")}</span>
-                    <span className="text-lg font-semibold text-foreground">
-                      {formatPrice(totalPrice)}
-                    </span>
-                  </div>
-
-                  <button
-                    type="button"
-                    onClick={handleProcessOrder}
-                    className="mt-6 w-full bg-primary py-4 text-xs font-medium uppercase tracking-widest text-primary-foreground transition-opacity hover:opacity-90"
-                  >
-                    {t("processOrder")}
-                  </button>
-
-                  <label className="mt-6 flex cursor-pointer items-center gap-2">
-                    <input type="checkbox" className="rounded border-border" />
-                    <span className="text-xs text-muted-foreground">{t("promoCheckbox")}</span>
-                  </label>
-                </div>
               </div>
             </div>
           )}
@@ -316,6 +340,11 @@ export function CartClient({
           )}
         </>
       )}
+
+      {bagSummaryPortalReady &&
+        showBagFixedSummary &&
+        typeof document !== "undefined" &&
+        createPortal(bagOrderSummaryNode, document.body)}
     </div>
   );
 }

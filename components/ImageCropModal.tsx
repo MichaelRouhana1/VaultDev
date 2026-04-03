@@ -2,6 +2,7 @@
 
 import { useState, useCallback } from "react";
 import Cropper, { type Area } from "react-easy-crop";
+import { AdminEyedropperButton } from "@/components/admin/AdminHexColorField";
 
 
 function createImage(url: string): Promise<HTMLImageElement> {
@@ -51,6 +52,10 @@ interface ImageCropModalProps {
   aspect?: number;
   /** Title shown in the modal header. */
   title?: string;
+  /** When set, shows a pipette in the modal to sample a color (e.g. from this image) via the EyeDropper API. */
+  onEyedropperColor?: (hex: string) => void;
+  /** Accessible label for the eyedropper when `onEyedropperColor` is set. */
+  eyedropperLabel?: string;
 }
 
 export function ImageCropModal({
@@ -59,6 +64,8 @@ export function ImageCropModal({
   onCancel,
   aspect = 2 / 3,
   title = "Crop image (2:3 product card ratio)",
+  onEyedropperColor,
+  eyedropperLabel,
 }: ImageCropModalProps) {
   const [crop, setCrop] = useState({ x: 0, y: 0 });
   const [zoom, setZoom] = useState(1);
@@ -85,15 +92,19 @@ export function ImageCropModal({
   return (
     <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/70 p-4">
       <div className="bg-background w-full max-w-6xl h-[90vh] max-h-[900px] flex flex-col overflow-hidden border border-border">
-        <div className="p-4 border-b border-border flex items-center justify-between">
-          <h3 className="text-sm font-medium uppercase tracking-wider">
-            {title}
-          </h3>
-          <div className="flex gap-2">
+        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border p-4">
+          <h3 className="text-sm font-medium uppercase tracking-wider">{title}</h3>
+          <div className="flex flex-wrap items-center justify-end gap-2">
+            {onEyedropperColor ? (
+              <AdminEyedropperButton
+                onPick={onEyedropperColor}
+                colorLabel={eyedropperLabel ?? "variant"}
+              />
+            ) : null}
             <button
               type="button"
               onClick={onCancel}
-              className="px-4 py-2 text-xs uppercase border border-border hover:bg-muted"
+              className="border border-border px-4 py-2 text-xs uppercase hover:bg-muted"
             >
               Cancel
             </button>
@@ -101,7 +112,7 @@ export function ImageCropModal({
               type="button"
               onClick={handleConfirm}
               disabled={processing || !croppedAreaPixels}
-              className="px-4 py-2 text-xs uppercase bg-foreground text-background disabled:opacity-50"
+              className="bg-foreground px-4 py-2 text-xs uppercase text-background disabled:opacity-50"
             >
               {processing ? "Processing…" : "Confirm"}
             </button>

@@ -133,7 +133,7 @@ export function AdminSidebar({ open = false, onClose }: AdminSidebarProps) {
       <Sheet open={open} onOpenChange={(isOpen) => !isOpen && onClose?.()}>
         <SheetContent
           side="left"
-          className="flex h-full w-[min(100vw,16rem)] max-w-[85vw] flex-col gap-0 border-e-0 p-0 md:hidden"
+          className="flex h-dvh min-h-0 w-full max-w-none flex-col gap-0 rounded-none border-0 p-0 sm:max-w-none md:hidden"
         >
           <SheetTitle className="sr-only">Admin navigation</SheetTitle>
           <AdminSidebarNav

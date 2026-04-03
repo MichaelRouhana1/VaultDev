@@ -2,13 +2,20 @@
 
 import { useState, useEffect, useCallback, useRef } from "react";
 import { ResponsiveArtPicture } from "@/components/storefront/ResponsiveArtPicture";
+import { HeroMobileSearchBar } from "@/components/storefront/HeroMobileSearchBar";
 import type { HeroImage } from "@/db/schema";
 import { cn } from "@/lib/utils";
 
 const SLIDE_DURATION_MS = 5000;
 const DRAG_THRESHOLD_PX = 56;
+/** Once the stronger axis moves this far, we pick carousel vs scroll (max of |dx|, |dy|). */
+const AXIS_COMMIT_MIN_PX = 8;
+/** Vertical scroll only wins if |dy| is clearly larger than |dx| (carousel gets ties & shallow diagonals). */
+const VERTICAL_DOMINANCE_RATIO = 1.35;
 /** Max drag vs viewport width (peek neighboring slide) */
 const DRAG_CLAMP_RATIO = 0.78;
+
+type AxisLock = "none" | "horizontal" | "vertical";
 
 /**
  * First slide: drag left = 1:1 up to maxPull; drag right (no prev) uses √ so motion keeps growing but “fights back”.
@@ -45,7 +52,12 @@ export function HeroCarousel({ images }: HeroCarouselProps) {
   const [isDragging, setIsDragging] = useState(false);
 
   const viewportRef = useRef<HTMLDivElement>(null);
-  const pointerRef = useRef<{ id: number; startX: number } | null>(null);
+  const pointerRef = useRef<{
+    id: number;
+    startX: number;
+    startY: number;
+    lock: AxisLock;
+  } | null>(null);
 
   const goTo = useCallback(
     (index: number) => {
@@ -65,18 +77,9 @@ export function HeroCarousel({ images }: HeroCarouselProps) {
     return () => clearInterval(timer);
   }, [n, currentIndex, goNext]);
 
-  const finishDrag = useCallback(
-    (clientX: number) => {
-      const start = pointerRef.current;
-      pointerRef.current = null;
-      setIsDragging(false);
-
-      if (!start) {
-        setDragX(0);
-        return;
-      }
-
-      const dx = clientX - start.startX;
+  const finishHorizontalDrag = useCallback(
+    (clientX: number, startX: number) => {
+      const dx = clientX - startX;
       setDragX(0);
 
       if (dx > DRAG_THRESHOLD_PX && currentIndex > 0) {
@@ -90,13 +93,24 @@ export function HeroCarousel({ images }: HeroCarouselProps) {
     [goNext, goPrev, currentIndex, n],
   );
 
+  const clearPointer = useCallback(() => {
+    pointerRef.current = null;
+    setIsDragging(false);
+    setDragX(0);
+  }, []);
+
   const onPointerDown = useCallback(
     (e: React.PointerEvent<HTMLDivElement>) => {
       if (n <= 1) return;
       if (e.button !== 0) return;
-      e.currentTarget.setPointerCapture(e.pointerId);
-      pointerRef.current = { id: e.pointerId, startX: e.clientX };
-      setIsDragging(true);
+      /** Defer capture until gesture reads as horizontal so vertical scroll isn’t blocked. */
+      pointerRef.current = {
+        id: e.pointerId,
+        startX: e.clientX,
+        startY: e.clientY,
+        lock: "none",
+      };
+      setIsDragging(false);
       setDragX(0);
     },
     [n],
@@ -106,9 +120,35 @@ export function HeroCarousel({ images }: HeroCarouselProps) {
     (e: React.PointerEvent<HTMLDivElement>) => {
       const p = pointerRef.current;
       if (!p || e.pointerId !== p.id) return;
-      const w = viewportRef.current?.offsetWidth ?? 400;
-      const raw = e.clientX - p.startX;
-      setDragX(dragWithResistance(raw, w, currentIndex, n));
+
+      if (p.lock === "vertical") return;
+
+      const dx = e.clientX - p.startX;
+      const dy = e.clientY - p.startY;
+
+      if (p.lock === "none") {
+        const adx = Math.abs(dx);
+        const ady = Math.abs(dy);
+        if (Math.max(adx, ady) < AXIS_COMMIT_MIN_PX) return;
+        if (ady > adx * VERTICAL_DOMINANCE_RATIO) {
+          p.lock = "vertical";
+          setDragX(0);
+          return;
+        }
+        p.lock = "horizontal";
+        setIsDragging(true);
+        try {
+          e.currentTarget.setPointerCapture(e.pointerId);
+        } catch {
+          /* */
+        }
+      }
+
+      if (p.lock === "horizontal") {
+        e.preventDefault();
+        const w = viewportRef.current?.offsetWidth ?? 400;
+        setDragX(dragWithResistance(dx, w, currentIndex, n));
+      }
     },
     [currentIndex, n],
   );
@@ -122,19 +162,35 @@ export function HeroCarousel({ images }: HeroCarouselProps) {
       } catch {
         /* */
       }
-      finishDrag(e.clientX);
+
+      const { lock, startX } = p;
+      pointerRef.current = null;
+      setIsDragging(false);
+      setDragX(0);
+
+      if (lock === "horizontal") {
+        finishHorizontalDrag(e.clientX, startX);
+      } else if (lock === "none") {
+        setProgressKey((k) => k + 1);
+      }
     },
-    [finishDrag],
+    [finishHorizontalDrag],
   );
 
   const onPointerCancel = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
     const p = pointerRef.current;
     if (!p || e.pointerId !== p.id) return;
-    pointerRef.current = null;
-    setIsDragging(false);
-    setDragX(0);
-    setProgressKey((k) => k + 1);
-  }, []);
+    const lock = p.lock;
+    try {
+      e.currentTarget.releasePointerCapture(e.pointerId);
+    } catch {
+      /* */
+    }
+    clearPointer();
+    if (lock === "horizontal") {
+      setProgressKey((k) => k + 1);
+    }
+  }, [clearPointer]);
 
   const onKeyDown = useCallback(
     (e: React.KeyboardEvent) => {
@@ -160,9 +216,10 @@ export function HeroCarousel({ images }: HeroCarouselProps) {
 
   return (
     <section className="w-full relative overflow-hidden">
+      <HeroMobileSearchBar />
       <div
         ref={viewportRef}
-        className="w-full min-h-[52vh] sm:min-h-[62vh] md:h-[78vh] relative"
+        className="w-full min-h-[82vh] sm:min-h-[86vh] md:h-[86vh] relative"
         role="region"
         aria-roledescription="carousel"
         aria-label="Hero slideshow"
@@ -171,7 +228,7 @@ export function HeroCarousel({ images }: HeroCarouselProps) {
       >
         <div
           className={cn(
-            "absolute inset-0 z-0 overflow-hidden select-none touch-none",
+            "absolute inset-0 z-0 overflow-hidden select-none touch-pan-y",
             n > 1 && "cursor-grab active:cursor-grabbing",
           )}
           onPointerDown={onPointerDown}

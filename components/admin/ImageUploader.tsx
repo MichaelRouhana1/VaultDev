@@ -120,6 +120,7 @@ export function ImageUploader({
                             value={color.hexCode}
                             onChange={(hex) => onUpdate({ hexCode: hex })}
                             colorLabel={color.name || "variant"}
+                            showEyedropper={false}
                         />
                     </div>
                 </div>
@@ -190,6 +191,8 @@ export function ImageUploader({
                     onCancel={handleCropCancel}
                     aspect={2 / 3}
                     title="Crop image (2:3 product ratio)"
+                    onEyedropperColor={(hex) => onUpdate({ hexCode: hex })}
+                    eyedropperLabel={color.name || "variant"}
                 />
             )}
         </div>

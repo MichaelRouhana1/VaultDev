@@ -74,6 +74,16 @@ export function SiteFooter() {
     return null;
   }
 
+  /** Bag page uses its own fixed checkout bar; hide global footer. */
+  if (nextPathname.includes("/bag")) {
+    return null;
+  }
+
+  /** Admin area uses its own chrome; hide storefront footer. */
+  if (nextPathname.includes("/admin")) {
+    return null;
+  }
+
   const sectionTitleClass =
     "mb-2.5 text-[0.65rem] font-semibold uppercase tracking-[0.2em] text-foreground md:mb-3 md:text-xs md:tracking-[0.18em]";
   /** Extra space below each column; list rows stay tight above it. */

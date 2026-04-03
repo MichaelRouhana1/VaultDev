@@ -27,9 +27,7 @@
     "themeDarkAria": "Passer en mode sombre",
     "viewAccountAria": "Voir le profil du compte",
     "viewShoppingBagAria": "Voir le panier",
-    "mobileNavTitle": "Menu de navigation",
-    "mobileSearchPlaceholder": "Rechercher des produits…",
-    "mobileSearchSubmitAria": "Rechercher dans la boutique"
+    "mobileNavTitle": "Menu de navigation"
   },
   "ProductCard": {
     "noImage": "Pas d’image",

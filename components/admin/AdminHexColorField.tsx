@@ -25,25 +25,19 @@ function hexForColorInput(raw: string): string {
   return "#000000";
 }
 
-export interface AdminHexColorFieldProps {
-  id: string;
-  value: string;
-  onChange: (hex: string) => void;
-  /** Used for accessible names on controls. */
+export interface AdminEyedropperButtonProps {
+  onPick: (hex: string) => void;
+  /** Used for accessible names. */
   colorLabel?: string;
   className?: string;
 }
 
-/**
- * Hex text field + screen eyedropper (when supported) + native color picker swatch.
- */
-export function AdminHexColorField({
-  id,
-  value,
-  onChange,
+/** Screen eyedropper (Chromium); renders nothing when unsupported. */
+export function AdminEyedropperButton({
+  onPick,
   colorLabel = "color",
   className,
-}: AdminHexColorFieldProps) {
+}: AdminEyedropperButtonProps) {
   const [eyeDropperSupported, setEyeDropperSupported] = useState(false);
 
   useEffect(() => {
@@ -56,11 +50,56 @@ export function AdminHexColorField({
     try {
       const dropper = new EyeDropperCtor();
       const result = await dropper.open();
-      if (result?.sRGBHex) onChange(result.sRGBHex.toLowerCase());
+      if (result?.sRGBHex) onPick(result.sRGBHex.toLowerCase());
     } catch {
       // User cancelled or dialog failed — ignore
     }
-  }, [onChange]);
+  }, [onPick]);
+
+  if (!eyeDropperSupported) return null;
+
+  return (
+    <Button
+      type="button"
+      variant="outline"
+      size="icon"
+      className={cn("h-9 w-9 shrink-0 border-input", className)}
+      title="Pick color from screen (click a pixel on the image)"
+      aria-label={`Sample color from screen for ${colorLabel}`}
+      onClick={() => void handleEyeDropper()}
+    >
+      <Pipette className="h-4 w-4" aria-hidden />
+    </Button>
+  );
+}
+
+export interface AdminHexColorFieldProps {
+  id: string;
+  value: string;
+  onChange: (hex: string) => void;
+  /** Used for accessible names on controls. */
+  colorLabel?: string;
+  className?: string;
+  /** Hide pipette (e.g. when sampling is offered in the image crop modal instead). */
+  showEyedropper?: boolean;
+}
+
+/**
+ * Hex text field + optional screen eyedropper + native color picker swatch.
+ */
+export function AdminHexColorField({
+  id,
+  value,
+  onChange,
+  colorLabel = "color",
+  className,
+  showEyedropper = true,
+}: AdminHexColorFieldProps) {
+  const [eyeDropperSupported, setEyeDropperSupported] = useState(false);
+
+  useEffect(() => {
+    setEyeDropperSupported(typeof window !== "undefined" && typeof window.EyeDropper === "function");
+  }, []);
 
   const colorInputValue = hexForColorInput(value);
 
@@ -76,19 +115,7 @@ export function AdminHexColorField({
         autoComplete="off"
         aria-label={`Hex code for ${colorLabel}`}
       />
-      {eyeDropperSupported ? (
-        <Button
-          type="button"
-          variant="outline"
-          size="icon"
-          className="h-9 w-9 shrink-0 border-input"
-          title="Pick color from screen (click a pixel, e.g. on an image preview)"
-          aria-label={`Sample color from screen for ${colorLabel}`}
-          onClick={() => void handleEyeDropper()}
-        >
-          <Pipette className="h-4 w-4" aria-hidden />
-        </Button>
-      ) : null}
+      {showEyedropper ? <AdminEyedropperButton onPick={onChange} colorLabel={colorLabel} /> : null}
       <input
         type="color"
         value={colorInputValue}

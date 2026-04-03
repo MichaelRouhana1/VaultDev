@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useMemo, type FormEvent } from "react";
+import { useState, useEffect, useMemo, useSyncExternalStore } from "react";
 import { useLocale, useTranslations } from "next-intl";
 import { Link, usePathname, useRouter } from "@/i18n/navigation";
 import { useParams } from "next/navigation";
@@ -21,6 +21,21 @@ import type { StoreTypeSlug } from "@/lib/preferred-store";
 import { isStrictStoreLanding, storeSectionFromPathname } from "@/lib/store-nav";
 import { cn } from "@/lib/utils";
 import { isDashboardRole } from "@/lib/clerk-dashboard-role";
+
+function subscribeMaxLg(callback: () => void) {
+  const mq = window.matchMedia("(max-width: 1023px)");
+  mq.addEventListener("change", callback);
+  return () => mq.removeEventListener("change", callback);
+}
+
+function getMaxLgSnapshot() {
+  return window.matchMedia("(max-width: 1023px)").matches;
+}
+
+/** SSR: assume desktop so first paint matches until hydrated (avoids desktop flash). */
+function getMaxLgServerSnapshot() {
+  return false;
+}
 
 export interface NavbarClientProps {
   streetwearCategories: ProductCategory[];
@@ -48,6 +63,7 @@ export function NavbarClient({ streetwearCategories, formalCategories }: NavbarC
   const { sessionClaims } = useAuth();
   const { totalItems, setOpenCart } = useCart();
   const { theme, setTheme, resolvedTheme } = useTheme();
+  const maxLg = useSyncExternalStore(subscribeMaxLg, getMaxLgSnapshot, getMaxLgServerSnapshot);
   const [userButtonThemeReady, setUserButtonThemeReady] = useState(false);
 
   useEffect(() => {
@@ -73,7 +89,8 @@ export function NavbarClient({ streetwearCategories, formalCategories }: NavbarC
   const [burgerOpen, setBurgerOpen] = useState(false);
   /** Mobile nav sheet: which store’s categories to show (updates immediately on tab tap). */
   const [mobileMenuStore, setMobileMenuStore] = useState<StoreTypeSlug>("streetwear");
-  const [mobileSearchQuery, setMobileSearchQuery] = useState("");
+  /** Mobile store landing: scrolled past hero into categories — solid bar + normal theme like other pages. */
+  const [landingPastHero, setLandingPastHero] = useState(false);
 
   const activeStore = activeStoreFromRoute(params.storeType, pathname);
 
@@ -96,11 +113,35 @@ export function NavbarClient({ streetwearCategories, formalCategories }: NavbarC
     router.prefetch("/formal");
   }, [router]);
 
+  const isStoreLandingOverlay = pathname != null && isStrictStoreLanding(pathname);
+
   useEffect(() => {
-    if (!burgerOpen) {
-      setMobileSearchQuery("");
+    if (!isStoreLandingOverlay || !maxLg) {
+      setLandingPastHero(false);
       return;
     }
+    const HEADER_PX = 56; // matches h-14
+
+    const update = () => {
+      const sentinel = document.getElementById("store-landing-categories-sentinel");
+      if (!sentinel) {
+        setLandingPastHero(false);
+        return;
+      }
+      setLandingPastHero(sentinel.getBoundingClientRect().top <= HEADER_PX);
+    };
+
+    update();
+    window.addEventListener("scroll", update, { passive: true });
+    window.addEventListener("resize", update);
+    return () => {
+      window.removeEventListener("scroll", update);
+      window.removeEventListener("resize", update);
+    };
+  }, [isStoreLandingOverlay, maxLg, pathname]);
+
+  useEffect(() => {
+    if (!burgerOpen) return;
     const initial: StoreTypeSlug =
       activeStore === "streetwear" || activeStore === "formal" ? activeStore : "streetwear";
     setMobileMenuStore(initial);
@@ -172,16 +213,23 @@ export function NavbarClient({ streetwearCategories, formalCategories }: NavbarC
 
   const mobileShopBase = `/${mobileMenuStore}/shop`;
 
-  const submitMobileSearch = (e: FormEvent) => {
-    e.preventDefault();
-    const q = mobileSearchQuery.trim();
-    const url = q ? `/search?${new URLSearchParams({ q }).toString()}` : "/search";
-    router.push(url);
-    setBurgerOpen(false);
-  };
+  /** Mobile/tablet store landing: transparent over hero; solid when sheets open or scrolled into categories. */
+  const landingBarSolid =
+    isStoreLandingOverlay && (burgerOpen || isDrawerOpen || cartOpen || landingPastHero);
+
+  /** Mobile store landing: force dark nav over hero; normal theme once scrolled into categories (matches other pages). */
+  const mobileStoreLandingDark = isStoreLandingOverlay && maxLg && !landingPastHero;
 
   return (
-    <nav className="fixed top-0 inset-x-0 z-50 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 border-b border-border">
+    <nav
+      className={cn(
+        "fixed top-0 inset-x-0 z-50 transition-[background-color,backdrop-filter,border-color] duration-200",
+        mobileStoreLandingDark && "dark",
+        isStoreLandingOverlay && !landingBarSolid
+          ? "max-lg:border-b-0 max-lg:bg-transparent max-lg:backdrop-blur-none max-lg:supports-[backdrop-filter]:bg-transparent lg:border-b lg:border-border lg:bg-background/95 lg:backdrop-blur lg:supports-[backdrop-filter]:lg:bg-background/60"
+          : "border-b border-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60",
+      )}
+    >
       <div className="w-full px-4 sm:px-6 lg:px-8">
         <div className="relative flex items-center justify-between h-14">
           <div className="flex items-center gap-4 sm:gap-6 lg:gap-8 shrink-0 min-w-0">
@@ -365,7 +413,7 @@ export function NavbarClient({ streetwearCategories, formalCategories }: NavbarC
             </button>
           </div>
 
-          <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-5 py-4">
+          <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-5 pb-4 pt-1">
             <nav
               className="space-y-0.5"
               role="navigation"
@@ -374,9 +422,25 @@ export function NavbarClient({ streetwearCategories, formalCategories }: NavbarC
               })}
             >
               <Link
+                href="/search"
+                onClick={() => setBurgerOpen(false)}
+                className="flex items-center gap-3 border-b border-border py-3 text-base font-medium text-foreground transition-colors hover:bg-muted/50"
+              >
+                <span className="text-muted-foreground" aria-hidden>
+                  <svg className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth={1.5} viewBox="0 0 24 24">
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z"
+                    />
+                  </svg>
+                </span>
+                {t("search")}
+              </Link>
+              <Link
                 href={mobileShopBase}
                 onClick={() => setBurgerOpen(false)}
-                className="block py-3 text-sm font-medium text-foreground transition-colors hover:bg-muted/50"
+                className="block py-3 text-base font-medium text-foreground transition-colors hover:bg-muted/50"
               >
                 {t("viewAllShop")}
               </Link>
@@ -385,7 +449,7 @@ export function NavbarClient({ streetwearCategories, formalCategories }: NavbarC
                   key={cat.id}
                   href={`${mobileShopBase}?cat=${encodeURIComponent(cat.slug)}`}
                   onClick={() => setBurgerOpen(false)}
-                  className="block py-3 text-sm font-medium text-foreground transition-colors hover:bg-muted/50"
+                  className="block py-3 text-base font-medium text-foreground transition-colors hover:bg-muted/50"
                 >
                   {cat.label}
                 </Link>
@@ -403,65 +467,35 @@ export function NavbarClient({ streetwearCategories, formalCategories }: NavbarC
                 </Link>
               </div>
             )}
-
-            <div className="mt-6 border-t border-border pt-4">
-              <button
-                type="button"
-                onClick={toggleTheme}
-                className="flex w-full items-center gap-3 py-3 text-start text-sm font-medium text-foreground transition-colors hover:bg-muted/50"
-                aria-label={theme === "dark" ? t("themeLightAria") : t("themeDarkAria")}
-              >
-                {theme === "dark" ? (
-                  <svg className="h-5 w-5 shrink-0" fill="none" stroke="currentColor" strokeWidth={1.5} viewBox="0 0 24 24">
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z"
-                    />
-                  </svg>
-                ) : (
-                  <svg className="h-5 w-5 shrink-0" fill="none" stroke="currentColor" strokeWidth={1.5} viewBox="0 0 24 24">
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z"
-                    />
-                  </svg>
-                )}
-                {theme === "dark" ? t("lightMode") : t("darkMode")}
-              </button>
-            </div>
           </div>
 
-          <form
-            onSubmit={submitMobileSearch}
-            className="mt-auto shrink-0 border-t border-border bg-background p-4"
-          >
-            <label className="relative block">
-              <span className="sr-only">{t("search")}</span>
-              <span className="pointer-events-none absolute start-3 top-1/2 -translate-y-1/2 text-muted-foreground" aria-hidden>
-                <svg className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth={1.5} viewBox="0 0 24 24">
+          <div className="shrink-0 border-t border-border bg-background px-5 pb-[max(0.75rem,env(safe-area-inset-bottom,0px))] pt-2">
+            <button
+              type="button"
+              onClick={toggleTheme}
+              className="flex w-full items-center gap-3 py-3 text-start text-base font-medium text-foreground transition-colors hover:bg-muted/50"
+              aria-label={theme === "dark" ? t("themeLightAria") : t("themeDarkAria")}
+            >
+              {theme === "dark" ? (
+                <svg className="h-5 w-5 shrink-0" fill="none" stroke="currentColor" strokeWidth={1.5} viewBox="0 0 24 24">
                   <path
                     strokeLinecap="round"
                     strokeLinejoin="round"
-                    d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z"
+                    d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z"
                   />
                 </svg>
-              </span>
-              <input
-                type="search"
-                name="q"
-                value={mobileSearchQuery}
-                onChange={(e) => setMobileSearchQuery(e.target.value)}
-                placeholder={t("mobileSearchPlaceholder")}
-                autoComplete="off"
-                className="w-full rounded-none border border-border bg-background py-2.5 ps-10 pe-3 text-sm text-foreground placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-              />
-            </label>
-            <button type="submit" className="sr-only" tabIndex={-1}>
-              {t("mobileSearchSubmitAria")}
+              ) : (
+                <svg className="h-5 w-5 shrink-0" fill="none" stroke="currentColor" strokeWidth={1.5} viewBox="0 0 24 24">
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z"
+                  />
+                </svg>
+              )}
+              {theme === "dark" ? t("lightMode") : t("darkMode")}
             </button>
-          </form>
+          </div>
         </SheetContent>
       </Sheet>
 

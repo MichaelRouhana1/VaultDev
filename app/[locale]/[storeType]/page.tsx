@@ -79,13 +79,20 @@ export default async function HomePage({
   });
 
   return (
-    <div className="pt-14">
+    <div className="lg:pt-14">
       {/* Hero */}
       {heroImages.length > 0 ? (
         <HeroCarousel images={heroImages} />
       ) : (
         <HeroFallback storeType={storeType} fallbackImage={PEXELS(3748221, 1920, 1080)} />
       )}
+
+      {/* Mobile navbar: Intersection/scroll target — top of categories (after hero). See NavbarClient. */}
+      <div
+        id="store-landing-categories-sentinel"
+        className="pointer-events-none h-0 w-full shrink-0"
+        aria-hidden
+      />
 
       {/* Category Grid */}
       <CategoryGrid categories={homeCategories} storeSlugs={storeSlugs} storeType={storeType} />

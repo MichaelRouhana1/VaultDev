@@ -1,5 +1,6 @@
 import { Link } from "@/i18n/navigation";
 import Image from "next/image";
+import { HeroMobileSearchBar } from "@/components/storefront/HeroMobileSearchBar";
 
 interface HeroFallbackProps {
     storeType: string;
@@ -8,7 +9,8 @@ interface HeroFallbackProps {
 
 export function HeroFallback({ storeType, fallbackImage }: HeroFallbackProps) {
     return (
-        <section className="w-full min-h-[52vh] sm:min-h-[62vh] md:h-[78vh] flex items-center justify-center relative overflow-hidden">
+        <section className="w-full min-h-[82vh] sm:min-h-[86vh] md:h-[86vh] flex items-center justify-center relative overflow-hidden">
+            <HeroMobileSearchBar />
             <Image
                 src={fallbackImage}
                 alt=""

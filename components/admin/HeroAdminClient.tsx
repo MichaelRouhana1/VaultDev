@@ -11,10 +11,10 @@ import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import type { HeroImage } from "@/db/schema";
 
-/** Base ratio from ~1567×544 art; scaled for storefront `md:h-[78vh]` (75vh reference). */
-const HERO_DESKTOP_ASPECT = (72 / 25) * (75 / 78);
-/** Measured mobile frame ~349×323 at 50vh min-height; scaled for `min-h-[52vh]`. */
-const HERO_MOBILE_ASPECT = (349.09 / 323.57) * (50 / 52);
+/** Base ratio from ~1567×544 art; scaled for storefront `md:h-[86vh]` (75vh reference). */
+const HERO_DESKTOP_ASPECT = (72 / 25) * (75 / 86);
+/** Measured mobile frame ~349×323 at 50vh min-height; scaled for storefront `min-h-[82vh]`. */
+const HERO_MOBILE_ASPECT = (349.09 / 323.57) * (50 / 82);
 
 function MobileCropPreview({ url, alt }: { url: string | null | undefined; alt: string }) {
   if (!url) {
@@ -198,7 +198,7 @@ export function HeroAdminClient({ images: initialImages, initialStoreType }: Her
           desktopAspect={HERO_DESKTOP_ASPECT}
           mobileAspect={HERO_MOBILE_ASPECT}
           desktopLabel="Hero wide"
-          mobileLabel="Mobile hero (52vh min)"
+          mobileLabel="Mobile hero (82vh min)"
           title="Crop hero — desktop & mobile"
         />
       )}

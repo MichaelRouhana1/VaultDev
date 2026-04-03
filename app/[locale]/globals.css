@@ -192,8 +192,70 @@
     @apply border-border outline-ring/50;
   }
   body {
-    @apply bg-background text-foreground;
+    @apply cursor-default bg-background text-foreground;
   }
+
+  /*
+   * Cursor UX baseline (see project standards): interactive = pointer, reading flow = text,
+   * without forcing I-beam on text inside links/buttons (descendants use cursor: inherit).
+   */
+  :where(a, button, [role="button"], summary, select, label) {
+    @apply cursor-pointer;
+  }
+
+  :where(a, button, [role="button"], summary) :where(*) {
+    cursor: inherit;
+  }
+
+  :where(h1, h2, h3, h4, h5, h6, p, li) {
+    @apply cursor-text;
+  }
+
+  :where(
+      input:not([type]),
+      input[type="text"],
+      input[type="search"],
+      input[type="email"],
+      input[type="password"],
+      input[type="url"],
+      input[type="tel"],
+      input[type="number"],
+      input[type="time"],
+      input[type="date"],
+      input[type="datetime-local"],
+      input[type="month"],
+      input[type="week"],
+      textarea
+    ) {
+    @apply cursor-text;
+  }
+
+  :where(
+      input[type="checkbox"],
+      input[type="radio"],
+      input[type="file"],
+      input[type="submit"],
+      input[type="button"],
+      input[type="reset"],
+      input[type="image"],
+      input[type="color"]
+    ) {
+    @apply cursor-pointer;
+  }
+
+  input[type="range"] {
+    cursor: ew-resize;
+  }
+
+  :where(button, a, input, select, textarea, [role="button"]):disabled,
+  :where(button, a, input, select, textarea, [role="button"])[aria-disabled="true"] {
+    @apply cursor-not-allowed;
+  }
+
+  input:read-only:not(:disabled) {
+    @apply cursor-default;
+  }
+
   a:focus-visible, button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-visible, [role="button"]:focus-visible, [tabindex="0"]:focus-visible {
     @apply outline-none ring-2 ring-foreground ring-offset-2 ring-offset-background;
   }

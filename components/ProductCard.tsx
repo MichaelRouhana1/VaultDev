@@ -523,12 +523,14 @@ export function ProductCard({
       </Link>
 
       <Sheet open={mobileSizeSheetOpen} onOpenChange={setMobileSizeSheetOpen}>
-        <SheetContent side="bottom" className="gap-0 px-6 pb-8 pt-2">
-          <SheetHeader className="border-b border-border pb-4 text-start">
+        <SheetContent
+          side="bottom"
+          className="max-h-[95vh] min-h-[34vh] gap-0 rounded-none border-x-0 px-6 pb-8 pt-5"
+        >
+          <SheetHeader className="pb-0 text-start">
             <SheetTitle>{tPdp("selectSizeSheetTitle")}</SheetTitle>
           </SheetHeader>
-          <p className="pt-2 text-sm text-muted-foreground">{product.name}</p>
-          <div className="flex flex-wrap gap-2 pt-4">
+          <div className="flex flex-wrap gap-2 pt-5">
             {sizes.map((size) => {
               const inStock = isSizeInStock(size);
               return (
@@ -538,7 +540,7 @@ export function ProductCard({
                   disabled={!inStock}
                   onClick={() => handleMobileSheetPickSize(size)}
                   className={cn(
-                    "min-h-12 min-w-12 rounded-full px-4 text-xs font-medium uppercase tracking-widest transition-colors",
+                    "inline-flex h-12 w-12 shrink-0 items-center justify-center rounded-none text-xs font-medium uppercase tracking-widest transition-colors",
                     !inStock
                       ? "cursor-not-allowed border border-border bg-muted/30 text-muted-foreground opacity-50"
                       : "border border-border text-foreground hover:border-foreground active:bg-foreground active:text-background",
@@ -560,32 +562,32 @@ export function ProductCard({
         >
           <div
             className={cn(
-              "pointer-events-auto flex w-full max-w-lg items-center gap-3 border border-border bg-background/95 p-3 shadow-lg backdrop-blur-sm transition-transform duration-300 ease-out",
+              "pointer-events-auto flex w-full max-w-lg items-center gap-2 border border-border bg-background/95 px-2.5 py-2 shadow-lg backdrop-blur-sm transition-transform duration-300 ease-out",
               mobileAddedToastVisible ? "translate-y-0" : "translate-y-[calc(100%+2.5rem)]",
             )}
           >
-            <div className="flex min-w-0 flex-1 items-center gap-3">
-              <div className="relative h-14 w-11 shrink-0 overflow-hidden bg-muted">
+            <div className="flex min-w-0 flex-1 items-center gap-2">
+              <div className="relative h-10 w-8 shrink-0 overflow-hidden bg-muted">
                 {mobileAddedToast.thumb ? (
                   <Image
                     src={mobileAddedToast.thumb}
                     alt=""
                     fill
                     className="object-cover"
-                    sizes="56px"
+                    sizes="32px"
                   />
                 ) : (
-                  <div className="flex h-full w-full items-center justify-center text-muted-foreground text-xs">
+                  <div className="flex h-full w-full items-center justify-center text-muted-foreground text-[10px]">
                     —
                   </div>
                 )}
               </div>
-              <p className="text-sm font-medium text-foreground">{tPdp("addedToBag")}</p>
+              <p className="text-xs font-medium leading-tight text-foreground">{tPdp("addedToBag")}</p>
             </div>
             <button
               type="button"
               onClick={handleMobileToastGoToBag}
-              className="shrink-0 rounded-none border border-foreground bg-transparent px-3 py-2 text-xs font-semibold uppercase tracking-wider text-foreground transition-colors hover:bg-foreground hover:text-background"
+              className="shrink-0 rounded-none border border-foreground bg-transparent px-2.5 py-1.5 text-[10px] font-semibold uppercase tracking-wider text-foreground transition-colors hover:bg-foreground hover:text-background"
             >
               {tPdp("goToBag")}
             </button>

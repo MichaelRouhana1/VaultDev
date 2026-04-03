@@ -839,7 +839,7 @@ export function ProductDetailClient({
                     type="button"
                     onClick={() => inStock && setSelectedSize(size)}
                     disabled={!inStock}
-                    className={`w-12 h-12 rounded-full text-xs font-medium uppercase tracking-widest transition-colors ${!inStock
+                    className={`inline-flex h-12 w-12 shrink-0 items-center justify-center rounded-none text-xs font-medium uppercase tracking-widest transition-colors ${!inStock
                       ? "border border-border text-muted-foreground opacity-50 cursor-not-allowed bg-muted/30"
                       : selectedSize === size
                         ? "bg-foreground text-background"
