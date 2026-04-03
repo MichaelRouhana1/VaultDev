@@ -293,7 +293,7 @@ export function ProductDetailClient({
       return;
     }
 
-    router.push(`/${listStoreType}/shop`);
+    router.push(`/${listStoreType}/shop`, { scroll: true });
   }, [router, listStoreType]);
 
   const handleWishlistClick = async (e: React.MouseEvent) => {

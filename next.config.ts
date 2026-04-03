@@ -8,7 +8,8 @@ const withNextIntl = createNextIntlPlugin("./i18n.ts");
 const nextConfig: NextConfig = {
   experimental: {
     serverActions: {
-      bodySizeLimit: "4mb",
+      /** Must be ≥ multipart admin uploads (e.g. 5MB files + overhead); keep in sync with `MAX_SERVER_ACTION_BODY_BYTES`. */
+      bodySizeLimit: "10mb",
     },
   },
   images: {

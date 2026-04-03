@@ -238,6 +238,12 @@ export function ShopClient({
     () => shopListingNavKeyFromSearchParams(searchParams),
     [searchParams],
   );
+
+  /** `router.push` inside `startTransition` can skip scroll restoration; also covers Link from a scrolled store home. */
+  useEffect(() => {
+    window.scrollTo({ top: 0, left: 0, behavior: "instant" as ScrollBehavior });
+  }, [listingKeyFromUrl]);
+
   const listingUrlAheadOfServer = listingKeyFromUrl !== listingNavKey;
   const showShopListingSkeleton =
     (shopNav?.isShopNavPending ?? false) || listingUrlAheadOfServer;

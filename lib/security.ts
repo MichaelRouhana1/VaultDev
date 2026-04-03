@@ -33,7 +33,7 @@ export const MAX_VIDEO_SIZE_BYTES = 50 * 1024 * 1024; // 50MB
  * Cap for payloads accepted by Server Actions (`next.config.ts` `experimental.serverActions.bodySizeLimit`).
  * Image uploads through actions must not exceed this or Next will reject the request before the action runs.
  */
-export const MAX_SERVER_ACTION_BODY_BYTES = 4 * 1024 * 1024; // 4mb — keep in sync with next.config.ts
+export const MAX_SERVER_ACTION_BODY_BYTES = 10 * 1024 * 1024; // 10mb — keep in sync with next.config.ts `experimental.serverActions.bodySizeLimit`
 
 /**
  * Escapes HTML special characters to prevent XSS when interpolating user input into HTML.

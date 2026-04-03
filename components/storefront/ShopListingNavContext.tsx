@@ -17,7 +17,7 @@ export function ShopListingNavProvider({ children }: { children: ReactNode }) {
   const startShopNavigation = useCallback(
     (href: string) => {
       startTransition(() => {
-        router.push(href);
+        router.push(href, { scroll: true });
       });
     },
     [router],
