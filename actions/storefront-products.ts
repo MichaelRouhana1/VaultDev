@@ -26,6 +26,7 @@ import {
 import { buildProductSearchWhere } from "@/lib/product-search";
 import { listingProductColumns } from "@/lib/storefront-listing-columns";
 import { conditionProductsMatchCategorySlug } from "@/lib/shop-category-filter";
+import { withDbRetry } from "@/lib/utils";
 export type StoreTypeFilter = "streetwear" | "formal";
 
 /** Coerce DB text for UI (same idea as `actions/attributes`). */
@@ -61,26 +62,30 @@ async function shopListingFilterSql(
 
 /** Listing / metadata: main category slug for the product. */
 export const getPrimaryCategorySlugForProduct = cache(async (productId: number): Promise<string | null> => {
-  const [row] = await db
-    .select({ mainSlug: mainCat.slug })
-    .from(products)
-    .innerJoin(mainCat, eq(products.mainCategoryId, mainCat.id))
-    .where(and(eq(products.id, productId), eq(products.isArchived, false)))
-    .limit(1);
+  const [row] = await withDbRetry(() =>
+    db
+      .select({ mainSlug: mainCat.slug })
+      .from(products)
+      .innerJoin(mainCat, eq(products.mainCategoryId, mainCat.id))
+      .where(and(eq(products.id, productId), eq(products.isArchived, false)))
+      .limit(1),
+  );
   return row?.mainSlug ?? null;
 });
 
 export const getPrimaryCategorySlugByProductIds = cache(async (productIds: number[]) => {
   const ids = [...new Set(productIds)].filter((id) => Number.isFinite(id));
   if (ids.length === 0) return {} as Record<number, string>;
-  const rows = await db
-    .select({
-      productId: products.id,
-      mainSlug: mainCat.slug,
-    })
-    .from(products)
-    .innerJoin(mainCat, eq(products.mainCategoryId, mainCat.id))
-    .where(and(inArray(products.id, ids), eq(products.isArchived, false)));
+  const rows = await withDbRetry(() =>
+    db
+      .select({
+        productId: products.id,
+        mainSlug: mainCat.slug,
+      })
+      .from(products)
+      .innerJoin(mainCat, eq(products.mainCategoryId, mainCat.id))
+      .where(and(inArray(products.id, ids), eq(products.isArchived, false))),
+  );
   const map: Record<number, string> = {};
   for (const r of rows) {
     map[r.productId] = r.mainSlug ?? "";
@@ -98,14 +103,16 @@ export const getProductCategoryFilterTagsByProductIds = cache(
   async (productIds: number[]): Promise<Record<number, ProductCategoryFilterTags>> => {
     const ids = [...new Set(productIds)].filter((id) => Number.isFinite(id));
     if (ids.length === 0) return {};
-    const rows = await db
-      .select({
-        productId: products.id,
-        mainSlug: mainCat.slug,
-      })
-      .from(products)
-      .innerJoin(mainCat, eq(products.mainCategoryId, mainCat.id))
-      .where(and(inArray(products.id, ids), eq(products.isArchived, false)));
+    const rows = await withDbRetry(() =>
+      db
+        .select({
+          productId: products.id,
+          mainSlug: mainCat.slug,
+        })
+        .from(products)
+        .innerJoin(mainCat, eq(products.mainCategoryId, mainCat.id))
+        .where(and(inArray(products.id, ids), eq(products.isArchived, false))),
+    );
     const map: Record<number, ProductCategoryFilterTags> = {};
     for (const r of rows) {
       const main = r.mainSlug ?? "";
@@ -120,14 +127,16 @@ export const getProductAttributeValueSlugsByProductIds = cache(
   async (productIds: number[]): Promise<Record<number, string[]>> => {
     const ids = [...new Set(productIds)].filter((id) => Number.isFinite(id));
     if (ids.length === 0) return {};
-    const rows = await db
-      .select({
-        productId: productAttributeValues.productId,
-        slug: attributeValues.slug,
-      })
-      .from(productAttributeValues)
-      .innerJoin(attributeValues, eq(productAttributeValues.attributeValueId, attributeValues.id))
-      .where(inArray(productAttributeValues.productId, ids));
+    const rows = await withDbRetry(() =>
+      db
+        .select({
+          productId: productAttributeValues.productId,
+          slug: attributeValues.slug,
+        })
+        .from(productAttributeValues)
+        .innerJoin(attributeValues, eq(productAttributeValues.attributeValueId, attributeValues.id))
+        .where(inArray(productAttributeValues.productId, ids)),
+    );
     const map: Record<number, string[]> = {};
     for (const r of rows) {
       if (!map[r.productId]) map[r.productId] = [];
@@ -157,17 +166,19 @@ function rethrowDbWithPgMessage(e: unknown): never {
 /** Home “discover” strip: visible products for store + first color image + main category slug. */
 export const getHomeDiscoverProductsWithFirstImage = cache(
   async (storeType: StoreTypeFilter, locale: MosaikLocale) => {
-    const productRows = await db
-      .select(listingProductColumns)
-      .from(products)
-      .where(
-        and(eq(products.isVisible, true), eq(products.isArchived, false), eq(products.storeType, storeType)),
-      )
-      .orderBy(desc(products.id))
-      .limit(8)
-      .catch((e: unknown) => {
-        rethrowDbWithPgMessage(e);
-      });
+    const productRows = await withDbRetry(() =>
+      db
+        .select(listingProductColumns)
+        .from(products)
+        .where(
+          and(eq(products.isVisible, true), eq(products.isArchived, false), eq(products.storeType, storeType)),
+        )
+        .orderBy(desc(products.id))
+        .limit(8)
+        .catch((e: unknown) => {
+          rethrowDbWithPgMessage(e);
+        }),
+    );
 
     const localizedRows = productRows.map((row) => withLocalizedProductCopy(row, locale));
 
@@ -177,29 +188,33 @@ export const getHomeDiscoverProductsWithFirstImage = cache(
     const categoryIds = [...new Set(localizedRows.map((r) => r.mainCategoryId))];
     const slugByCategoryId = new Map<number, string>();
     if (categoryIds.length > 0) {
-      const catRows = await db
-        .select({ id: categories.id, slug: categories.slug })
-        .from(categories)
-        .where(inArray(categories.id, categoryIds))
-        .catch((e: unknown) => {
-          rethrowDbWithPgMessage(e);
-        });
+      const catRows = await withDbRetry(() =>
+        db
+          .select({ id: categories.id, slug: categories.slug })
+          .from(categories)
+          .where(inArray(categories.id, categoryIds))
+          .catch((e: unknown) => {
+            rethrowDbWithPgMessage(e);
+          }),
+      );
       for (const c of catRows) {
         if (c.slug != null) slugByCategoryId.set(c.id, c.slug);
       }
     }
 
-    const colorRows = await db
-      .select({
-        productId: productColors.productId,
-        imageUrls: productColors.imageUrls,
-      })
-      .from(productColors)
-      .where(inArray(productColors.productId, ids))
-      .orderBy(asc(productColors.productId), asc(productColors.id))
-      .catch((e: unknown) => {
-        rethrowDbWithPgMessage(e);
-      });
+    const colorRows = await withDbRetry(() =>
+      db
+        .select({
+          productId: productColors.productId,
+          imageUrls: productColors.imageUrls,
+        })
+        .from(productColors)
+        .where(inArray(productColors.productId, ids))
+        .orderBy(asc(productColors.productId), asc(productColors.id))
+        .catch((e: unknown) => {
+          rethrowDbWithPgMessage(e);
+        }),
+    );
 
     const firstImageByProductId = new Map<number, string | null>();
     for (const row of colorRows) {
@@ -238,10 +253,10 @@ export const getShopProductsForStore = cache(
       })
       .from(products)
       .where(and(...baseFilters));
-    const rows = await (
+    const rows = await withDbRetry(() =>
       options?.priceSort === "price-desc"
         ? base.orderBy(desc(products.price), asc(products.id))
-        : base.orderBy(asc(products.price), asc(products.id))
+        : base.orderBy(asc(products.price), asc(products.id)),
     );
     return rows.map((row) => withLocalizedProductCopy(row, locale));
   },
@@ -254,7 +269,7 @@ export const getShopProductIdsForListingContext = cache(
     filters: { categorySlug?: string; searchQuery?: string },
   ): Promise<number[]> => {
     const parts = await shopListingFilterSql(storeType, filters);
-    const rows = await db.select({ id: products.id }).from(products).where(and(...parts));
+    const rows = await withDbRetry(() => db.select({ id: products.id }).from(products).where(and(...parts)));
     return rows.map((r) => r.id);
   },
 );
@@ -270,20 +285,22 @@ export const getShopAttributeFacetsForListingContext = cache(
     filters: { categorySlug?: string; searchQuery?: string },
   ): Promise<ShopAttributeFilterSection[]> => {
     const parts = await shopListingFilterSql(storeType, filters);
-    const rows = await db
-      .select({
-        attrId: attributes.id,
-        attrName: attributes.name,
-        attrSort: attributes.sortOrder,
-        valId: attributeValues.id,
-        valName: attributeValues.name,
-        valSlug: attributeValues.slug,
-      })
-      .from(products)
-      .innerJoin(productAttributeValues, eq(productAttributeValues.productId, products.id))
-      .innerJoin(attributeValues, eq(attributeValues.id, productAttributeValues.attributeValueId))
-      .innerJoin(attributes, eq(attributes.id, attributeValues.attributeId))
-      .where(and(...parts));
+    const rows = await withDbRetry(() =>
+      db
+        .select({
+          attrId: attributes.id,
+          attrName: attributes.name,
+          attrSort: attributes.sortOrder,
+          valId: attributeValues.id,
+          valName: attributeValues.name,
+          valSlug: attributeValues.slug,
+        })
+        .from(products)
+        .innerJoin(productAttributeValues, eq(productAttributeValues.productId, products.id))
+        .innerJoin(attributeValues, eq(attributeValues.id, productAttributeValues.attributeValueId))
+        .innerJoin(attributes, eq(attributes.id, attributeValues.attributeId))
+        .where(and(...parts)),
+    );
 
     type AttrAgg = {
       sortOrder: number;
@@ -330,26 +347,28 @@ function normalizeProductIds(productIds: number[]): number[] {
 export const getProductVariantsByProductIds = cache(async (productIds: number[]) => {
   const ids = normalizeProductIds(productIds);
   if (ids.length === 0) return [];
-  return db.select().from(productVariants).where(inArray(productVariants.productId, ids));
+  return withDbRetry(() => db.select().from(productVariants).where(inArray(productVariants.productId, ids)));
 });
 
 export const getProductColorsByProductIds = cache(async (productIds: number[]) => {
   const ids = normalizeProductIds(productIds);
   if (ids.length === 0) return [];
-  return db.select().from(productColors).where(inArray(productColors.productId, ids));
+  return withDbRetry(() => db.select().from(productColors).where(inArray(productColors.productId, ids)));
 });
 
 export const getPublicProductTitleForMetadata = cache(async (productId: number, locale: MosaikLocale) => {
-  const rows = await db
-    .select({
-      name: products.name,
-      nameEn: products.nameEn,
-      nameFr: products.nameFr,
-      nameAr: products.nameAr,
-    })
-    .from(products)
-    .where(and(eq(products.id, productId), eq(products.isArchived, false)))
-    .limit(1);
+  const rows = await withDbRetry(() =>
+    db
+      .select({
+        name: products.name,
+        nameEn: products.nameEn,
+        nameFr: products.nameFr,
+        nameAr: products.nameAr,
+      })
+      .from(products)
+      .where(and(eq(products.id, productId), eq(products.isArchived, false)))
+      .limit(1),
+  );
   const row = rows[0];
   if (!row) return [];
   return [{ name: localizedProductName(locale, row) }];
@@ -357,17 +376,19 @@ export const getPublicProductTitleForMetadata = cache(async (productId: number, 
 
 export const getPublicProductDetailForStore = cache(
   async (productId: number, storeType: StoreTypeFilter, locale: MosaikLocale) => {
-    const rows = await db
-      .select()
-      .from(products)
-      .where(
-        and(
-          eq(products.id, productId),
-          eq(products.storeType, storeType),
-          eq(products.isArchived, false),
-        ),
-      )
-      .limit(1);
+    const rows = await withDbRetry(() =>
+      db
+        .select()
+        .from(products)
+        .where(
+          and(
+            eq(products.id, productId),
+            eq(products.storeType, storeType),
+            eq(products.isArchived, false),
+          ),
+        )
+        .limit(1),
+    );
     const row = rows[0];
     if (!row) return [];
     return [withLocalizedProductCopy(row, locale)];
@@ -377,33 +398,37 @@ export const getPublicProductDetailForStore = cache(
 /** Similar products: same main shop category (ignores attribute tags so e.g. different fits still match). */
 export const getSimilarVisibleProductsExcept = cache(
   async (forProductId: number, storeType: StoreTypeFilter, locale: MosaikLocale, limit = 10) => {
-    const [p] = await db
-      .select({ mainCategoryId: products.mainCategoryId })
-      .from(products)
-      .where(
-        and(
-          eq(products.id, forProductId),
-          eq(products.storeType, storeType),
-          eq(products.isArchived, false),
-        ),
-      )
-      .limit(1);
+    const [p] = await withDbRetry(() =>
+      db
+        .select({ mainCategoryId: products.mainCategoryId })
+        .from(products)
+        .where(
+          and(
+            eq(products.id, forProductId),
+            eq(products.storeType, storeType),
+            eq(products.isArchived, false),
+          ),
+        )
+        .limit(1),
+    );
     if (!p) return [];
 
-    const rows = await db
-      .select()
-      .from(products)
-      .where(
-        and(
-          eq(products.isVisible, true),
-          eq(products.isArchived, false),
-          eq(products.storeType, storeType),
-          eq(products.mainCategoryId, p.mainCategoryId),
-          ne(products.id, forProductId),
-        ),
-      )
-      .orderBy(desc(products.id))
-      .limit(limit);
+    const rows = await withDbRetry(() =>
+      db
+        .select()
+        .from(products)
+        .where(
+          and(
+            eq(products.isVisible, true),
+            eq(products.isArchived, false),
+            eq(products.storeType, storeType),
+            eq(products.mainCategoryId, p.mainCategoryId),
+            ne(products.id, forProductId),
+          ),
+        )
+        .orderBy(desc(products.id))
+        .limit(limit),
+    );
     return rows.map((row) => withLocalizedProductCopy(row, locale));
   },
 );

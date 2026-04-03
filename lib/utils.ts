@@ -193,3 +193,39 @@ export function generateOrderNumber(fromDate: Date = new Date()): string {
 
   return `ORD-${yymmdd}-${suffix}`;
 }
+
+function isConnectTimeoutError(error: unknown): boolean {
+  if (error == null || typeof error !== "object") return false;
+  const e = error as Error & { cause?: unknown; code?: string };
+  if (typeof e.message === "string" && e.message.includes("CONNECT_TIMEOUT")) return true;
+  if (e.code === "CONNECT_TIMEOUT") return true;
+  const c = e.cause;
+  if (c instanceof Error && typeof c.message === "string" && c.message.includes("CONNECT_TIMEOUT")) {
+    return true;
+  }
+  if (c && typeof c === "object" && "code" in c && (c as { code?: string }).code === "CONNECT_TIMEOUT") {
+    return true;
+  }
+  return false;
+}
+
+/**
+ * Retries a DB operation when the driver reports a pooler / TCP connect timeout (e.g. Supabase `6543`).
+ */
+export async function withDbRetry<T>(operation: () => Promise<T>, maxRetries = 3): Promise<T> {
+  let attempt = 0;
+
+  while (attempt < maxRetries) {
+    try {
+      return await operation();
+    } catch (error: unknown) {
+      attempt++;
+      if (attempt >= maxRetries || !isConnectTimeoutError(error)) {
+        throw error;
+      }
+      await new Promise((resolve) => setTimeout(resolve, 1000 * attempt));
+    }
+  }
+
+  throw new Error("Database operation failed after multiple attempts.");
+}
