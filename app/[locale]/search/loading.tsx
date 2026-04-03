@@ -5,6 +5,15 @@ import { useTranslations } from "next-intl";
 import { useSearchParams } from "next/navigation";
 import { cn } from "@/lib/utils";
 
+// Reusable component for the Bershka left-to-right sweeping effect
+function ShimmerBlock({ className }: { className?: string }) {
+  return (
+    <div className={cn("relative overflow-hidden bg-gray-200 dark:bg-gray-800", className)}>
+      <div className="absolute inset-0 -translate-x-full animate-shimmer bg-gradient-to-r from-transparent via-white/60 to-transparent dark:via-white/10" />
+    </div>
+  );
+}
+
 function SearchLoadingLayout({ query }: { query: string }) {
   const t = useTranslations("Search");
 
@@ -42,20 +51,20 @@ function SearchLoadingLayout({ query }: { query: string }) {
         {/* Skeleton Filter & Product Grid Layout */}
         <div className="relative flex w-full items-start gap-x-4 px-4 pt-2 pb-5 sm:px-5 sm:pt-3 sm:pb-6 md:gap-x-6 md:px-6 md:pt-4 md:pb-8">
           {/* Desktop Filter Sidebar Skeleton */}
-          <aside className="hidden w-[250px] shrink-0 space-y-8 pt-5 opacity-60 md:block lg:w-[280px]">
+          <aside className="hidden w-[250px] shrink-0 space-y-8 pt-5 md:block lg:w-[280px]">
             <div>
-              <div className="mb-4 h-4 w-24 animate-pulse rounded bg-muted" />
+              <ShimmerBlock className="mb-4 h-4 w-24 rounded" />
               <div className="space-y-3">
                 {[1, 2, 3, 4].map((i) => (
-                  <div key={i} className="h-3 w-full animate-pulse rounded bg-muted" />
+                  <ShimmerBlock key={i} className="h-3 w-full rounded" />
                 ))}
               </div>
             </div>
             <div>
-              <div className="mb-4 h-4 w-20 animate-pulse rounded bg-muted" />
+              <ShimmerBlock className="mb-4 h-4 w-20 rounded" />
               <div className="space-y-3">
                 {[1, 2, 3].map((i) => (
-                  <div key={i} className="h-3 w-5/6 animate-pulse rounded bg-muted" />
+                  <ShimmerBlock key={i} className="h-3 w-5/6 rounded" />
                 ))}
               </div>
             </div>
@@ -67,12 +76,12 @@ function SearchLoadingLayout({ query }: { query: string }) {
               {Array.from({ length: 8 }).map((_, i) => (
                 <div key={i} className="flex flex-col gap-3">
                   {/* Image Placeholder */}
-                  <div className="aspect-[3/4] w-full animate-pulse rounded-sm bg-muted" />
+                  <ShimmerBlock className="aspect-[3/4] w-full rounded-sm" />
 
                   {/* Text Placeholders */}
                   <div className="space-y-2">
-                    <div className="h-3 w-3/4 animate-pulse rounded bg-muted" />
-                    <div className="h-3 w-1/4 animate-pulse rounded bg-muted" />
+                    <ShimmerBlock className="h-3 w-3/4 rounded" />
+                    <ShimmerBlock className="h-3 w-1/4 rounded" />
                   </div>
                 </div>
               ))}
