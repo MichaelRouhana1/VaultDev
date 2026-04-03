@@ -31,8 +31,31 @@ function ProductSkeletonTiles({ count }: { count: number }) {
   );
 }
 
-/** Filter sidebar + 4-column product grid (search-with-query and shop listing). */
-export function ListingWithFiltersSkeleton({
+/**
+ * Sticky strip matching `UtilityBar`: “FILTERS” on the left; search shows a result-count line,
+ * shop shows VIEW + density toggles. Filter panel is closed by default — no sidebar skeleton.
+ */
+export function ListingUtilityBarSkeleton({ variant }: { variant: "search" | "shop" }) {
+  return (
+    <div className="sticky top-14 z-30 bg-background">
+      <div className="flex w-full flex-wrap items-center justify-between gap-2 px-4 py-2 sm:px-5 sm:py-2.5 md:px-6 md:py-3">
+        <ShimmerBlock className="h-3.5 w-[4.25rem] sm:w-20" aria-hidden />
+        {variant === "search" ? (
+          <ShimmerBlock className="h-3 w-32 shrink-0 sm:w-36" aria-hidden />
+        ) : (
+          <div className="flex shrink-0 items-center gap-2">
+            <ShimmerBlock className="h-3.5 w-10 sm:w-11" aria-hidden />
+            <ShimmerBlock className="h-10 min-w-10 w-10" aria-hidden />
+            <ShimmerBlock className="h-10 min-w-10 w-10" aria-hidden />
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+/** Full-width product grid (4 columns from `md`); matches listing with filters closed. */
+export function ListingGridSkeleton({
   gridClassName = "grid grid-cols-2 gap-4 sm:gap-6 md:grid-cols-4 lg:gap-8",
   tileCount = 8,
 }: {
@@ -40,34 +63,16 @@ export function ListingWithFiltersSkeleton({
   tileCount?: number;
 }) {
   return (
-    <div className="relative flex w-full items-start gap-x-4 px-4 pt-2 pb-5 sm:px-5 sm:pt-3 sm:pb-6 md:gap-x-6 md:px-6 md:pt-4 md:pb-8">
-      <aside className="hidden w-[250px] shrink-0 space-y-8 pt-5 md:block lg:w-[280px]">
-        <div>
-          <ShimmerBlock className="mb-4 h-4 w-24" />
-          <div className="space-y-3">
-            {[1, 2, 3, 4].map((i) => (
-              <ShimmerBlock key={i} className="h-3 w-full" />
-            ))}
-          </div>
-        </div>
-        <div>
-          <ShimmerBlock className="mb-4 h-4 w-20" />
-          <div className="space-y-3">
-            {[1, 2, 3].map((i) => (
-              <ShimmerBlock key={i} className="h-3 w-5/6" />
-            ))}
-          </div>
-        </div>
-      </aside>
-
-      <div className="mt-4 min-w-0 flex-1 md:mt-0">
-        <div className={gridClassName}>
-          <ProductSkeletonTiles count={tileCount} />
-        </div>
+    <div className="relative w-full px-4 pt-2 pb-5 sm:px-5 sm:pt-3 sm:pb-6 md:px-6 md:pt-4 md:pb-8">
+      <div className={gridClassName}>
+        <ProductSkeletonTiles count={tileCount} />
       </div>
     </div>
   );
 }
+
+/** @deprecated Use ListingGridSkeleton — name kept for any external imports. */
+export const ListingWithFiltersSkeleton = ListingGridSkeleton;
 
 export default function SearchSkeleton({ query }: { query: string }) {
   const t = useTranslations("Search");
@@ -103,7 +108,10 @@ export default function SearchSkeleton({ query }: { query: string }) {
       </div>
 
       {hasSearchQuery ? (
-        <ListingWithFiltersSkeleton />
+        <>
+          <ListingUtilityBarSkeleton variant="search" />
+          <ListingGridSkeleton />
+        </>
       ) : (
         <section className="px-4 pb-10 sm:px-5 md:px-6 md:pb-12">
           <h2 className="mb-6 text-center text-[10px] font-bold uppercase tracking-[0.2em] text-muted-foreground">

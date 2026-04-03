@@ -84,6 +84,11 @@ export function SiteFooter() {
     return null;
   }
 
+  /** Clerk auth pages are full-viewport; hide storefront footer. */
+  if (nextPathname.includes("/sign-in") || nextPathname.includes("/sign-up")) {
+    return null;
+  }
+
   const sectionTitleClass =
     "mb-2.5 text-[0.65rem] font-semibold uppercase tracking-[0.2em] text-foreground md:mb-3 md:text-xs md:tracking-[0.18em]";
   /** Extra space below each column; list rows stay tight above it. */
