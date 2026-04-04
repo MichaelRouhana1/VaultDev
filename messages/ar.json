@@ -442,5 +442,9 @@
   "PrivacyPage": {
     "metaTitle": "سياسة الخصوصية — Vault",
     "metaDescription": "كيف تجمع Vault بياناتك الشخصية وتستخدمها وتحميها."
+  },
+  "TermsPage": {
+    "metaTitle": "شروط الخدمة — Vault",
+    "metaDescription": "الشروط الحاكمة لاستخدام متجر Vault الإلكتروني والمشتريات في لبنان."
   }
 }

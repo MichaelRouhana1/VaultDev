@@ -23,6 +23,29 @@ export const CLERK_WSS_ORIGINS = ["wss://*.clerk.accounts.dev", "wss://*.clerk.c
 const CLERK_TELEMETRY_ORIGIN = "https://clerk-telemetry.com" as const;
 
 /**
+ * Stripe (Stripe.js, Hosted Checkout, 3DS / hooks).
+ * Checkout is COD-only today; these origins keep CSP ready for card flows without widening to arbitrary third parties.
+ * If you use Stripe Address Element with a Google Maps API key, also allow `https://maps.googleapis.com` in
+ * `script-src` and `connect-src` (see Stripe CSP guide).
+ * @see https://stripe.com/docs/security/guide#content-security-policy
+ */
+const STRIPE_SCRIPT_SRC = ["https://js.stripe.com", "https://*.js.stripe.com"] as const;
+const STRIPE_CONNECT_SRC = [
+  "https://api.stripe.com",
+  "https://checkout.stripe.com",
+  /** Device signals / risk (Stripe.js network calls). */
+  "https://m.stripe.network",
+] as const;
+const STRIPE_FRAME_SRC = [
+  "https://js.stripe.com",
+  "https://*.js.stripe.com",
+  /** 3D Secure and redirect-based payment methods. */
+  "https://hooks.stripe.com",
+  "https://checkout.stripe.com",
+] as const;
+const STRIPE_IMG_SRC = ["https://*.stripe.com"] as const;
+
+/**
  * Cloudflare Turnstile (Clerk bot protection / CAPTCHA iframe + script).
  * @see https://developers.cloudflare.com/turnstile/reference/content-security-policy/
  */
@@ -130,7 +153,10 @@ function joinCspSources(parts: string[]): string {
  * **Images:** `blob:` is required for admin image crop / preview (`URL.createObjectURL`). `data:`
  * is omitted unless we add inline data-URI images.
  *
- * **Frames:** Stripe checkout iframe (`js.stripe.com`), Clerk hosted flows, Cloudflare Turnstile.
+ * **Frames:** Stripe (`js.stripe.com`, `hooks.stripe.com`, Checkout), Clerk hosted flows, Cloudflare Turnstile.
+ *
+ * **Analytics:** No third-party analytics scripts in this repo. If you add GTM, Plausible, Vercel Analytics, etc.,
+ * extend `script-src` / `connect-src` / `img-src` here with those vendors’ documented hostnames (avoid `*`).
  *
  * **Clickjacking:** `frame-ancestors 'none'` (redundant with `X-Frame-Options: DENY` in
  * `next.config.ts` but enforced by CSP-aware clients).
@@ -146,6 +172,7 @@ export function buildContentSecurityPolicy(nonce: string): string {
         "'self'",
         ...CLERK_HTTPS_ORIGINS,
         CLOUDFLARE_CHALLENGES_ORIGIN,
+        ...STRIPE_SCRIPT_SRC,
       ])
     : joinCspSources([
         `'nonce-${nonce}'`,
@@ -154,6 +181,7 @@ export function buildContentSecurityPolicy(nonce: string): string {
         "'self'",
         ...CLERK_HTTPS_ORIGINS,
         CLOUDFLARE_CHALLENGES_ORIGIN,
+        ...STRIPE_SCRIPT_SRC,
       ]);
 
   const r2Host = getR2PublicHostname();
@@ -165,6 +193,7 @@ export function buildContentSecurityPolicy(nonce: string): string {
     `https://${PEXELS_HOST}`,
     `https://${CLERK_IMG_HOST}`,
     ...(r2Host ? [`https://${r2Host}`] : []),
+    ...STRIPE_IMG_SRC,
   ]);
 
   const connectParts: string[] = [
@@ -179,13 +208,14 @@ export function buildContentSecurityPolicy(nonce: string): string {
   if (upstash) {
     connectParts.push(upstash);
   }
+  connectParts.push(...STRIPE_CONNECT_SRC);
 
   const connectSrc = joinCspSources(connectParts);
 
   const frameSrc = joinCspSources([
     "'self'",
     ...CLERK_HTTPS_ORIGINS,
-    "https://js.stripe.com",
+    ...STRIPE_FRAME_SRC,
     CLOUDFLARE_CHALLENGES_ORIGIN,
   ]);
 

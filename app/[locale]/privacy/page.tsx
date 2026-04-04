@@ -85,13 +85,20 @@ export default async function PrivacyPage({
           <h2 className="text-base font-semibold text-foreground">3. Returns, cancellation, and the 10-day rule</h2>
           <p>
             Under Lebanese consumer protection rules, you may have a <strong>right to cancel or return</strong> certain purchases within a statutory
-            period (often discussed as <strong>10 days</strong> for distance contracts — see our <strong>Terms</strong> when published for the exact
-            conditions that apply to Vault).
+            period (often discussed as <strong>10 days</strong> for distance contracts — see our{" "}
+            <Link href="/terms" className="underline underline-offset-4 hover:opacity-80">
+              Terms of Service
+            </Link>{" "}
+            for the conditions that apply to Vault).
           </p>
           <p>
             If you exercise that right, we will <strong>process the personal data needed</strong> to handle your <strong>cancellation, return,
             refund, or exchange</strong> (for example order references, contact details, delivery information, and records of the goods). That
-            processing is part of fulfilling our legal and contractual obligations. Details may also appear in our Terms of Sale.
+            processing is part of fulfilling our legal and contractual obligations. Details also appear in our{" "}
+            <Link href="/terms" className="underline underline-offset-4 hover:opacity-80">
+              Terms of Service
+            </Link>
+            .
           </p>
         </section>
 

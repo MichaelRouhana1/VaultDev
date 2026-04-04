@@ -442,5 +442,9 @@
   "PrivacyPage": {
     "metaTitle": "Privacy Policy — Vault",
     "metaDescription": "How Vault collects, uses, and protects your personal data."
+  },
+  "TermsPage": {
+    "metaTitle": "Terms of Service — Vault",
+    "metaDescription": "Terms governing use of the Vault online store and purchases in Lebanon."
   }
 }

@@ -145,7 +145,9 @@ export function SiteFooter() {
                 </Link>
               </li>
               <li>
-                <span className={footerStaticClass}>{t("terms")}</span>
+                <Link href="/terms" className={footerLinkClass}>
+                  {t("terms")}
+                </Link>
               </li>
             </ul>
           </div>

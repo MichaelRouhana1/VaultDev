@@ -442,5 +442,9 @@
   "PrivacyPage": {
     "metaTitle": "Politique de confidentialité — Vault",
     "metaDescription": "Comment Vault collecte, utilise et protège vos données personnelles."
+  },
+  "TermsPage": {
+    "metaTitle": "Conditions d'utilisation — Vault",
+    "metaDescription": "Conditions régissant l'utilisation de la boutique en ligne Vault et les achats au Liban."
   }
 }
