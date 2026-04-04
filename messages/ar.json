@@ -1,4 +1,7 @@
 {
+  "AuthClerk": {
+    "signInTitle": "سجّل الدخول إلى VAULT"
+  },
   "Navbar": {
     "home": "الرئيسية",
     "shop": "المتجر",
@@ -435,5 +438,9 @@
     "mobileBackAria": "رجوع",
     "mobileSearchShopAria": "تصفح المتجر",
     "mobileAccountAria": "الحساب"
+  },
+  "PrivacyPage": {
+    "metaTitle": "سياسة الخصوصية — Vault",
+    "metaDescription": "كيف تجمع Vault بياناتك الشخصية وتستخدمها وتحميها."
   }
 }

@@ -54,6 +54,7 @@ export default async function LocaleLayout({
 
   const messages = await getMessages();
   const tLayout = await getTranslations("Layout");
+  const tAuthClerk = await getTranslations("AuthClerk");
   const headersList = await headers();
   const nonce = headersList.get("x-nonce") || undefined;
   /** Storefront stays LTR for every locale; Arabic only swaps strings, not layout/mirroring. */
@@ -66,6 +67,13 @@ export default async function LocaleLayout({
             dynamic
             nonce={nonce}
             appearance={mosaikClerkAppearance}
+            localization={{
+              signIn: {
+                start: {
+                  title: tAuthClerk("signInTitle"),
+                },
+              },
+            }}
             signInUrl={`/${locale}/sign-in`}
             signUpUrl={`/${locale}/sign-up`}
             signInFallbackRedirectUrl={`/${locale}/account`}

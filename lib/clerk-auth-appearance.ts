@@ -54,6 +54,10 @@ export const mosaikClerkUserButtonVariablesDark: NonNullable<Appearance["variabl
  * (Use static Tailwind arbitrary classes so the compiler retains them.)
  */
 export const mosaikClerkAppearance: Appearance = {
+  layout: {
+    /** Hides the orange “Development mode” pill in dev (Clerk still recommends keeping it for safety). */
+    unsafe_disableDevelopmentModeWarnings: true,
+  },
   variables: {
     colorPrimary: "#111111",
     colorDanger: "#b91c1c",
@@ -75,8 +79,10 @@ export const mosaikClerkAppearance: Appearance = {
   },
   elements: {
     rootBox: "w-full flex justify-center",
+    /** Fill the same column as the page (`max-w-md`); avoid `max-w-*` on `card` or it stays narrower than `cardBox`. */
+    cardBox: "w-full",
     card:
-      "w-full max-w-[24rem] !rounded-[0.625rem] !border !border-solid !border-[#e5e5e5] !bg-white !p-6 !shadow-none sm:!p-8",
+      "w-full !max-w-none !rounded-[0.625rem] !border !border-solid !border-[#e5e5e5] !bg-white !p-6 !shadow-none sm:!p-8",
     headerTitle:
       "!text-[#111111] !font-semibold !tracking-normal !text-lg !leading-snug !mb-1 sm:!text-xl",
     headerSubtitle: "!text-[#737373] !text-sm !font-normal !leading-relaxed",

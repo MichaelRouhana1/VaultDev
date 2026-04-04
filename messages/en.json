@@ -1,4 +1,7 @@
 {
+  "AuthClerk": {
+    "signInTitle": "Sign in to your vault"
+  },
   "Navbar": {
     "home": "Home",
     "shop": "Shop",
@@ -435,5 +438,9 @@
     "mobileBackAria": "Go back",
     "mobileSearchShopAria": "Browse shop",
     "mobileAccountAria": "Account"
+  },
+  "PrivacyPage": {
+    "metaTitle": "Privacy Policy — Vault",
+    "metaDescription": "How Vault collects, uses, and protects your personal data."
   }
 }

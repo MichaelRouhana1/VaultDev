@@ -11,7 +11,7 @@ export default async function SignUpPage({
   const accountPath = `/${locale}/account`;
 
   return (
-    <div className="flex min-h-screen w-full flex-col items-center justify-center overflow-x-hidden bg-mosaik-gray-soft px-4 py-12 font-sans antialiased text-mosaik-black">
+    <div className="clerk-auth-shell flex min-h-screen w-full flex-col items-center justify-center overflow-x-hidden bg-mosaik-gray-soft px-4 py-12 font-sans antialiased text-mosaik-black">
       <div className="flex w-full max-w-md flex-col items-center">
         <SignUp
           appearance={mosaikClerkAppearance}

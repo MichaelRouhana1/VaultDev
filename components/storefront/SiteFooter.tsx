@@ -140,7 +140,9 @@ export function SiteFooter() {
             <h3 className={sectionTitleClass}>{t("legal")}</h3>
             <ul className="flex flex-col gap-0.5">
               <li>
-                <span className={footerStaticClass}>{t("privacy")}</span>
+                <Link href="/privacy" className={footerLinkClass}>
+                  {t("privacy")}
+                </Link>
               </li>
               <li>
                 <span className={footerStaticClass}>{t("terms")}</span>

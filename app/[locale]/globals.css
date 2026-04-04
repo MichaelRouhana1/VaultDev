@@ -277,6 +277,20 @@
   animation: hero-progress 5s linear forwards;
 }
 
+@layer components {
+  /**
+   * Clerk prebuilt `<SignIn />` / `<SignUp />`: hide the “Secured by Clerk” row in `.cl-footer`
+   * (targets the flex row that includes a clerk.com link). Internal `cl-internal-*` hashes can
+   * change when `@clerk/*` upgrades — if the strip reappears, re-inspect and adjust.
+   * Dev-only badge is removed via `appearance.layout.unsafe_disableDevelopmentModeWarnings` in `lib/clerk-auth-appearance.ts`.
+   */
+  @supports selector(:has(*)) {
+    .clerk-auth-shell .cl-footer div[class*="cl-internal"]:has(a[href*="clerk.com"]) {
+      display: none !important;
+    }
+  }
+}
+
 @layer utilities {
   /* Sweep fully across, hold off-screen, then loop (avoids a “cut off mid-sweep” feel). */
   @keyframes shimmer {
