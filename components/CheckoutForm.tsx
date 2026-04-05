@@ -89,6 +89,7 @@ function placeOrderAction(
     city: formData.get("city") as string,
     items,
     promoCode,
+    saveAsDefaultAddress: formData.get("saveAsDefaultAddress") === "on",
   })
     .then((res) => {
       if ("success" in res && res.success === false) {
@@ -230,6 +231,12 @@ export function CheckoutForm() {
     setPromoInput("");
   };
 
+  const handleClearAddress = () => {
+    setPhoneNumber("");
+    setAddressLine1("");
+    setCity("");
+  };
+
   return (
     <form action={formAction} className="space-y-8">
       <input type="hidden" name="items" value={JSON.stringify(cartForOrder)} />
@@ -271,43 +278,71 @@ export function CheckoutForm() {
                 required
               />
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="phoneNumber">{t("labelPhone")}</Label>
-              <Input
-                id="phoneNumber"
-                name="phoneNumber"
-                type="tel"
-                placeholder={t("phPhone")}
-                value={phoneNumber}
-                onChange={(e) => setPhoneNumber(e.target.value)}
-                autoComplete="tel"
-                required
-              />
+            <div className="space-y-4 rounded-md border border-border/80 bg-muted/20 p-4">
+              <div className="flex items-center justify-between gap-2">
+                <p className="text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">
+                  {t("deliveryAddressSection")}
+                </p>
+                <button
+                  type="button"
+                  onClick={handleClearAddress}
+                  className="shrink-0 text-xs font-medium text-foreground underline-offset-4 hover:underline"
+                >
+                  {t("clearAddress")}
+                </button>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="phoneNumber">{t("labelPhone")}</Label>
+                <Input
+                  id="phoneNumber"
+                  name="phoneNumber"
+                  type="tel"
+                  placeholder={t("phPhone")}
+                  value={phoneNumber}
+                  onChange={(e) => setPhoneNumber(e.target.value)}
+                  autoComplete="tel"
+                  required
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="addressLine1">{t("labelAddress")}</Label>
+                <Input
+                  id="addressLine1"
+                  name="addressLine1"
+                  placeholder={t("phAddress")}
+                  value={addressLine1}
+                  onChange={(e) => setAddressLine1(e.target.value)}
+                  autoComplete="street-address"
+                  required
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="city">{t("labelCity")}</Label>
+                <Input
+                  id="city"
+                  name="city"
+                  placeholder={t("phCity")}
+                  value={city}
+                  onChange={(e) => setCity(e.target.value)}
+                  autoComplete="address-level2"
+                  required
+                />
+              </div>
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="addressLine1">{t("labelAddress")}</Label>
-              <Input
-                id="addressLine1"
-                name="addressLine1"
-                placeholder={t("phAddress")}
-                value={addressLine1}
-                onChange={(e) => setAddressLine1(e.target.value)}
-                autoComplete="street-address"
-                required
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="city">{t("labelCity")}</Label>
-              <Input
-                id="city"
-                name="city"
-                placeholder={t("phCity")}
-                value={city}
-                onChange={(e) => setCity(e.target.value)}
-                autoComplete="address-level2"
-                required
-              />
-            </div>
+            {clerkUserId ? (
+              <div className="flex items-start gap-2">
+                <input
+                  id="saveAsDefaultAddress"
+                  name="saveAsDefaultAddress"
+                  type="checkbox"
+                  value="on"
+                  className="mt-1 size-4 shrink-0 rounded border-border accent-foreground"
+                />
+                <Label htmlFor="saveAsDefaultAddress" className="cursor-pointer font-normal leading-snug">
+                  {t("saveAsDefaultAddress")}
+                </Label>
+              </div>
+            ) : null}
             <div className="space-y-2 rounded-md border border-border bg-muted/30 px-3 py-3 text-sm">
               <p className="font-medium text-foreground">{t("paymentTitle")}</p>
               <p className="text-muted-foreground">{t("paymentCod")}</p>

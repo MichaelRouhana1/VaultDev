@@ -25,6 +25,7 @@ import {
   ACTIVATION_TOKEN_COOKIE,
   getActivationCookieOptions,
 } from "@/lib/order-activation-cookies";
+import { saveCheckoutAsDefaultAddress } from "@/actions/updateVaultProfile";
 
 const DEFAULT_SHIPPING_FEE = 5;
 
@@ -51,6 +52,8 @@ const placeOrderSchema = z.object({
   city: z.string().min(1, "City is required"),
   items: z.array(cartItemSchema).min(1, "Your bag is empty"),
   promoCode: z.string().trim().optional(),
+  /** When true and user is signed in, merge checkout fields into Clerk + vault profile. */
+  saveAsDefaultAddress: z.boolean().optional().default(false),
 });
 
 export type CartItem = z.infer<typeof cartItemSchema>;
@@ -91,6 +94,7 @@ export async function placeOrder(
     city,
     items,
     promoCode,
+    saveAsDefaultAddress,
   } = parseResult.data;
 
   const { userId: sessionUserId } = await clerkAuth();
@@ -339,6 +343,15 @@ export async function placeOrder(
       city,
       activationLink,
       showActivationConfigNote: Boolean(orderResult.activationToken && !baseUrl),
+    });
+  }
+
+  if (userId && saveAsDefaultAddress) {
+    await saveCheckoutAsDefaultAddress(userId, {
+      customerName,
+      phoneNumber,
+      addressLine1,
+      city,
     });
   }
 
