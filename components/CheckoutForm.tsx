@@ -13,7 +13,8 @@ import {
 } from "@/lib/checkout-cart";
 import type { CartItemDisplay } from "@/context/CartContext";
 import { validatePromoCode } from "@/actions/promo";
-import { useAuth } from "@clerk/nextjs";
+import { useAuth, useUser } from "@clerk/nextjs";
+import { parseVaultProfile } from "@/lib/account-vault-profile";
 import { useCart } from "@/context/CartContext";
 import { useCurrency } from "@/context/CurrencyContext";
 import { Button } from "@/components/ui/button";
@@ -106,6 +107,7 @@ export function CheckoutForm() {
   const t = useTranslations("CheckoutForm");
   const tCommon = useTranslations("Common");
   const { userId: clerkUserId } = useAuth();
+  const { user: clerkUser, isLoaded: clerkUserLoaded } = useUser();
   const { items, cartHydrated, clearCart } = useCart();
   const { formatPrice } = useCurrency();
   const displayItems = useMemo(() => cartItemsToDisplay(items), [items]);
@@ -117,6 +119,45 @@ export function CheckoutForm() {
     discountAmount: number;
   } | null>(null);
   const [promoLoading, setPromoLoading] = useState(false);
+
+  const [customerName, setCustomerName] = useState("");
+  const [guestEmail, setGuestEmail] = useState("");
+  const [phoneNumber, setPhoneNumber] = useState("");
+  const [addressLine1, setAddressLine1] = useState("");
+  const [city, setCity] = useState("");
+
+  /** Map Clerk profile + saved VAULT account billing (publicMetadata.vaultProfile) into checkout fields. */
+  useEffect(() => {
+    if (!clerkUserLoaded || !clerkUser) return;
+    const meta = clerkUser.publicMetadata as { vaultProfile?: unknown };
+    const vp = parseVaultProfile(meta.vaultProfile);
+    const fullName =
+      [clerkUser.firstName, clerkUser.lastName]
+        .map((s) => s?.trim())
+        .filter(Boolean)
+        .join(" ")
+        .trim() ||
+      clerkUser.fullName?.trim() ||
+      "";
+    const email = clerkUser.primaryEmailAddress?.emailAddress ?? "";
+    const phoneFromVault = [vp.phoneCountryCode?.trim(), vp.phoneNumber?.trim()]
+      .filter(Boolean)
+      .join(" ")
+      .trim();
+    const phone =
+      phoneFromVault || clerkUser.primaryPhoneNumber?.phoneNumber?.trim() || "";
+    const b = vp.billing ?? {};
+    const line1 = [b.street?.trim(), b.stairway?.trim()].filter(Boolean).join(", ");
+    const d = b.district?.trim() ?? "";
+    const loc = b.locality?.trim() ?? "";
+    const cityStr = d && loc && d !== loc ? `${d}, ${loc}` : loc || d;
+
+    setCustomerName((v) => v || fullName);
+    setGuestEmail((v) => v || email);
+    setPhoneNumber((v) => v || phone);
+    setAddressLine1((v) => v || line1);
+    setCity((v) => v || cityStr);
+  }, [clerkUserLoaded, clerkUser]);
 
   useEffect(() => {
     if (state?.orderId) {
@@ -211,6 +252,9 @@ export function CheckoutForm() {
                 id="customerName"
                 name="customerName"
                 placeholder={t("phFullName")}
+                value={customerName}
+                onChange={(e) => setCustomerName(e.target.value)}
+                autoComplete="name"
                 required
               />
             </div>
@@ -221,6 +265,9 @@ export function CheckoutForm() {
                 name="guestEmail"
                 type="email"
                 placeholder={t("phEmail")}
+                value={guestEmail}
+                onChange={(e) => setGuestEmail(e.target.value)}
+                autoComplete="email"
                 required
               />
             </div>
@@ -231,6 +278,9 @@ export function CheckoutForm() {
                 name="phoneNumber"
                 type="tel"
                 placeholder={t("phPhone")}
+                value={phoneNumber}
+                onChange={(e) => setPhoneNumber(e.target.value)}
+                autoComplete="tel"
                 required
               />
             </div>
@@ -240,12 +290,23 @@ export function CheckoutForm() {
                 id="addressLine1"
                 name="addressLine1"
                 placeholder={t("phAddress")}
+                value={addressLine1}
+                onChange={(e) => setAddressLine1(e.target.value)}
+                autoComplete="street-address"
                 required
               />
             </div>
             <div className="space-y-2">
               <Label htmlFor="city">{t("labelCity")}</Label>
-              <Input id="city" name="city" placeholder={t("phCity")} required />
+              <Input
+                id="city"
+                name="city"
+                placeholder={t("phCity")}
+                value={city}
+                onChange={(e) => setCity(e.target.value)}
+                autoComplete="address-level2"
+                required
+              />
             </div>
             <div className="space-y-2 rounded-md border border-border bg-muted/30 px-3 py-3 text-sm">
               <p className="font-medium text-foreground">{t("paymentTitle")}</p>
