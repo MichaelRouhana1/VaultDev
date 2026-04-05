@@ -21,6 +21,8 @@ export const CLERK_WSS_ORIGINS = ["wss://*.clerk.accounts.dev", "wss://*.clerk.c
 
 /** Clerk client telemetry (`connect-src` if omitted → console CSP errors). */
 const CLERK_TELEMETRY_ORIGIN = "https://clerk-telemetry.com" as const;
+/** Subdomains used by Clerk telemetry in some SDK paths. */
+const CLERK_TELEMETRY_WILDCARD = "https://*.clerk-telemetry.com" as const;
 
 /**
  * Stripe (Stripe.js, Hosted Checkout, 3DS / hooks).
@@ -74,6 +76,36 @@ export function getSupabaseHostname(): string | null {
 export function getR2PublicHostname(): string | null {
   return parseHttpsHostname(process.env.NEXT_PUBLIC_R2_PUBLIC_URL);
 }
+
+/**
+ * Custom Clerk Frontend API origin when using a Clerk **custom domain** (e.g. `https://clerk.example.com`).
+ * Default `*.clerk.com` CSP entries do **not** cover `clerk.yourdomain.com`, so fetches to `/v1/environment` are blocked
+ * unless this is set. Matches Clerk’s manual CSP guidance (`https://clerk.com/docs/security/clerk-csp`).
+ *
+ * Set to the same host shown under Clerk Dashboard → Configure → Domains → Frontend API (HTTPS URL, no trailing slash).
+ */
+export function getClerkFrontendApiOrigin(): string | null {
+  const raw =
+    process.env.CLERK_FRONTEND_API_URL?.trim() ||
+    process.env.NEXT_PUBLIC_CLERK_FRONTEND_API_URL?.trim();
+  if (!raw) return null;
+  try {
+    const u = new URL(raw);
+    if (u.protocol !== "https:") return null;
+    return u.origin;
+  } catch {
+    return null;
+  }
+}
+
+/** `https://` + `wss://` forms of the custom FAPI host for `connect-src`. */
+function getClerkCustomFrontendApiConnectSources(): string[] {
+  const origin = getClerkFrontendApiOrigin();
+  if (!origin) return [];
+  const host = new URL(origin).hostname;
+  return [origin, `wss://${host}`];
+}
+
 
 /** Upstash REST API origin (server-only today; listed so connect-src stays explicit if any client path appears). */
 export function getUpstashRestOrigin(): string | null {
@@ -165,11 +197,14 @@ export function buildContentSecurityPolicy(nonce: string): string {
   const isProduction = process.env.NODE_ENV === "production";
 
   // Nonce first, then strict-dynamic; host sources support legacy UAs that ignore strict-dynamic.
+  const clerkCustomFapi = getClerkFrontendApiOrigin();
+
   const scriptSrc = isProduction
     ? joinCspSources([
         `'nonce-${nonce}'`,
         "'strict-dynamic'",
         "'self'",
+        ...(clerkCustomFapi ? [clerkCustomFapi] : []),
         ...CLERK_HTTPS_ORIGINS,
         CLOUDFLARE_CHALLENGES_ORIGIN,
         ...STRIPE_SCRIPT_SRC,
@@ -179,6 +214,7 @@ export function buildContentSecurityPolicy(nonce: string): string {
         "'strict-dynamic'",
         "'unsafe-eval'",
         "'self'",
+        ...(clerkCustomFapi ? [clerkCustomFapi] : []),
         ...CLERK_HTTPS_ORIGINS,
         CLOUDFLARE_CHALLENGES_ORIGIN,
         ...STRIPE_SCRIPT_SRC,
@@ -198,9 +234,11 @@ export function buildContentSecurityPolicy(nonce: string): string {
 
   const connectParts: string[] = [
     "'self'",
+    ...getClerkCustomFrontendApiConnectSources(),
     ...CLERK_HTTPS_ORIGINS,
     ...CLERK_WSS_ORIGINS,
     CLERK_TELEMETRY_ORIGIN,
+    CLERK_TELEMETRY_WILDCARD,
     CLOUDFLARE_CHALLENGES_ORIGIN,
     ...getSupabaseCspConnectSources(),
   ];
@@ -214,6 +252,7 @@ export function buildContentSecurityPolicy(nonce: string): string {
 
   const frameSrc = joinCspSources([
     "'self'",
+    ...(clerkCustomFapi ? [clerkCustomFapi] : []),
     ...CLERK_HTTPS_ORIGINS,
     ...STRIPE_FRAME_SRC,
     CLOUDFLARE_CHALLENGES_ORIGIN,
