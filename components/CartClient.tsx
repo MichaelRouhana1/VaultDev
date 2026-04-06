@@ -202,7 +202,7 @@ export function CartClient({
   ) : null;
 
   return (
-    <div className="mx-auto w-full max-w-[1400px] px-6 pt-4 pb-12 sm:pt-5">
+    <div className="mx-auto w-full max-w-[1400px] px-6 pt-4 pb-12 sm:pt-5 xl:max-w-[min(100%,92rem)] 2xl:max-w-[100rem]">
       <h1 className="sr-only">{t("srTitle")}</h1>
       <div className="mb-3 flex gap-4 border-b border-border sm:mb-4 sm:gap-6">
         <button
@@ -244,12 +244,12 @@ export function CartClient({
               </Link>
             </div>
           ) : (
-            <div className="lg:flex lg:items-start lg:gap-8 xl:gap-10">
-              {/* Mobile / tablet: list + bottom dock; lg+: 3-col grid + sticky summary */}
+            <div className="lg:flex lg:items-start lg:gap-5 xl:gap-6">
+              {/* Mobile / tablet: list + bottom dock; lg+: 4-col grid + compact sticky summary */}
               <div
                 className={cn(
                   "flex min-w-0 flex-col gap-[1.125rem] sm:gap-6",
-                  "lg:flex-1 lg:grid lg:grid-cols-3 lg:gap-4",
+                  "lg:flex-1 lg:grid lg:grid-cols-4 lg:gap-3",
                   showBagFixedSummary && "pb-[min(52vh,21rem)] sm:pb-52 lg:pb-0",
                 )}
               >
@@ -258,7 +258,7 @@ export function CartClient({
                     key={item.sku}
                     className={cn(
                       "flex flex-row gap-[1.125rem] border border-border bg-card/50 p-3 sm:gap-6 sm:p-[1.125rem]",
-                      "lg:flex-col lg:gap-3 lg:p-3",
+                      "lg:flex-col lg:gap-2 lg:p-2.5",
                     )}
                   >
                     <Link
@@ -274,7 +274,7 @@ export function CartClient({
                           alt={item.productColor ? `${item.productName} in ${item.productColor}` : item.productName}
                           fill
                           className="object-cover"
-                          sizes="(max-width: 1023px) 252px, 28vw"
+                          sizes="(max-width: 1023px) 252px, 22vw"
                         />
                       ) : (
                         <div className="flex h-full w-full items-center justify-center text-base text-muted-foreground">
@@ -341,7 +341,7 @@ export function CartClient({
               </div>
 
               {showBagFixedSummary ? (
-                <aside className="hidden w-full min-w-0 max-w-[20rem] shrink-0 border border-border bg-card/50 p-4 shadow-sm lg:sticky lg:top-20 lg:block xl:max-w-[22rem] xl:p-5">
+                <aside className="hidden w-[16.25rem] shrink-0 border border-border bg-card/50 p-3.5 shadow-sm lg:sticky lg:top-20 lg:block xl:w-[17rem] xl:p-4">
                   <BagOrderSummaryBlocks
                     t={t}
                     qualifiesForFreeDelivery={qualifiesForFreeDelivery}
