@@ -16,7 +16,7 @@ import { ThemeProvider } from "@/components/ThemeProvider";
 import { isMosaikLocale } from "@/lib/i18n-locales";
 import { routing } from "@/lib/i18n-routing";
 import { getTranslations } from "next-intl/server";
-import { SiteFooter } from "@/components/storefront/SiteFooter";
+import { LandingAwareSiteFooter } from "@/components/storefront/LandingAwareSiteFooter";
 import { ShopListingNavProvider } from "@/components/storefront/ShopListingNavContext";
 import "./globals.css";
 
@@ -93,7 +93,7 @@ export default async function LocaleLayout({
                       </a>
                       <Navbar />
                       <div id="main-content">{children}</div>
-                      <SiteFooter />
+                      <LandingAwareSiteFooter />
                       <Toaster richColors position="top-right" />
                     </ShopListingNavProvider>
                   </CartProvider>
