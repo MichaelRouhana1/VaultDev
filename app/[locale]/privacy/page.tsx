@@ -4,6 +4,9 @@ import { Link } from "@/i18n/navigation";
 
 const PRIVACY_EMAIL = process.env.NEXT_PUBLIC_PRIVACY_EMAIL?.trim();
 
+/** Update when this policy changes materially (displayed on the public page). */
+const PRIVACY_POLICY_LAST_UPDATED = "3 April 2026";
+
 export async function generateMetadata({
   params,
 }: {
@@ -52,7 +55,9 @@ export default async function PrivacyPage({
     <div className="pt-14">
       <article className="mx-auto max-w-3xl px-6 py-16 text-sm leading-relaxed text-foreground/90">
         <h1 className="mb-2 text-2xl font-normal tracking-tight text-foreground">Privacy Policy</h1>
-        <p className="mb-10 text-xs text-foreground/60">Last updated: 3 April 2026 · Operator: Vault (not yet registered as a separate legal entity)</p>
+        <p className="mb-10 text-xs text-foreground/60">
+          Last updated: {PRIVACY_POLICY_LAST_UPDATED} · Operator: Vault (not yet registered as a separate legal entity)
+        </p>
 
         <section className="space-y-3">
           <h2 className="text-base font-semibold text-foreground">1. Who we are</h2>
@@ -63,6 +68,14 @@ export default async function PrivacyPage({
           </p>
           <p>
             <strong>Privacy contact:</strong> <PrivacyContactLine />
+          </p>
+          <p>
+            Use this contact for <strong>access, correction, deletion, and other privacy requests</strong> described in{" "}
+            <a href="#your-rights" className="underline underline-offset-4 hover:opacity-80">
+              Your rights
+            </a>
+            . We may ask you to verify your identity before acting on a request. We respond within a reasonable time, subject to legal limits on what
+            we can delete or change (for example finalized transaction records we are allowed to keep in anonymized form).
           </p>
         </section>
 
@@ -118,10 +131,12 @@ export default async function PrivacyPage({
             .
           </p>
           <p>
-            <strong>Orders.</strong> When you checkout we collect what you submit: name, phone number, delivery address (including at least address
-            line and city), and for guest orders an email address where applicable. We store order reference, line items (products, sizes, quantities,
-            prices at purchase), amounts (subtotal, discounts, shipping, total), payment method (e.g. cash on delivery), promotional code usage where
-            relevant, timestamps, and a link to your Clerk user ID when you are signed in.
+            <strong>Orders and order history.</strong> When you checkout we collect what you submit: name, phone number, delivery address (including at
+            least address line and city), and for guest orders an email address where applicable. We store each order&apos;s reference, line items
+            (products, sizes, quantities, prices at purchase), amounts (subtotal, discounts, shipping, total), payment method (e.g. cash on delivery),
+            promotional code usage where relevant, timestamps, and a link to your Clerk user ID when you are signed in. Together, these records form
+            your <strong>order history</strong> in our systems (what you bought, when, and for how much), linked to you when you use an account or
+            identified by the contact details you gave as a guest.
           </p>
           <p>
             <strong>Wishlist.</strong> For signed-in users we store your user ID and the product IDs you save.
@@ -187,8 +202,44 @@ export default async function PrivacyPage({
           </p>
         </section>
 
+        <section id="your-rights" className="mt-10 scroll-mt-24 space-y-3">
+          <h2 className="text-base font-semibold text-foreground">7. Your rights</h2>
+          <p>
+            Subject to <strong>Law No. 81/2018</strong>, the <strong>Consumer Protection Law</strong>, and other applicable Lebanese rules, you may have
+            the following rights in relation to your personal data (some overlap with how we operate in practice):
+          </p>
+          <ul className="list-disc space-y-1.5 ps-5">
+            <li>
+              <strong>Access:</strong> request a copy of or information about the personal data we hold about you, including order-related data and
+              account data processed by us (Clerk holds authentication data under its own policy).
+            </li>
+            <li>
+              <strong>Rectification (correction):</strong> request correction of inaccurate or incomplete data we control (for example contact details
+              on a recent order, where still editable under our processes).
+            </li>
+            <li>
+              <strong>Erasure / anonymization:</strong> request deletion or anonymization where the law allows. Signed-in users can trigger a large part
+              of this through <strong>Delete My Account &amp; Personal Data</strong> in account settings (see §9). Guests should email the privacy contact
+              in §1 with enough detail to locate the order (e.g. order number and checkout email). We may retain anonymized transaction records where
+              permitted.
+            </li>
+            <li>
+              <strong>Withdraw consent:</strong> where processing is based on your consent (see §2), you may withdraw it; withdrawing may mean you cannot
+              use certain features (for example checkout or an account) if processing is necessary to provide them.
+            </li>
+            <li>
+              <strong>Object or restrict:</strong> where applicable law gives you the right to object to certain processing or to request restriction, you
+              may contact us at the privacy address in §1 and we will respond in line with the law.
+            </li>
+            <li>
+              <strong>Complaints:</strong> you may lodge a complaint with a <strong>competent supervisory authority or court in Lebanon</strong> if you
+              believe your rights have been infringed, without prejudice to any other remedy.
+            </li>
+          </ul>
+        </section>
+
         <section className="mt-10 space-y-3">
-          <h2 className="text-base font-semibold text-foreground">7. Security</h2>
+          <h2 className="text-base font-semibold text-foreground">8. Security</h2>
           <p>
             We have implemented <strong>appropriate technical and organizational measures</strong> intended to protect personal data against{" "}
             <strong>unauthorized access</strong>, accidental loss, and misuse. No method of transmission or storage is completely secure; we work to
@@ -197,10 +248,10 @@ export default async function PrivacyPage({
         </section>
 
         <section className="mt-10 space-y-3">
-          <h2 className="text-base font-semibold text-foreground">8. Retention and account deletion</h2>
+          <h2 className="text-base font-semibold text-foreground">9. Retention and account deletion</h2>
           <p>
             We keep data only as long as needed for the purposes above and to meet legal or accounting requirements. When you use{" "}
-            <strong>Delete My Account &amp; Personal Data</strong> in your account settings, we <strong>delete your wishlist</strong>,{" "}
+            <strong>Delete My Account &amp; Personal Data</strong> in your <strong>account / privacy settings</strong>, we <strong>delete your wishlist</strong>,{" "}
             <strong>remove your link to past orders</strong>, and <strong>anonymize personal fields</strong> on orders that were tied to your account
             (for example name, phone, address lines, and guest email replaced with non-identifying placeholders) while <strong>retaining the underlying
             transaction record</strong> (amounts, items, order reference) where we need it for business, tax, or legal reasons. We also redact your
@@ -214,7 +265,7 @@ export default async function PrivacyPage({
         </section>
 
         <section className="mt-10 space-y-3">
-          <h2 className="text-base font-semibold text-foreground">9. Subprocessors</h2>
+          <h2 className="text-base font-semibold text-foreground">10. Subprocessors</h2>
           <p>
             We rely on service providers including Clerk (authentication), Resend (transactional email), Vercel (hosting), Upstash (rate limiting when
             configured), and our database and object storage vendors. We share only what is needed for their services.
@@ -222,7 +273,7 @@ export default async function PrivacyPage({
         </section>
 
         <section className="mt-10 space-y-3">
-          <h2 className="text-base font-semibold text-foreground">10. Changes</h2>
+          <h2 className="text-base font-semibold text-foreground">11. Changes</h2>
           <p>
             We may update this policy from time to time. The &quot;Last updated&quot; date at the top will change when we do. Material changes may be
             highlighted on the site where appropriate.
