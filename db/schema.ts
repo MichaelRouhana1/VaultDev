@@ -486,7 +486,7 @@ export const heroImages = pgTable("hero_images", {
   index("hero_images_store_type_idx").on(t.storeType),
 ]);
 
-// Landing page store selection images (Streetwear / Formal)
+// Landing page store selection images (Streetwear / Classic)
 export const landingImages = pgTable("landing_images", {
   id: serial("id").primaryKey(),
   storeType: storeTypeEnum("store_type").notNull().unique(),

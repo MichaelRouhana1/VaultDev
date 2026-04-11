@@ -82,14 +82,14 @@ export function AdminHeader({ onMenuClick, initialStore }: AdminHeaderProps) {
             type="button"
             onClick={() => toggleStore("formal")}
             disabled={isPending}
-            aria-label="Switch to formal store"
+            aria-label="Switch to classic store"
             className={`rounded-sm px-2 py-1.5 text-[10px] font-semibold uppercase tracking-wider transition-all sm:px-3 sm:text-xs ${
               currentStore === "formal"
                 ? "bg-background text-foreground shadow-sm"
                 : "text-muted-foreground hover:text-foreground"
             }`}
           >
-            Formal
+            Classic
           </button>
         </div>
 

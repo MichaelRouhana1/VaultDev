@@ -8,6 +8,7 @@ import { updateLandingImage, type LandingImageRow } from "@/actions/landing";
 import { ensureBrowserDisplayableImage } from "@/lib/ensureBrowserDisplayableImage";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
+import { storeTypeLabelEn } from "@/lib/store-type-display";
 
 const STORE_TYPES = ["streetwear", "formal"] as const;
 type StoreType = (typeof STORE_TYPES)[number];
@@ -187,7 +188,7 @@ export function LandingAdminClient({ images: initialImages }: LandingAdminClient
                   <MobileCropPreview url={row?.mobileImageUrl} label={`${storeType} landing`} />
                 </div>
               </div>
-              <div className="p-4 text-sm font-medium capitalize">{storeType}</div>
+              <div className="p-4 text-sm font-medium">{storeTypeLabelEn(storeType)}</div>
             </div>
           );
         })}
@@ -202,7 +203,7 @@ export function LandingAdminClient({ images: initialImages }: LandingAdminClient
           mobileAspect={LANDING_MOBILE_ASPECT}
           desktopLabel="Split / desktop"
           mobileLabel="3:4"
-          title={`Crop landing — ${cropFile.storeType}`}
+          title={`Crop landing — ${storeTypeLabelEn(cropFile.storeType)}`}
         />
       )}
     </div>

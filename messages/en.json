@@ -13,7 +13,7 @@
     "signUp": "Sign up",
     "dashboard": "Dashboard",
     "streetwear": "Streetwear",
-    "formal": "Formal",
+    "formal": "Classic",
     "search": "Search",
     "bag": "Bag",
     "bagWithCount": "Bag ({count})",
@@ -102,10 +102,10 @@
   "Landing": {
     "selectStyle": "Select Your Style",
     "streetwear": "Streetwear",
-    "formal": "Formal",
+    "formal": "Classic",
     "enterStore": "Enter Store",
     "altStreetwear": "Streetwear category",
-    "altFormal": "Formal category"
+    "altFormal": "Classic wear category"
   },
   "LookbookSection": {
     "title": "Get the Look"
@@ -468,16 +468,16 @@
   },
   "AboutPage": {
     "metaTitle": "About — Vault",
-    "metaDescription": "Streetwear-focused Vault: curated drops, quality, and service — launched 2025.",
+    "metaDescription": "Vault: streetwear and classic wear, curated drops, quality, and service — launched 2025.",
     "kicker": "Welcome to the world of",
     "brandName": "VAULT",
     "hook": "An introduction is long overdue — we’re glad you’re here.",
-    "p1": "We take pride in hand-picking standout streetwear: pieces with real character that earn a place in your rotation. Our mission is to bring you culture-driven must-haves — silhouettes, fabrics, and details that reflect what’s moving in street fashion right now.",
-    "p2": "Vault opened in 2025 with a streetwear-first mindset: fewer filler drops, more pieces you’ll actually want to wear. From daytime fits to nights out, we want you to move with confidence every time you get dressed.",
+    "p1": "We take pride in hand-picking standout streetwear and classic wear: pieces with real character that earn a place in your rotation. Our mission is to bring you culture-driven must-haves and timeless silhouettes — fabrics and details that work for everyday street style and sharper, more refined moments.",
+    "p2": "Vault opened in 2025 with streetwear at the heart of our curation, plus classic pieces you can dress up or down. Fewer filler drops, more items you’ll actually want to wear — from daytime fits to nights out, we want you to move with confidence every time you get dressed.",
     "p3": "Our online store serves Lebanon and beyond — quality you can feel, responsive customer service, and straightforward pricing. Shopping stays simple so you can focus on looking your best.",
     "ctaTitle": "So what are you waiting for?",
     "ctaStreetwear": "Shop streetwear",
-    "ctaFormal": "Shop formal",
+    "ctaFormal": "Shop classic wear",
     "footerContact": "Contact us",
     "footerNewsletter": "Newsletter & new drops"
   },

@@ -16,6 +16,7 @@ import { Label } from "@/components/ui/label";
 import { ImageCropModal } from "@/components/ImageCropModal";
 import { ensureBrowserDisplayableImage } from "@/lib/ensureBrowserDisplayableImage";
 import { toast } from "sonner";
+import { adminListingStoreTypeLabel } from "@/lib/store-type-display";
 
 /** Same as product card / ProductImageUpload. */
 const COLLECTION_COVER_ASPECT = 2 / 3;
@@ -207,7 +208,7 @@ export function CollectionsAdminClient({
               className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
             >
               <option value="streetwear">Streetwear</option>
-              <option value="formal">Formal</option>
+              <option value="formal">Classic</option>
               <option value="both">Both</option>
             </select>
           </div>
@@ -271,7 +272,7 @@ export function CollectionsAdminClient({
                     )}
                   </div>
                 </td>
-                <td className="p-4 capitalize">{c.storeType ?? "streetwear"}</td>
+                <td className="p-4">{adminListingStoreTypeLabel(c.storeType)}</td>
                 <td className="p-4 font-medium">{c.name}</td>
                 <td className="p-4 font-mono text-muted-foreground text-xs">{c.slug}</td>
                 <td className="p-4 text-right">

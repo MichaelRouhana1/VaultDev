@@ -6,7 +6,8 @@ import { storefrontLocaleFromParam } from "@/lib/storefront-product-locale";
 import { getProductDisplayPrice, isProductOnSale, getProductDiscountPercent } from "@/lib/utils";
 import { notFound } from "next/navigation";
 import { HeroCarousel } from "@/components/HeroCarousel";
-import { NewsletterForm } from "@/components/NewsletterForm";
+// Newsletter UI disabled — see docs/commented-out.md
+// import { NewsletterForm } from "@/components/NewsletterForm";
 import { HeroFallback } from "@/components/storefront/HeroFallback";
 import { CategoryGrid } from "@/components/storefront/CategoryGrid";
 import { LookbookSection } from "@/components/storefront/LookbookSection";
@@ -16,11 +17,11 @@ import type { Metadata } from "next";
 export async function generateMetadata({ params }: { params: Promise<{ storeType: string }> }): Promise<Metadata> {
   const { storeType } = await params;
   const isStreetwear = storeType === "streetwear";
-  const title = isStreetwear ? "Streetwear Essentials" : storeType === "formal" ? "Formal Tailoring" : "Shop";
+  const title = isStreetwear ? "Streetwear Essentials" : storeType === "formal" ? "Classic Tailoring" : "Shop";
   const description = isStreetwear
     ? "Modern urban culture, bold graphics, and premium everyday essentials. Your streetwear destination."
     : storeType === "formal"
-      ? "Bespoke tailoring, crisp shirts, and refined accessories for every occasion. Elevate your formal style."
+      ? "Bespoke tailoring, crisp shirts, and refined accessories for every occasion. Elevate your classic style."
       : "Shop our exclusive VAULT collections.";
 
   return {
@@ -103,8 +104,9 @@ export default async function HomePage({
       {/* Product Discovery */}
       <ProductDiscovery products={discoverProducts} currentStoreType={storeType} fallbackImage={PEXELS(708440, 440, 660)} />
 
-      {/* Newsletter */}
+      {/* Newsletter — commented out; restore via docs/commented-out.md
       <NewsletterForm />
+      */}
     </div>
   );
 }

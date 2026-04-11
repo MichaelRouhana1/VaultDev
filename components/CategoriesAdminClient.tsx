@@ -17,6 +17,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { ImageCropModal } from "@/components/ImageCropModal";
 import { ensureBrowserDisplayableImage } from "@/lib/ensureBrowserDisplayableImage";
 import { toast } from "sonner";
+import { adminListingStoreTypeLabel } from "@/lib/store-type-display";
 
 /** Same as product card / ProductImageUpload preview. */
 const CATEGORY_IMAGE_ASPECT = 2 / 3;
@@ -205,7 +206,7 @@ export function CategoriesAdminClient({ categories: initialCategories, initialSt
               className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background disabled:cursor-not-allowed disabled:opacity-50"
             >
               <option value="streetwear">Streetwear</option>
-              <option value="formal">Formal</option>
+              <option value="formal">Classic</option>
               <option value="both">Both</option>
             </select>
           </div>
@@ -287,7 +288,7 @@ export function CategoriesAdminClient({ categories: initialCategories, initialSt
                     )}
                   </div>
                 </td>
-                <td className="p-4 capitalize">{cat.storeType ?? "streetwear"}</td>
+                <td className="p-4">{adminListingStoreTypeLabel(cat.storeType)}</td>
                 <td className="p-4">
                   <span className="inline-block text-xs font-medium rounded px-2 py-0.5 capitalize bg-secondary text-secondary-foreground">
                     Main

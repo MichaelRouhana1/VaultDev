@@ -148,7 +148,7 @@ export default async function PrivacyPage({
             <code className="rounded bg-muted px-1 py-0.5 text-xs">/en</code>,{" "}
             <code className="rounded bg-muted px-1 py-0.5 text-xs">/fr</code>,{" "}
             <code className="rounded bg-muted px-1 py-0.5 text-xs">/ar</code>) and may be supported by <strong>cookies</strong> used for internationalization. Your
-            preferred <strong>storefront</strong> (e.g. streetwear vs formal) may be stored in a <strong>cookie</strong> to keep routing consistent.
+            preferred <strong>storefront</strong> (e.g. streetwear vs classic) may be stored in a <strong>cookie</strong> to keep routing consistent.
             Your <strong>display currency</strong> preference (<strong>USD, EUR, or LBP</strong>) is stored in your browser&apos;s{" "}
             <strong>local storage</strong> so prices stay consistent between visits (this is not a server-side profile).
           </p>

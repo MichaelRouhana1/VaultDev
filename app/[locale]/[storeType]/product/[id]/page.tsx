@@ -16,6 +16,7 @@ import {
 } from "@/actions/storefront-products";
 import { storefrontLocaleFromParam } from "@/lib/storefront-product-locale";
 import { getProductPageAccordionCopy } from "@/actions/product-page-copy";
+import { getTranslations } from "next-intl/server";
 
 export async function generateMetadata({
   params,
@@ -48,6 +49,8 @@ export default async function ProductPage({
   const [product] = await getPublicProductDetailForStore(productId, st, locale);
 
   if (!product || !product.isVisible || product.isArchived) notFound();
+
+  const tNav = await getTranslations({ locale: localeParam, namespace: "Navbar" });
 
   const [variants, colors] = await Promise.all([
     getProductVariantsByProductIds([product.id]),
@@ -107,7 +110,9 @@ export default async function ProductPage({
       <div className="flex items-center gap-2 text-sm text-muted-foreground mb-6 px-6">
         <Link href="/" className="hover:text-foreground">Home</Link>
         <span>/</span>
-        <Link href={`/${storeType}/shop`} className="hover:text-foreground capitalize">{storeType}</Link>
+        <Link href={`/${storeType}/shop`} className="hover:text-foreground">
+          {tNav(st)}
+        </Link>
         {primaryCategorySlug && (
           <>
             <span>/</span>

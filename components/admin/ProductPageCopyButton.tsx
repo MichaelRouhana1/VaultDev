@@ -14,6 +14,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { saveProductPageAccordionCopy } from "@/actions/product-page-copy";
+import { storeTypeLabelEn } from "@/lib/store-type-display";
 import type { ProductPageAccordionResolved } from "@/actions/product-page-copy";
 
 const textareaClass =
@@ -69,7 +70,7 @@ export function ProductPageCopyButton({ storeType, initialCopy }: Props) {
             <DialogTitle className="uppercase tracking-wider">Product page details</DialogTitle>
             <DialogDescription>
               Shipping &amp; Delivery and Returns text for product pages when managing{" "}
-              <span className="capitalize text-foreground">{storeType}</span>. The Description accordion still uses each
+              <span className="text-foreground">{storeTypeLabelEn(storeType)}</span>. The Description accordion still uses each
               product’s own description from the product editor.
             </DialogDescription>
           </DialogHeader>

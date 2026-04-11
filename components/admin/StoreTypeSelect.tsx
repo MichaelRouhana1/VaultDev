@@ -17,7 +17,7 @@ export function StoreTypeSelect({ initialStoreType }: StoreTypeSelectProps) {
                 className="border-input h-9 w-full rounded-md border bg-transparent px-3 py-1 text-sm shadow-xs focus:outline-none focus:ring-2 focus:ring-ring"
             >
                 <option value="streetwear">Streetwear</option>
-                <option value="formal">Formal</option>
+                <option value="formal">Classic</option>
             </select>
         </div>
     );

@@ -11,7 +11,7 @@ export async function seedRootCategories() {
 
     const categoriesToSeed = [
         { slug: "streetwear", label: "Streetwear", level: "root" as const },
-        { slug: "formal", label: "Formal", level: "root" as const },
+        { slug: "formal", label: "Classic", level: "root" as const },
     ];
 
     let seededCount = 0;

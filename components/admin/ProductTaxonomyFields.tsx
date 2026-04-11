@@ -62,7 +62,7 @@ export function ProductTaxonomyFields({
               onChange={() => switchStore("formal")}
               required
             />
-            Formal
+            Classic
           </label>
         </div>
       </div>

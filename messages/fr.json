@@ -13,7 +13,7 @@
     "signUp": "Inscription",
     "dashboard": "Tableau de bord",
     "streetwear": "Streetwear",
-    "formal": "Formel",
+    "formal": "Classique",
     "search": "Recherche",
     "bag": "Sac",
     "bagWithCount": "Sac ({count})",
@@ -102,10 +102,10 @@
   "Landing": {
     "selectStyle": "Choisissez votre style",
     "streetwear": "Streetwear",
-    "formal": "Formel",
+    "formal": "Classique",
     "enterStore": "Entrer",
     "altStreetwear": "Catégorie streetwear",
-    "altFormal": "Catégorie formelle"
+    "altFormal": "Catégorie tenue classique"
   },
   "LookbookSection": {
     "title": "Adoptez le look"
@@ -468,16 +468,16 @@
   },
   "AboutPage": {
     "metaTitle": "À propos — Vault",
-    "metaDescription": "Vault, focus streetwear : sélection, qualité et service — lancé en 2025.",
+    "metaDescription": "Vault : streetwear et tenue classique, sélection, qualité et service — lancé en 2025.",
     "kicker": "Bienvenue dans l’univers",
     "brandName": "VAULT",
     "hook": "Cette présentation tardait — nous sommes ravis que vous soyez là.",
-    "p1": "Nous sélectionnons avec soin des pièces streetwear qui comptent : coupes, matières et détails alignés sur la culture actuelle. Notre mission : vous proposer des incontournables qui méritent leur place dans votre dressing.",
-    "p2": "Vault a ouvert en 2025 avec une vision streetwear : moins de remplissage, plus de pièces que vous aurez envie de porter. Du quotidien aux soirées, nous voulons que vous vous sentiez à l’aise et affirmé(e).",
+    "p1": "Nous sélectionnons avec soin du streetwear et des pièces plus classiques : coupes, matières et détails pour le quotidien comme pour les moments plus habillés. Notre mission : des incontournables ancrés dans la culture actuelle et des silhouettes intemporelles.",
+    "p2": "Vault a ouvert en 2025 avec le streetwear au cœur de la sélection, et des pièces classiques à mixer à volonté. Moins de remplissage, plus d’articles que vous aurez envie de porter — du quotidien aux soirées, en toute confiance.",
     "p3": "Notre boutique en ligne s’adresse au Liban et au-delà — qualité tangible, service réactif et tarifs clairs. Un parcours d’achat simple, du panier à la livraison.",
     "ctaTitle": "Alors, qu’attendez-vous ?",
     "ctaStreetwear": "Boutique streetwear",
-    "ctaFormal": "Boutique formel",
+    "ctaFormal": "Boutique tenue classique",
     "footerContact": "Nous contacter",
     "footerNewsletter": "Newsletter et nouveautés"
   },

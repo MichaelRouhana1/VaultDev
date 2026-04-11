@@ -2,6 +2,7 @@ import { inArray } from "drizzle-orm";
 import { db } from "@/db";
 import { collections } from "@/db/schema";
 import type { ProductListingStore } from "@/lib/product-category-assign";
+import { storeTypeLabelEn } from "@/lib/store-type-display";
 
 export function parseCollectionIdsFromFormData(formData: FormData): number[] {
   const raw = formData.getAll("collectionIds");
@@ -24,7 +25,7 @@ export async function validateProductCollectionAssignments(
   if (rows.length !== uniq.length) return "One or more collections were not found.";
   for (const c of rows) {
     if (c.storeType !== "both" && c.storeType !== productStore) {
-      const storeLabel = productStore === "formal" ? "Formal" : "Streetwear";
+      const storeLabel = storeTypeLabelEn(productStore);
       return `Collection "${c.name}" is not available for ${storeLabel} products.`;
     }
   }

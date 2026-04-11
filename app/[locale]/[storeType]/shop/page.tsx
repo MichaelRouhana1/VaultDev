@@ -30,11 +30,11 @@ import type { Metadata } from "next";
 export async function generateMetadata({ params }: ShopPageProps): Promise<Metadata> {
   const { storeType } = await params;
   const isStreetwear = storeType === "streetwear";
-  const title = isStreetwear ? "Shop Streetwear" : storeType === "formal" ? "Shop Formal" : "Shop";
+  const title = isStreetwear ? "Shop Streetwear" : storeType === "formal" ? "Shop Classic" : "Shop";
   const description = isStreetwear
     ? "Browse our streetwear catalog. Modern hoodies, tees, and statement pieces for urban culture."
     : storeType === "formal"
-      ? "Explore our formal catalog. Bespoke trousers, blazers, and shirts for an elegant, confident look."
+      ? "Explore our classic wear catalog. Bespoke trousers, blazers, and shirts for an elegant, confident look."
       : "Browse the complete VAULT catalog.";
 
   return {

@@ -63,7 +63,7 @@ export default async function TermsPage({
         <section className="mt-10 space-y-3">
           <h2 className="text-base font-semibold text-foreground">2. Operator</h2>
           <p>
-            The Service is operated by <strong>Vault</strong>, an online retail business offering streetwear and formal wear.{" "}
+            The Service is operated by <strong>Vault</strong>, an online retail business offering streetwear and classic wear.{" "}
             <strong>Vault is not registered</strong> as a company, commercial enterprise, or other separate legal entity for this activity in Lebanon.
             These Terms are entered into with Vault as the operating brand in that <strong>unincorporated</strong> capacity. We{" "}
             <strong>do not publish a commercial registration number or registered company address</strong> because none applies; use the contact details

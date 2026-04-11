@@ -9,6 +9,7 @@ import { addHeroImageFromFile, deleteHeroImage } from "@/actions/hero";
 import { ensureBrowserDisplayableImage } from "@/lib/ensureBrowserDisplayableImage";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
+import { storeTypeLabelEn } from "@/lib/store-type-display";
 import type { HeroImage } from "@/db/schema";
 
 /** Base ratio from ~1567×544 art; scaled for storefront `md:h-[86vh]` (75vh reference). */
@@ -178,7 +179,9 @@ export function HeroAdminClient({ images: initialImages, initialStoreType }: Her
               </div>
               <div className="flex justify-between p-3 text-sm font-normal text-foreground">
                 <span>Slide #{img.id}</span>
-                <span className="rounded bg-muted-foreground/10 px-2 capitalize opacity-60">{img.storeType}</span>
+                <span className="rounded bg-muted-foreground/10 px-2 opacity-60">
+                  {storeTypeLabelEn(img.storeType as "streetwear" | "formal")}
+                </span>
               </div>
               <div className="absolute inset-0 flex items-center justify-center gap-2 bg-black/50 opacity-0 transition-opacity group-hover:opacity-100">
                 <Button variant="destructive" size="sm" onClick={() => handleDelete(img.id)} disabled={deletingId === img.id}>

@@ -1,6 +1,7 @@
 import { eq } from "drizzle-orm";
 import { db } from "@/db";
 import { categories } from "@/db/schema";
+import { storeTypeLabelEn } from "@/lib/store-type-display";
 
 export type ProductListingStore = "streetwear" | "formal";
 
@@ -10,8 +11,10 @@ function storeMatches(catStore: string, productStore: ProductListingStore) {
 
 function listingMismatchMessage(catStore: string, productStore: ProductListingStore) {
   const catLabel =
-    catStore === "both" ? "both Streetwear and Formal" : catStore === "formal" ? "Formal" : "Streetwear";
-  const productLabel = productStore === "formal" ? "Formal" : "Streetwear";
+    catStore === "both"
+      ? `both ${storeTypeLabelEn("streetwear")} and ${storeTypeLabelEn("formal")}`
+      : storeTypeLabelEn(catStore as "streetwear" | "formal");
+  const productLabel = storeTypeLabelEn(productStore);
   return `Main category is scoped to ${catLabel}, but this product is set to ${productLabel}. Pick a category that matches the product store (or a "both" row).`;
 }
 
