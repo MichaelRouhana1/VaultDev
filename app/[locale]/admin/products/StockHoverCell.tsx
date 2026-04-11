@@ -3,9 +3,10 @@
 import { useState, useRef, useEffect, useMemo } from "react";
 import { createPortal } from "react-dom";
 import { AlertTriangle } from "lucide-react";
+import { DEFAULT_LOW_STOCK_THRESHOLD } from "@/lib/low-stock-threshold";
 import { cn, sortSizes } from "@/lib/utils";
 
-export const LOW_STOCK_THRESHOLD = 5;
+export const LOW_STOCK_THRESHOLD = DEFAULT_LOW_STOCK_THRESHOLD;
 
 /** One purchasable variant row for admin stock tooltip (from dynamic options + legacy fallback). */
 export type AdminVariantStockRow = {

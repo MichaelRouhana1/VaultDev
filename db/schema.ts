@@ -14,6 +14,7 @@ import {
   customType,
   primaryKey,
   unique,
+  check,
 } from "drizzle-orm/pg-core";
 
 // Enums
@@ -449,6 +450,17 @@ export const storefrontExchangeRates = pgTable("storefront_exchange_rates", {
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
 
+/** Singleton row `id = 1`: admin “low stock” threshold (variants with qty in (0, threshold)). */
+export const inventorySettings = pgTable(
+  "inventory_settings",
+  {
+    id: integer("id").primaryKey().default(1),
+    lowStockThreshold: integer("low_stock_threshold").notNull().default(5),
+    updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  },
+  (t) => [check("inventory_settings_singleton_chk", sql`${t.id} = 1`)],
+);
+
 /** Store-specific copy for PDP accordion (additional description + shipping + returns). */
 export const productPageCopy = pgTable("product_page_copy", {
   id: serial("id").primaryKey(),
@@ -596,6 +608,9 @@ export type NewSectionSetting = typeof sectionSettings.$inferInsert;
 
 export type StorefrontExchangeRatesRow = typeof storefrontExchangeRates.$inferSelect;
 export type NewStorefrontExchangeRatesRow = typeof storefrontExchangeRates.$inferInsert;
+
+export type InventorySettingsRow = typeof inventorySettings.$inferSelect;
+export type NewInventorySettingsRow = typeof inventorySettings.$inferInsert;
 
 export type ProductPageCopyRow = typeof productPageCopy.$inferSelect;
 export type NewProductPageCopyRow = typeof productPageCopy.$inferInsert;

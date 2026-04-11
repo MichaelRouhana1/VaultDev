@@ -20,6 +20,7 @@
     "db:migrate:subcategories": "npx tsx scripts/migrate-independent-subcategories.ts",
     "db:migrate:variants": "npx tsx scripts/migrate-variants.ts",
     "db:migrate:exchange-rates": "npx tsx scripts/migrate-storefront-exchange-rates.ts",
+    "db:migrate:inventory-settings": "npx tsx scripts/migrate-inventory-settings.ts",
     "db:migrate:mobile-image-urls": "npx tsx scripts/migrate-mobile-image-url-columns.ts"
   },
   "dependencies": {

@@ -16,6 +16,8 @@ import { ProductsTable } from "./ProductsTable";
 import type { AdminVariantStockRow } from "./StockHoverCell";
 import { getAllCategories } from "@/actions/categories";
 import { getAdminStoreType } from "@/actions/admin-store";
+import { getLowStockThreshold } from "@/actions/inventory-settings";
+import { LowStockThresholdForm } from "@/components/admin/LowStockThresholdForm";
 import { requireAdmin } from "@/lib/security";
 import { getProductPageAccordionCopy } from "@/actions/product-page-copy";
 import { ProductPageCopyButton } from "@/components/admin/ProductPageCopyButton";
@@ -95,6 +97,7 @@ export default async function AdminProductsPage({
   const category = params.category;
 
   await requireAdmin();
+  const lowStockThreshold = await getLowStockThreshold();
   const adminStore = await getAdminStoreType();
   const productPageAccordionCopy = await getProductPageAccordionCopy(adminStore);
   const allCategories = await getAllCategories();
@@ -250,6 +253,10 @@ export default async function AdminProductsPage({
         </div>
       </div>
 
+      <div className="mb-8">
+        <LowStockThresholdForm initialThreshold={lowStockThreshold} />
+      </div>
+
       <Suspense fallback={<div className="animate-pulse h-64 bg-muted rounded" />}>
         <ProductsTable
           products={productsWithStock}
@@ -257,6 +264,7 @@ export default async function AdminProductsPage({
           initialCategory={category}
           categories={categoryList}
           storeType={adminStore}
+          lowStockThreshold={lowStockThreshold}
         />
       </Suspense>
     </div>

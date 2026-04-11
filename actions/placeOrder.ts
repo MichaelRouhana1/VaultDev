@@ -25,6 +25,7 @@ import {
   ACTIVATION_TOKEN_COOKIE,
   getActivationCookieOptions,
 } from "@/lib/order-activation-cookies";
+import { getLowStockThreshold } from "@/actions/inventory-settings";
 import { saveCheckoutAsDefaultAddress } from "@/actions/updateVaultProfile";
 import { TERMS_PRIVACY_CONSENT_ERROR_MESSAGE } from "@/lib/checkout-consent";
 
@@ -113,6 +114,8 @@ export async function placeOrder(
     ? new Date(Date.now() + 24 * 60 * 60 * 1000)
     : null;
 
+  const lowStockThreshold = await getLowStockThreshold();
+
   const orderResult = await db.transaction(async (tx) => {
     const productIds = [...new Set(items.map((i) => i.productId))];
     const productRows = await tx
@@ -188,7 +191,7 @@ export async function placeOrder(
         })
         .where(eq(productVariants.id, variant.id));
 
-      if (newStock < 5) {
+      if (newStock < lowStockThreshold) {
         const existingAlert = await tx
           .select({ id: notifications.id })
           .from(notifications)

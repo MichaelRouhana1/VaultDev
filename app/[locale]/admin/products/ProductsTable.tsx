@@ -9,12 +9,8 @@ import {
   type ColumnDef,
   type RowSelectionState,
 } from "@tanstack/react-table";
-import {
-  StockHoverCell,
-  LOW_STOCK_THRESHOLD,
-  productHasLowStock,
-  type AdminVariantStockRow,
-} from "./StockHoverCell";
+import { StockHoverCell, productHasLowStock, type AdminVariantStockRow } from "./StockHoverCell";
+import { DEFAULT_LOW_STOCK_THRESHOLD } from "@/lib/low-stock-threshold";
 import { useRouter } from "@/i18n/navigation";
 import { useSearchParams } from "next/navigation";
 import Image from "next/image";
@@ -77,6 +73,8 @@ interface ProductsTableProps {
   initialCategory?: string;
   categories: ProductCategoryRow[];
   storeType?: string;
+  /** Admin-configured low-stock threshold (variants with qty in (0, threshold)). */
+  lowStockThreshold?: number;
 }
 
 export function ProductsTable({
@@ -85,6 +83,7 @@ export function ProductsTable({
   initialCategory = "all",
   categories,
   storeType = "streetwear",
+  lowStockThreshold = DEFAULT_LOW_STOCK_THRESHOLD,
 }: ProductsTableProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -346,16 +345,20 @@ export function ProductsTable({
       header: "Stock",
       cell: ({ row }) => {
         const p = row.original;
-        const low = productHasLowStock(p.variantStockRows, LOW_STOCK_THRESHOLD);
+        const low = productHasLowStock(p.variantStockRows, lowStockThreshold);
         return (
           <div
             className={low ? "rounded-md bg-amber-500/5 px-1 py-0.5 -mx-1 -my-0.5" : undefined}
-            title={low ? "At least one variant has stock above 0 but below 5 units" : undefined}
+            title={
+              low
+                ? `At least one variant has stock above 0 but below ${lowStockThreshold} units`
+                : undefined
+            }
           >
             <StockHoverCell
               totalStock={p.totalStock}
               variants={p.variantStockRows}
-              lowStockThreshold={LOW_STOCK_THRESHOLD}
+              lowStockThreshold={lowStockThreshold}
             />
           </div>
         );
