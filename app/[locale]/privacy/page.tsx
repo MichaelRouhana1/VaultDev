@@ -1,8 +1,7 @@
 import type { Metadata } from "next";
 import { getTranslations, setRequestLocale } from "next-intl/server";
 import { Link } from "@/i18n/navigation";
-
-const PRIVACY_EMAIL = process.env.NEXT_PUBLIC_PRIVACY_EMAIL?.trim();
+import { getLegalContactEmail } from "@/lib/legal-contact-email";
 
 /** Update when this policy changes materially (displayed on the public page). */
 const PRIVACY_POLICY_LAST_UPDATED = "3 April 2026";
@@ -22,24 +21,14 @@ export async function generateMetadata({
 }
 
 function PrivacyContactLine() {
-  if (PRIVACY_EMAIL) {
-    return (
-      <a
-        href={`mailto:${PRIVACY_EMAIL}`}
-        className="font-medium text-foreground underline underline-offset-4 hover:opacity-80"
-      >
-        {PRIVACY_EMAIL}
-      </a>
-    );
-  }
+  const email = getLegalContactEmail();
   return (
-    <span className="text-foreground/80">
-      A dedicated privacy email will be published on this page. Until then, contact Vault using the options on our{" "}
-      <Link href="/about" className="underline underline-offset-4 hover:opacity-80">
-        About
-      </Link>{" "}
-      page.
-    </span>
+    <a
+      href={`mailto:${email}`}
+      className="font-medium text-foreground underline underline-offset-4 hover:opacity-80"
+    >
+      {email}
+    </a>
   );
 }
 
@@ -56,15 +45,16 @@ export default async function PrivacyPage({
       <article className="mx-auto max-w-3xl px-6 py-16 text-sm leading-relaxed text-foreground/90">
         <h1 className="mb-2 text-2xl font-normal tracking-tight text-foreground">Privacy Policy</h1>
         <p className="mb-10 text-xs text-foreground/60">
-          Last updated: {PRIVACY_POLICY_LAST_UPDATED} · Operator: Vault (not yet registered as a separate legal entity)
+          Last updated: {PRIVACY_POLICY_LAST_UPDATED} · Operator: Vault — <strong>not a registered legal entity</strong> (no commercial registration)
         </p>
 
         <section className="space-y-3">
           <h2 className="text-base font-semibold text-foreground">1. Who we are</h2>
           <p>
             <strong>Vault</strong> operates this website and online shop. References to &quot;we&quot;, &quot;us&quot;, and &quot;our&quot; mean Vault in
-            that capacity. Vault is not yet registered as a standalone company; when that changes, this policy will be updated with the legal
-            entity name and contact details.
+            that capacity. <strong>Vault is not registered</strong> as a company, commercial enterprise, or other separate legal entity for this
+            activity in Lebanon. We therefore <strong>do not have a commercial registration number, registered company name, or registered business
+            address</strong> to publish here; use the privacy contact below to reach us.
           </p>
           <p>
             <strong>Privacy contact:</strong> <PrivacyContactLine />

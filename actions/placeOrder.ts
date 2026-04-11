@@ -26,6 +26,7 @@ import {
   getActivationCookieOptions,
 } from "@/lib/order-activation-cookies";
 import { saveCheckoutAsDefaultAddress } from "@/actions/updateVaultProfile";
+import { TERMS_PRIVACY_CONSENT_ERROR_MESSAGE } from "@/lib/checkout-consent";
 
 const DEFAULT_SHIPPING_FEE = 5;
 
@@ -54,6 +55,10 @@ const placeOrderSchema = z.object({
   promoCode: z.string().trim().optional(),
   /** When true and user is signed in, merge checkout fields into Clerk + vault profile. */
   saveAsDefaultAddress: z.boolean().optional().default(false),
+  /** Required explicit consent to Terms and Privacy Policy (checkout checkbox). */
+  termsAndPrivacyConsent: z
+    .boolean()
+    .refine((v) => v === true, { message: TERMS_PRIVACY_CONSENT_ERROR_MESSAGE }),
 });
 
 export type CartItem = z.infer<typeof cartItemSchema>;

@@ -3,7 +3,8 @@
 import { useEffect, useState, useMemo } from "react";
 import { useActionState } from "react";
 import { useTranslations } from "next-intl";
-import { useRouter } from "@/i18n/navigation";
+import { Link, useRouter } from "@/i18n/navigation";
+import { TERMS_PRIVACY_CONSENT_ERROR_MESSAGE } from "@/lib/checkout-consent";
 import Image from "next/image";
 import { Loader2 } from "lucide-react";
 import { placeOrder, type CartItem } from "@/actions/placeOrder";
@@ -32,11 +33,15 @@ import { toast } from "sonner";
 
 const DEFAULT_SHIPPING_FEE = 5;
 
-const CHECKOUT_ERROR_KEYS: Record<string, "errorBagEmpty" | "errorInvalidBag" | "errorOrderFailed" | "errorRateLimit"> = {
+const CHECKOUT_ERROR_KEYS: Record<
+  string,
+  "errorBagEmpty" | "errorInvalidBag" | "errorOrderFailed" | "errorRateLimit" | "errorTermsConsent"
+> = {
   "Your bag is empty": "errorBagEmpty",
   "Invalid bag data": "errorInvalidBag",
   "Order failed": "errorOrderFailed",
   "Too many requests. Please wait before trying again.": "errorRateLimit",
+  [TERMS_PRIVACY_CONSENT_ERROR_MESSAGE]: "errorTermsConsent",
 };
 
 function translateCheckoutError(
@@ -44,6 +49,12 @@ function translateCheckoutError(
   t: (key: string) => string,
 ): string | undefined {
   if (!msg) return undefined;
+  if (
+    msg === TERMS_PRIVACY_CONSENT_ERROR_MESSAGE ||
+    msg.includes(TERMS_PRIVACY_CONSENT_ERROR_MESSAGE)
+  ) {
+    return t("errorTermsConsent");
+  }
   const key = CHECKOUT_ERROR_KEYS[msg];
   return key ? t(key) : msg;
 }
@@ -79,6 +90,7 @@ function placeOrderAction(
   }
   const promoCode = (formData.get("promoCode") as string)?.trim() || undefined;
   const clerkUserId = (formData.get("clerkUserId") as string)?.trim() || undefined;
+  const termsOk = formData.get("termsAndPrivacyConsent") === "on";
   return placeOrder({
     userId: clerkUserId || undefined,
     guestEmail: (formData.get("guestEmail") as string) || null,
@@ -90,6 +102,7 @@ function placeOrderAction(
     items,
     promoCode,
     saveAsDefaultAddress: formData.get("saveAsDefaultAddress") === "on",
+    termsAndPrivacyConsent: termsOk,
   })
     .then((res) => {
       if ("success" in res && res.success === false) {
@@ -463,10 +476,31 @@ export function CheckoutForm() {
               </div>
             </div>
           </CardContent>
-          <CardFooter className="flex flex-col items-stretch gap-2">
+          <CardFooter className="flex flex-col items-stretch gap-3">
             <div className="flex justify-between text-base font-semibold">
               <span>{t("total")}</span>
               <span>{formatPrice(total)}</span>
+            </div>
+            <div className="flex items-start gap-2">
+              <input
+                id="termsAndPrivacyConsent"
+                name="termsAndPrivacyConsent"
+                type="checkbox"
+                value="on"
+                required
+                className="mt-1 size-4 shrink-0 rounded border-border accent-foreground"
+              />
+              <Label htmlFor="termsAndPrivacyConsent" className="cursor-pointer font-normal leading-snug text-muted-foreground">
+                <span className="text-foreground">{t("consentCheckboxLead")}</span>{" "}
+                <Link href="/terms" className="font-medium text-foreground underline underline-offset-4 hover:opacity-80">
+                  {t("consentTermsLink")}
+                </Link>
+                {t("consentMid")}{" "}
+                <Link href="/privacy" className="font-medium text-foreground underline underline-offset-4 hover:opacity-80">
+                  {t("consentPrivacyLink")}
+                </Link>
+                {t("consentEnd")}
+              </Label>
             </div>
             {state?.error && (
               <p className="text-sm text-destructive">{translateCheckoutError(state.error, t)}</p>

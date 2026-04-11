@@ -79,6 +79,11 @@ export function SiteFooter() {
     return null;
   }
 
+  /** Post-checkout confirmation; keep focus on order message without global footer. */
+  if (nextPathname.includes("/checkout/success")) {
+    return null;
+  }
+
   /** Admin area uses its own chrome; hide storefront footer. */
   if (nextPathname.includes("/admin")) {
     return null;

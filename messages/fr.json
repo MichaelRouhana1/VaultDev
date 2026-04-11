@@ -307,6 +307,11 @@
     "discountLine": "Remise ({code})",
     "shipping": "Livraison",
     "total": "Total",
+    "consentCheckboxLead": "J’accepte les",
+    "consentTermsLink": "Conditions d’utilisation",
+    "consentMid": " et la ",
+    "consentPrivacyLink": "Politique de confidentialité",
+    "consentEnd": ".",
     "placeOrder": "Valider la commande",
     "placing": "Commande en cours…",
     "toastEnterPromo": "Saisissez un code promo",
@@ -315,7 +320,19 @@
     "errorBagEmpty": "Votre sac est vide",
     "errorInvalidBag": "Données du sac invalides",
     "errorOrderFailed": "Échec de la commande",
-    "errorRateLimit": "Trop de requêtes. Patientez avant de réessayer."
+    "errorRateLimit": "Trop de requêtes. Patientez avant de réessayer.",
+    "errorTermsConsent": "Vous devez accepter les Conditions et la Politique de confidentialité pour commander."
+  },
+  "NewsletterForm": {
+    "blurb": "Recevez des nouvelles lors de nouvelles sorties.",
+    "emailAria": "Adresse e-mail",
+    "emailPlaceholder": "E-mail",
+    "subscribe": "S’inscrire",
+    "consentLead": "J’accepte les",
+    "termsLink": "Conditions d’utilisation",
+    "consentMid": " et la ",
+    "privacyLink": "Politique de confidentialité",
+    "consentEnd": " pour recevoir des e-mails marketing."
   },
   "CheckoutSuccess": {
     "title": "Commande confirmée",

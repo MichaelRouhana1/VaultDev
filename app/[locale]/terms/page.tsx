@@ -1,8 +1,10 @@
 import type { Metadata } from "next";
 import { getTranslations, setRequestLocale } from "next-intl/server";
 import { Link } from "@/i18n/navigation";
+import { getLegalContactEmail } from "@/lib/legal-contact-email";
 
-const SUPPORT_EMAIL = process.env.NEXT_PUBLIC_PRIVACY_EMAIL?.trim();
+/** Update when these Terms change materially (displayed on the public page). */
+const TERMS_LAST_UPDATED = "3 April 2026";
 
 export async function generateMetadata({
   params,
@@ -19,24 +21,14 @@ export async function generateMetadata({
 }
 
 function ContactLine() {
-  if (SUPPORT_EMAIL) {
-    return (
-      <a
-        href={`mailto:${SUPPORT_EMAIL}`}
-        className="font-medium text-foreground underline underline-offset-4 hover:opacity-80"
-      >
-        {SUPPORT_EMAIL}
-      </a>
-    );
-  }
+  const email = getLegalContactEmail();
   return (
-    <span className="text-foreground/80">
-      Contact details will be published here. Until then, reach us via our{" "}
-      <Link href="/about" className="underline underline-offset-4 hover:opacity-80">
-        About
-      </Link>{" "}
-      page.
-    </span>
+    <a
+      href={`mailto:${email}`}
+      className="font-medium text-foreground underline underline-offset-4 hover:opacity-80"
+    >
+      {email}
+    </a>
   );
 }
 
@@ -53,7 +45,7 @@ export default async function TermsPage({
       <article className="mx-auto max-w-3xl px-6 py-16 text-sm leading-relaxed text-foreground/90">
         <h1 className="mb-2 text-2xl font-normal tracking-tight text-foreground">Terms of Service</h1>
         <p className="mb-10 text-xs text-foreground/60">
-          Last updated: 3 April 2026 · Operator: Vault (not yet registered as a separate legal entity)
+          Last updated: {TERMS_LAST_UPDATED} · Operator: Vault — <strong>not a registered legal entity</strong> (no commercial registration)
         </p>
 
         <section className="space-y-3">
@@ -71,9 +63,11 @@ export default async function TermsPage({
         <section className="mt-10 space-y-3">
           <h2 className="text-base font-semibold text-foreground">2. Operator</h2>
           <p>
-            The Service is operated by <strong>Vault</strong>, an online retail business offering streetwear and formal wear. Vault is{" "}
-            <strong>not yet registered as a separate legal entity</strong>; these Terms are entered into with Vault in that capacity. We may update
-            identification and contact details when registration is completed.
+            The Service is operated by <strong>Vault</strong>, an online retail business offering streetwear and formal wear.{" "}
+            <strong>Vault is not registered</strong> as a company, commercial enterprise, or other separate legal entity for this activity in Lebanon.
+            These Terms are entered into with Vault as the operating brand in that <strong>unincorporated</strong> capacity. We{" "}
+            <strong>do not publish a commercial registration number or registered company address</strong> because none applies; use the contact details
+            below for all inquiries.
           </p>
           <p>
             <strong>Contact:</strong> <ContactLine />
@@ -135,10 +129,16 @@ export default async function TermsPage({
         <section className="mt-10 space-y-3">
           <h2 className="text-base font-semibold text-foreground">8. Digital confirmation and invoice</h2>
           <p>
-            In line with requirements applicable to digital transactions, <strong>a digital order confirmation and invoice</strong> (or equivalent
-            transactional record) <strong>will be generated and sent to the email address you provide</strong> (or your registered email when signed in){" "}
-            <strong>upon completion of your order</strong>, using our email provider (<strong>Resend</strong>). You should retain this for your
-            records. If you do not receive it, check spam folders and contact us using the details above.
+            In line with requirements applicable to digital transactions, we send a <strong>digital order confirmation by email</strong> as soon as
+            your order completes. It includes your <strong>order reference</strong>, <strong>totals</strong>, <strong>payment method</strong> (e.g.
+            COD), and <strong>delivery details</strong>, and serves as your <strong>transaction record</strong> for that purchase. Messages are
+            delivered through <strong>Resend</strong>. Where Lebanese tax or accounting law requires a <strong>separate formal tax invoice</strong>{" "}
+            (with additional seller or VAT information), we will provide it when applicable.
+          </p>
+          <p>
+            You should <strong>keep the email for your records</strong>. If you do not receive it, check spam or junk folders and contact us using the
+            details in §2. Email delivery depends on a working email integration in our production environment; if sending fails despite our reasonable
+            efforts, we will work with you to confirm your order by other reasonable means.
           </p>
         </section>
 
@@ -169,14 +169,22 @@ export default async function TermsPage({
             in a resalable condition. You must follow our return instructions and any reasonable verification we require.
           </p>
           <p>
+            To exercise this right, notify us <strong>within the 10-day period</strong> using the <strong>contact details in §2</strong>, with your{" "}
+            <strong>order reference</strong> (and any information we reasonably need to identify the purchase). We may provide or require a specific
+            returns process (for example a return address or courier instruction); until published, email is the primary channel.
+          </p>
+          <p>
             <strong>Custom-made, personalized, or clearly bespoke orders</strong> may be <strong>excluded</strong> from the right of withdrawal except
             where the item is defective or not as described, or where mandatory law grants you a remedy. If an order is identified as custom at
             checkout, that status will govern.
           </p>
           <p>
             Exercising your cancellation or return right may require us to <strong>process your personal data</strong> (for example order references,
-            contact details, and delivery records) to arrange collection, inspection, refund, or exchange. See our Privacy Policy for how we handle
-            personal data.
+            contact details, and delivery records) to arrange collection, inspection, refund, or exchange. See our{" "}
+            <Link href="/privacy" className="underline underline-offset-4 hover:opacity-80">
+              Privacy Policy
+            </Link>{" "}
+            for how we handle personal data.
           </p>
         </section>
 

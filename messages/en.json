@@ -307,6 +307,11 @@
     "discountLine": "Discount ({code})",
     "shipping": "Shipping",
     "total": "Total",
+    "consentCheckboxLead": "I agree to the",
+    "consentTermsLink": "Terms of Service",
+    "consentMid": " and ",
+    "consentPrivacyLink": "Privacy Policy",
+    "consentEnd": ".",
     "placeOrder": "Place order",
     "placing": "Placing order…",
     "toastEnterPromo": "Please enter a promo code",
@@ -315,7 +320,19 @@
     "errorBagEmpty": "Your bag is empty",
     "errorInvalidBag": "Invalid bag data",
     "errorOrderFailed": "Order failed",
-    "errorRateLimit": "Too many requests. Please wait before trying again."
+    "errorRateLimit": "Too many requests. Please wait before trying again.",
+    "errorTermsConsent": "You must agree to the Terms and Privacy Policy to place an order."
+  },
+  "NewsletterForm": {
+    "blurb": "Receive updates when new pieces are released.",
+    "emailAria": "Email address",
+    "emailPlaceholder": "Email",
+    "subscribe": "Subscribe",
+    "consentLead": "I agree to the",
+    "termsLink": "Terms of Service",
+    "consentMid": " and ",
+    "privacyLink": "Privacy Policy",
+    "consentEnd": " to receive marketing emails."
   },
   "CheckoutSuccess": {
     "title": "Order confirmed",

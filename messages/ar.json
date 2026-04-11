@@ -307,6 +307,11 @@
     "discountLine": "الخصم ({code})",
     "shipping": "الشحن",
     "total": "الإجمالي",
+    "consentCheckboxLead": "أوافق على",
+    "consentTermsLink": "شروط الخدمة",
+    "consentMid": " و",
+    "consentPrivacyLink": "سياسة الخصوصية",
+    "consentEnd": ".",
     "placeOrder": "تأكيد الطلب",
     "placing": "جارٍ تأكيد الطلب…",
     "toastEnterPromo": "أدخل رمزًا ترويجيًا",
@@ -315,7 +320,19 @@
     "errorBagEmpty": "حقيبتك فارغة",
     "errorInvalidBag": "بيانات الحقيبة غير صالحة",
     "errorOrderFailed": "فشل الطلب",
-    "errorRateLimit": "طلبات كثيرة. انتظر ثم أعد المحاولة."
+    "errorRateLimit": "طلبات كثيرة. انتظر ثم أعد المحاولة.",
+    "errorTermsConsent": "يجب الموافقة على الشروط وسياسة الخصوصية لإتمام الطلب."
+  },
+  "NewsletterForm": {
+    "blurb": "تلقَّ التحديثات عند إطلاق قطع جديدة.",
+    "emailAria": "البريد الإلكتروني",
+    "emailPlaceholder": "البريد الإلكتروني",
+    "subscribe": "اشتراك",
+    "consentLead": "أوافق على",
+    "termsLink": "شروط الخدمة",
+    "consentMid": " و",
+    "privacyLink": "سياسة الخصوصية",
+    "consentEnd": " لتلقي رسائل تسويقية."
   },
   "CheckoutSuccess": {
     "title": "تم تأكيد الطلب",
