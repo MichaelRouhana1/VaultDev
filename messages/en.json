@@ -117,13 +117,12 @@
     "returns": "Returns",
     "company": "Company",
     "about": "About",
-    "careers": "Careers",
     "legal": "Legal",
     "privacy": "Privacy Policy",
     "terms": "Terms",
-    "follow": "Follow",
-    "instagram": "Instagram",
-    "twitter": "Twitter",
+    "socialMedia": "Social media",
+    "whatsappAria": "Chat on WhatsApp",
+    "instagramAria": "Vault on Instagram",
     "copyright": "© {year} VAULT.",
     "openLanguage": "Choose language",
     "languageTitle": "Language",
@@ -466,5 +465,40 @@
   "TermsPage": {
     "metaTitle": "Terms of Service — Vault",
     "metaDescription": "Terms governing use of the Vault online store and purchases in Lebanon."
+  },
+  "SupportReturns": {
+    "metaTitle": "Returns & refunds — Vault",
+    "metaDescription": "How to return or exchange Vault orders in Lebanon.",
+    "h1": "Returns & refunds",
+    "p1": "We want you to be happy with your purchase. Under Lebanese consumer protection rules and our Terms of Service, you may have the right to cancel certain distance sales within 10 days of receiving your order, when items are unused and in their original packaging with tags where applicable.",
+    "p2": "Custom-made, personalized, or clearly bespoke items may be excluded from the right of withdrawal except where the law or our Terms provide otherwise (for example if an item is defective or not as described).",
+    "p3": "To start a return, exchange, or cancellation, reach us with your order number so we can confirm eligibility and give you the next steps (including where to send goods if a return is approved).",
+    "p4Before": "Use our",
+    "contactLink": "Contact",
+    "p4After": " page, email, or WhatsApp — see details there.",
+    "termsBefore": "Full legal conditions are in our",
+    "termsLink": "Terms of Service",
+    "termsAfter": " (including the 10-day rule and any exclusions)."
+  },
+  "SupportShipping": {
+    "metaTitle": "Shipping & delivery — Vault",
+    "metaDescription": "How Vault ships orders in Lebanon and Cash on Delivery.",
+    "h1": "Shipping & delivery",
+    "p1": "We deliver within Lebanon. Timeframes or fees shown at checkout are estimates only; actual delivery can vary with location, carrier capacity, weather, or other factors outside our control.",
+    "p2": "Our standard payment method is Cash on Delivery (COD): please have the full order amount ready when your package arrives, as set out in our Terms.",
+    "p3": "If you need to change delivery details after ordering, contact us as soon as possible. We may verify your phone number before dispatch to reduce failed deliveries.",
+    "contactLineBefore": "Questions? Visit",
+    "contactLink": "Contact",
+    "contactLineAfter": " or message us on WhatsApp."
+  },
+  "SupportContact": {
+    "metaTitle": "Contact — Vault",
+    "metaDescription": "Reach Vault by email, WhatsApp, or Instagram.",
+    "h1": "Contact us",
+    "intro": "For orders, returns, sizing, or general questions, reach us using any of the options below.",
+    "labelEmail": "Email",
+    "labelWhatsapp": "WhatsApp",
+    "labelInstagram": "Instagram",
+    "responseNote": "We aim to reply within a reasonable time during business hours. For order issues, include your order number if you have one."
   }
 }

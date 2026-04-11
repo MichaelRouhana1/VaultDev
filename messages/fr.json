@@ -117,13 +117,12 @@
     "returns": "Retours",
     "company": "Entreprise",
     "about": "À propos",
-    "careers": "Carrières",
     "legal": "Mentions légales",
     "privacy": "Politique de confidentialité",
     "terms": "Conditions",
-    "follow": "Suivre",
-    "instagram": "Instagram",
-    "twitter": "Twitter",
+    "socialMedia": "Réseaux sociaux",
+    "whatsappAria": "Discuter sur WhatsApp",
+    "instagramAria": "Vault sur Instagram",
     "copyright": "© {year} VAULT.",
     "openLanguage": "Choisir la langue",
     "languageTitle": "Langue",
@@ -466,5 +465,40 @@
   "TermsPage": {
     "metaTitle": "Conditions d'utilisation — Vault",
     "metaDescription": "Conditions régissant l'utilisation de la boutique en ligne Vault et les achats au Liban."
+  },
+  "SupportReturns": {
+    "metaTitle": "Retours et remboursements — Vault",
+    "metaDescription": "Retours et échanges pour les commandes Vault au Liban.",
+    "h1": "Retours et remboursements",
+    "p1": "Nous voulons que vous soyez satisfait(e). Selon la réglementation libanaise sur la protection des consommateurs et nos Conditions d’utilisation, vous pouvez avoir le droit d’annuler certaines ventes à distance dans les 10 jours suivant la réception, si les articles sont non utilisés et dans leur emballage d’origine avec étiquettes le cas échéant.",
+    "p2": "Les articles sur mesure, personnalisés ou clairement sur commande peuvent être exclus du droit de rétractation, sauf disposition contraire de la loi ou des Conditions (par exemple article défectueux ou non conforme).",
+    "p3": "Pour un retour, un échange ou une annulation, contactez-nous avec votre numéro de commande afin que nous vérifions l’éligibilité et vous indiquions la suite (y compris l’adresse d’envoi si un retour est accepté).",
+    "p4Before": "Utilisez notre page",
+    "contactLink": "Contact",
+    "p4After": ", l’e-mail ou WhatsApp — voir les coordonnées sur cette page.",
+    "termsBefore": "Les conditions juridiques complètes figurent dans nos",
+    "termsLink": "Conditions d’utilisation",
+    "termsAfter": " (dont la règle des 10 jours et les exclusions éventuelles)."
+  },
+  "SupportShipping": {
+    "metaTitle": "Livraison — Vault",
+    "metaDescription": "Expédition des commandes Vault au Liban et paiement à la livraison.",
+    "h1": "Livraison",
+    "p1": "Nous livrons au Liban. Les délais ou frais indiqués au paiement sont des estimations ; la livraison réelle peut varier selon le lieu, le transporteur, la météo ou d’autres facteurs hors de notre contrôle.",
+    "p2": "Notre mode de paiement habituel est le paiement à la livraison (COD) : ayez le montant total prêt à la réception du colis, comme prévu dans nos Conditions.",
+    "p3": "Pour modifier les informations de livraison après commande, contactez-nous au plus vite. Nous pouvons vérifier votre numéro de téléphone avant l’expédition pour limiter les livraisons échouées.",
+    "contactLineBefore": "Des questions ? Consultez",
+    "contactLink": "Contact",
+    "contactLineAfter": " ou écrivez-nous sur WhatsApp."
+  },
+  "SupportContact": {
+    "metaTitle": "Contact — Vault",
+    "metaDescription": "Joindre Vault par e-mail, WhatsApp ou Instagram.",
+    "h1": "Nous contacter",
+    "intro": "Pour les commandes, retours, tailles ou questions générales, utilisez l’une des options ci-dessous.",
+    "labelEmail": "E-mail",
+    "labelWhatsapp": "WhatsApp",
+    "labelInstagram": "Instagram",
+    "responseNote": "Nous essayons de répondre dans un délai raisonnable pendant les heures ouvrables. Pour un suivi de commande, indiquez votre numéro de commande si vous l’avez."
   }
 }

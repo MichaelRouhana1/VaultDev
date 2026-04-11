@@ -2,7 +2,9 @@
 
 import { useState, useTransition, useCallback } from "react";
 import { useLocale, useTranslations } from "next-intl";
-import { Globe } from "lucide-react";
+import { Globe, Instagram } from "lucide-react";
+import { WhatsAppLogo } from "@/components/icons/WhatsAppLogo";
+import { VAULT_INSTAGRAM_URL, vaultWhatsAppHref } from "@/lib/storefront-social";
 import { usePathname as useNextPathname } from "next/navigation";
 import { Link, usePathname, useRouter } from "@/i18n/navigation";
 import type { MosaikLocale } from "@/lib/i18n-locales";
@@ -100,8 +102,6 @@ export function SiteFooter() {
   const sectionBlockClass = "text-start pb-8 md:pb-10 lg:pb-12";
   const footerLinkClass =
     "block py-0 text-sm font-normal leading-snug text-foreground underline-offset-4 transition-opacity hover:opacity-70 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2";
-  /** Placeholder rows (no route yet): same contrast as links, no fake “disabled grey”. */
-  const footerStaticClass = "block py-0 text-sm font-normal leading-snug text-foreground";
 
   return (
     <footer
@@ -116,15 +116,19 @@ export function SiteFooter() {
             <h3 className={sectionTitleClass}>{t("customerSupport")}</h3>
             <ul className="flex flex-col gap-0.5">
               <li>
-                <Link href="/about" className={footerLinkClass}>
+                <Link href="/contact" className={footerLinkClass}>
                   {t("contact")}
                 </Link>
               </li>
               <li>
-                <span className={footerStaticClass}>{t("shipping")}</span>
+                <Link href="/shipping" className={footerLinkClass}>
+                  {t("shipping")}
+                </Link>
               </li>
               <li>
-                <span className={footerStaticClass}>{t("returns")}</span>
+                <Link href="/returns" className={footerLinkClass}>
+                  {t("returns")}
+                </Link>
               </li>
             </ul>
           </div>
@@ -135,9 +139,6 @@ export function SiteFooter() {
                 <Link href="/about" className={footerLinkClass}>
                   {t("about")}
                 </Link>
-              </li>
-              <li>
-                <span className={footerStaticClass}>{t("careers")}</span>
               </li>
             </ul>
           </div>
@@ -157,15 +158,27 @@ export function SiteFooter() {
             </ul>
           </div>
           <div className={sectionBlockClass}>
-            <h3 className={sectionTitleClass}>{t("follow")}</h3>
-            <ul className="flex flex-col gap-0.5">
-              <li>
-                <span className={footerStaticClass}>{t("instagram")}</span>
-              </li>
-              <li>
-                <span className={footerStaticClass}>{t("twitter")}</span>
-              </li>
-            </ul>
+            <h3 className={sectionTitleClass}>{t("socialMedia")}</h3>
+            <div className="flex items-center gap-5">
+              <a
+                href={vaultWhatsAppHref()}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-foreground transition-opacity hover:opacity-70 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                aria-label={t("whatsappAria")}
+              >
+                <WhatsAppLogo className="size-6" />
+              </a>
+              <a
+                href={VAULT_INSTAGRAM_URL}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-foreground transition-opacity hover:opacity-70 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                aria-label={t("instagramAria")}
+              >
+                <Instagram className="size-6" strokeWidth={1.5} aria-hidden />
+              </a>
+            </div>
           </div>
         </div>
 
