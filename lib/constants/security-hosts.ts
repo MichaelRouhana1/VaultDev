@@ -78,6 +78,16 @@ export function getR2PublicHostname(): string | null {
 }
 
 /**
+ * S3-compatible API origin for presigned PUT uploads from the browser (`connect-src`).
+ * Distinct from the public object URL host in `NEXT_PUBLIC_R2_PUBLIC_URL`.
+ */
+export function getR2S3ApiConnectOrigin(): string | null {
+  const id = process.env.R2_ACCOUNT_ID?.trim();
+  if (!id) return null;
+  return `https://${id}.r2.cloudflarestorage.com`;
+}
+
+/**
  * Custom Clerk Frontend API origin when using a Clerk **custom domain** (e.g. `https://clerk.example.com`).
  * Default `*.clerk.com` CSP entries do **not** cover `clerk.yourdomain.com`, so fetches to `/v1/environment` are blocked
  * unless this is set. Matches Clerk’s manual CSP guidance (`https://clerk.com/docs/security/clerk-csp`).
@@ -185,6 +195,9 @@ function joinCspSources(parts: string[]): string {
  * **Images:** `blob:` is required for admin image crop / preview (`URL.createObjectURL`). `data:`
  * is omitted unless we add inline data-URI images.
  *
+ * **Connect:** Presigned direct-to-R2 uploads use `fetch` to `https://<R2_ACCOUNT_ID>.r2.cloudflarestorage.com`
+ * (requires `R2_ACCOUNT_ID` in the deployment env so this origin is included in `connect-src`).
+ *
  * **Frames:** Stripe (`js.stripe.com`, `hooks.stripe.com`, Checkout), Clerk hosted flows, Cloudflare Turnstile.
  *
  * **Analytics:** No third-party analytics scripts in this repo. If you add GTM, Plausible, Vercel Analytics, etc.,
@@ -247,6 +260,10 @@ export function buildContentSecurityPolicy(nonce: string): string {
     connectParts.push(upstash);
   }
   connectParts.push(...STRIPE_CONNECT_SRC);
+  const r2S3Api = getR2S3ApiConnectOrigin();
+  if (r2S3Api) {
+    connectParts.push(r2S3Api);
+  }
 
   const connectSrc = joinCspSources(connectParts);
 
