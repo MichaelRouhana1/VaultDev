@@ -3,23 +3,13 @@
 import { useState, useCallback } from "react";
 import Cropper, { type Area } from "react-easy-crop";
 import { AdminEyedropperButton } from "@/components/admin/AdminHexColorField";
-
-
-function createImage(url: string): Promise<HTMLImageElement> {
-  return new Promise((resolve, reject) => {
-    const image = document.createElement("img");
-    image.addEventListener("load", () => resolve(image));
-    image.addEventListener("error", (err) => reject(err));
-    image.setAttribute("crossOrigin", "anonymous");
-    image.src = url;
-  });
-}
+import { loadImageForCanvas } from "@/lib/canvas-load-image";
 
 async function getCroppedBlob(
   imageSrc: string,
   pixelCrop: Area
 ): Promise<Blob> {
-  const image = await createImage(imageSrc);
+  const image = await loadImageForCanvas(imageSrc);
   const canvas = document.createElement("canvas");
   canvas.width = pixelCrop.width;
   canvas.height = pixelCrop.height;

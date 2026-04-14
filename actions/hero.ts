@@ -5,6 +5,7 @@ import { asc, eq, and } from "drizzle-orm";
 import { db } from "@/db";
 import { heroImages } from "@/db/schema";
 import { uploadHeroImage, deleteFromR2 } from "@/lib/uploadImages";
+import { isTrustedR2PublicUrl } from "@/lib/r2-public-url";
 import { auditLog } from "@/lib/audit";
 import { z } from "zod";
 import { requireAdmin, requireAdminAction } from "@/lib/security";
@@ -40,11 +41,17 @@ export async function addHeroImage(
   const { userId } = await requireAdmin();
   const validatedStore = z.enum(["streetwear", "formal", "both"]).parse(storeType);
   const validatedUrl = z.string().url().parse(imageUrl);
+  if (!isTrustedR2PublicUrl(validatedUrl)) {
+    throw new Error("Image URL must use configured R2 public storage.");
+  }
   const validatedAlt = altText ? z.string().parse(altText) : null;
   const validatedMobile =
     mobileImageUrl != null && String(mobileImageUrl).trim() !== ""
       ? z.string().url().parse(mobileImageUrl)
       : null;
+  if (validatedMobile && !isTrustedR2PublicUrl(validatedMobile)) {
+    throw new Error("Mobile image URL must use configured R2 public storage.");
+  }
 
   const [image] = await db
     .insert(heroImages)
@@ -99,7 +106,9 @@ export async function addHeroImageFromFile(formData: FormData): Promise<{ error?
     if (!mobileResult.url) return { error: "Mobile upload failed" };
     mobileUrl = mobileResult.url;
   } else if (mobileUrlRaw) {
-    mobileUrl = z.string().url().parse(mobileUrlRaw);
+    const parsed = z.string().url().parse(mobileUrlRaw);
+    if (!isTrustedR2PublicUrl(parsed)) return { error: "Invalid mobile image URL" };
+    mobileUrl = parsed;
   }
 
   const [image] = await db

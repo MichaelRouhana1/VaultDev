@@ -5,7 +5,8 @@ import Image from "next/image";
 import { useRouter } from "@/i18n/navigation";
 import { useDropzone } from "react-dropzone";
 import { DualImageCropModal } from "@/components/admin/DualImageCropModal";
-import { addHeroImageFromFile, deleteHeroImage } from "@/actions/hero";
+import { addHeroImage, deleteHeroImage } from "@/actions/hero";
+import { uploadImageFileViaPresign } from "@/lib/upload-image-presigned-client";
 import { ensureBrowserDisplayableImage } from "@/lib/ensureBrowserDisplayableImage";
 import { adminImageDropzoneAccept } from "@/lib/image-upload-accept";
 import { MAX_IMAGE_UPLOAD_BYTES } from "@/lib/image-upload-limits";
@@ -89,18 +90,27 @@ export function HeroAdminClient({ images: initialImages, initialStoreType }: Her
       });
 
       setIsAdding(true);
-      const formData = new FormData();
-      formData.append("image", desktopFile);
-      formData.append("mobileImage", mobileFile);
-      formData.append("storeType", initialStoreType);
-      const result = await addHeroImageFromFile(formData);
-      setIsAdding(false);
+      try {
+        const desktopUp = await uploadImageFileViaPresign(desktopFile, "hero-images");
+        if ("error" in desktopUp) {
+          toast.error(desktopUp.error);
+          return;
+        }
+        const mobileUp = await uploadImageFileViaPresign(mobileFile, "hero-images");
+        if ("error" in mobileUp) {
+          toast.error(mobileUp.error);
+          return;
+        }
 
-      if (result.error) {
-        toast.error(result.error);
-        return;
+        await addHeroImage(desktopUp.publicUrl, undefined, initialStoreType, mobileUp.publicUrl);
+        router.refresh();
+      } catch {
+        toast.error(
+          "Could not save the slide. If uploads fail, confirm R2 bucket CORS allows PUT from this origin.",
+        );
+      } finally {
+        setIsAdding(false);
       }
-      router.refresh();
     },
     [router, initialStoreType]
   );

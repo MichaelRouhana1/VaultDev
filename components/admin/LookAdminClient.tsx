@@ -5,7 +5,8 @@ import Image from "next/image";
 import { useRouter } from "@/i18n/navigation";
 import { useDropzone } from "react-dropzone";
 import { DualImageCropModal } from "@/components/admin/DualImageCropModal";
-import { addLookbookItemFromFile, deleteLookbookItem, setLookbookSectionVisible } from "@/actions/lookbook";
+import { addLookbookItemFromPayload, deleteLookbookItem, setLookbookSectionVisible } from "@/actions/lookbook";
+import { uploadImageFileViaPresign } from "@/lib/upload-image-presigned-client";
 import { ensureBrowserDisplayableImage } from "@/lib/ensureBrowserDisplayableImage";
 import { adminImageDropzoneAccept } from "@/lib/image-upload-accept";
 import { MAX_IMAGE_UPLOAD_BYTES } from "@/lib/image-upload-limits";
@@ -117,20 +118,38 @@ export function LookAdminClient({
       });
 
       setIsAdding(true);
-      const formData = new FormData();
-      formData.append("image", desktopFile);
-      formData.append("mobileImage", mobileFile);
-      formData.append("label", current.label.trim());
-      formData.append("href", (current.href || "/shop").trim());
-      formData.append("storeType", current.storeType);
-      const result = await addLookbookItemFromFile(formData);
-      setIsAdding(false);
+      try {
+        const desktopUp = await uploadImageFileViaPresign(desktopFile, "lookbook");
+        if ("error" in desktopUp) {
+          toast.error(desktopUp.error);
+          return;
+        }
+        const mobileUp = await uploadImageFileViaPresign(mobileFile, "lookbook");
+        if ("error" in mobileUp) {
+          toast.error(mobileUp.error);
+          return;
+        }
 
-      if (result.error) {
-        toast.error(result.error);
-        return;
+        const result = await addLookbookItemFromPayload({
+          label: current.label.trim(),
+          href: (current.href || "/shop").trim(),
+          storeType: current.storeType,
+          imageUrl: desktopUp.publicUrl,
+          mobileImageUrl: mobileUp.publicUrl,
+        });
+
+        if (result.error) {
+          toast.error(result.error);
+          return;
+        }
+        router.refresh();
+      } catch {
+        toast.error(
+          "Could not save the look. If uploads fail, confirm R2 bucket CORS allows PUT from this origin.",
+        );
+      } finally {
+        setIsAdding(false);
       }
-      router.refresh();
     },
     [router]
   );

@@ -8,7 +8,11 @@ const withNextIntl = createNextIntlPlugin("./i18n.ts");
 const nextConfig: NextConfig = {
   experimental: {
     serverActions: {
-      /** Must be ≥ largest image upload + multipart overhead; keep in sync with `MAX_SERVER_ACTION_BODY_BYTES` in `lib/security.ts`. */
+      /**
+       * Must be ≥ largest server-action multipart body. Vercel still caps total request size (~4.5MB);
+       * dual-crop hero/lookbook JPEGs are downscaled client-side to fit. Keep in sync with
+       * `MAX_SERVER_ACTION_BODY_BYTES` in `lib/security.ts`.
+       */
       bodySizeLimit: "20mb",
     },
   },

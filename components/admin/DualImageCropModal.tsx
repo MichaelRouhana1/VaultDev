@@ -2,16 +2,15 @@
 
 import { useCallback, useState, type ReactNode } from "react";
 import Cropper, { type Area } from "react-easy-crop";
+import { loadImageForCanvas } from "@/lib/canvas-load-image";
 
-function createImage(url: string): Promise<HTMLImageElement> {
-  return new Promise((resolve, reject) => {
-    const image = document.createElement("img");
-    image.addEventListener("load", () => resolve(image));
-    image.addEventListener("error", (err) => reject(err));
-    image.setAttribute("crossOrigin", "anonymous");
-    image.src = url;
-  });
-}
+/**
+ * Vercel serverless POST bodies are capped (~4.5MB). Hero/lookbook send **two** JPEGs in one server
+ * action — downscale exports so combined multipart stays under the platform limit.
+ */
+const DUAL_CROP_JPEG_QUALITY = 0.82;
+const DUAL_CROP_DESKTOP_MAX_LONG_EDGE = 2400;
+const DUAL_CROP_MOBILE_MAX_LONG_EDGE = 1280;
 
 function getRadianAngle(degreeValue: number) {
   return (degreeValue * Math.PI) / 180;
@@ -25,6 +24,25 @@ function rotateSize(width: number, height: number, rotation: number) {
   };
 }
 
+function canvasCappedLongEdge(source: HTMLCanvasElement, maxLongEdge: number): HTMLCanvasElement {
+  const w = source.width;
+  const h = source.height;
+  const long = Math.max(w, h);
+  if (long <= maxLongEdge) return source;
+  const scale = maxLongEdge / long;
+  const nw = Math.max(1, Math.round(w * scale));
+  const nh = Math.max(1, Math.round(h * scale));
+  const out = document.createElement("canvas");
+  out.width = nw;
+  out.height = nh;
+  const octx = out.getContext("2d");
+  if (!octx) return source;
+  octx.imageSmoothingEnabled = true;
+  octx.imageSmoothingQuality = "high";
+  octx.drawImage(source, 0, 0, nw, nh);
+  return out;
+}
+
 /**
  * Extracts a JPEG blob for the given crop in the same coordinate space as
  * `croppedAreaPixels` from react-easy-crop (rotated natural bounding box).
@@ -32,9 +50,10 @@ function rotateSize(width: number, height: number, rotation: number) {
 async function getCroppedBlob(
   imageSrc: string,
   pixelCrop: Area,
-  rotation: number
+  rotation: number,
+  encode: { maxLongEdge: number; jpegQuality: number }
 ): Promise<Blob> {
-  const image = await createImage(imageSrc);
+  const image = await loadImageForCanvas(imageSrc);
   const canvas = document.createElement("canvas");
   const ctx = canvas.getContext("2d");
   if (!ctx) throw new Error("No canvas context");
@@ -56,14 +75,16 @@ async function getCroppedBlob(
   canvas.height = pixelCrop.height;
   ctx.putImageData(data, 0, 0);
 
+  const encodeCanvas = canvasCappedLongEdge(canvas, encode.maxLongEdge);
+
   return new Promise((resolve, reject) => {
-    canvas.toBlob(
+    encodeCanvas.toBlob(
       (blob) => {
         if (blob) resolve(blob);
         else reject(new Error("Canvas toBlob failed"));
       },
       "image/jpeg",
-      0.9
+      encode.jpegQuality
     );
   });
 }
@@ -129,8 +150,14 @@ export function DualImageCropModal({
     setProcessing(true);
     try {
       const [desktopBlob, mobileBlob] = await Promise.all([
-        getCroppedBlob(imageSrc, croppedAreaPixelsDesktop, rotationDesktop),
-        getCroppedBlob(imageSrc, croppedAreaPixelsMobile, rotationMobile),
+        getCroppedBlob(imageSrc, croppedAreaPixelsDesktop, rotationDesktop, {
+          maxLongEdge: DUAL_CROP_DESKTOP_MAX_LONG_EDGE,
+          jpegQuality: DUAL_CROP_JPEG_QUALITY,
+        }),
+        getCroppedBlob(imageSrc, croppedAreaPixelsMobile, rotationMobile, {
+          maxLongEdge: DUAL_CROP_MOBILE_MAX_LONG_EDGE,
+          jpegQuality: DUAL_CROP_JPEG_QUALITY,
+        }),
       ]);
       onComplete(desktopBlob, mobileBlob);
     } catch (err) {

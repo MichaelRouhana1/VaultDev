@@ -6,6 +6,7 @@ import { db } from "@/db";
 import { lookbookItems, sectionSettings } from "@/db/schema";
 import { uploadLookImage, deleteFromR2 } from "@/lib/uploadImages";
 import { validateHref, requireAdmin, requireAdminAction } from "@/lib/security";
+import { isTrustedR2PublicUrl } from "@/lib/r2-public-url";
 import { auditLog } from "@/lib/audit";
 import { z } from "zod";
 
@@ -121,6 +122,7 @@ export async function updateLookbookItem(
       updateData.mobileImageUrl = null;
     } else {
       const next = parsedData.mobileImageUrl;
+      if (!isTrustedR2PublicUrl(next)) throw new Error("Mobile image URL must use configured R2 public storage.");
       if (row?.mobileImageUrl && row.mobileImageUrl !== next) await deleteFromR2(row.mobileImageUrl);
       updateData.mobileImageUrl = next;
     }
@@ -177,10 +179,12 @@ export async function updateLookbookItemImagesFromFile(
     if (existing.mobileImageUrl) await deleteFromR2(existing.mobileImageUrl);
     nextMobileUrl = mobileResult.url;
   } else if (mobileUrlRaw) {
-    if (existing.mobileImageUrl && existing.mobileImageUrl !== mobileUrlRaw) {
+    const parsedMobile = z.string().url().parse(mobileUrlRaw);
+    if (!isTrustedR2PublicUrl(parsedMobile)) return { error: "Invalid mobile image URL" };
+    if (existing.mobileImageUrl && existing.mobileImageUrl !== parsedMobile) {
       await deleteFromR2(existing.mobileImageUrl);
     }
-    nextMobileUrl = z.string().url().parse(mobileUrlRaw);
+    nextMobileUrl = parsedMobile;
   }
 
   await db
@@ -240,7 +244,9 @@ export async function addLookbookItemFromFile(formData: FormData): Promise<{ err
     if (!mobileResult.url) return { error: "Mobile upload failed" };
     mobileUrl = mobileResult.url;
   } else if (mobileUrlRaw) {
-    mobileUrl = z.string().url().parse(mobileUrlRaw);
+    const parsed = z.string().url().parse(mobileUrlRaw);
+    if (!isTrustedR2PublicUrl(parsed)) return { error: "Invalid mobile image URL" };
+    mobileUrl = parsed;
   }
 
   const [{ maxOrder }] = await db
@@ -256,6 +262,72 @@ export async function addLookbookItemFromFile(formData: FormData): Promise<{ err
     order: nextOrder,
     storeType,
   }).returning({ id: lookbookItems.id });
+  if (inserted) auditLog({ userId, action: "lookbook.add", target: String(inserted.id), details: { label } });
+  return {};
+}
+
+/** Inserts a lookbook row after images were uploaded directly to R2 (presigned PUT). Admin only. */
+export async function addLookbookItemFromPayload(input: {
+  label: string;
+  href: string;
+  storeType: "streetwear" | "formal" | "both";
+  imageUrl: string;
+  mobileImageUrl: string | null;
+}): Promise<{ error?: string }> {
+  const gate = await requireAdminAction({ auditTarget: "lookbook.add.presign" });
+  if (!gate.authorized) return { error: gate.response.error };
+  const { userId } = gate;
+
+  const schema = z.object({
+    label: z.string().min(1),
+    href: z.string(),
+    storeType: z.enum(["streetwear", "formal", "both"]),
+    imageUrl: z.string().url(),
+    mobileImageUrl: z.union([z.string().url(), z.null()]),
+  });
+
+  const normalized = {
+    label: input.label.trim(),
+    href: (input.href ?? "").trim() || "/shop",
+    storeType: input.storeType,
+    imageUrl: input.imageUrl.trim(),
+    mobileImageUrl:
+      input.mobileImageUrl != null && String(input.mobileImageUrl).trim() !== ""
+        ? String(input.mobileImageUrl).trim()
+        : null,
+  };
+
+  const parsed = schema.safeParse(normalized);
+  if (!parsed.success) {
+    return { error: parsed.error.issues[0]?.message ?? "Validation failed" };
+  }
+
+  const { label, storeType, imageUrl, mobileImageUrl } = parsed.data;
+  if (!isTrustedR2PublicUrl(imageUrl)) return { error: "Invalid image URL" };
+  if (mobileImageUrl && !isTrustedR2PublicUrl(mobileImageUrl)) {
+    return { error: "Invalid mobile image URL" };
+  }
+
+  const hrefValidation = validateHref(parsed.data.href);
+  if (!hrefValidation.ok) return { error: hrefValidation.error };
+  const href = hrefValidation.href;
+
+  const [{ maxOrder }] = await db
+    .select({ maxOrder: max(lookbookItems.order) })
+    .from(lookbookItems);
+  const nextOrder = (maxOrder ?? -1) + 1;
+
+  const [inserted] = await db
+    .insert(lookbookItems)
+    .values({
+      label,
+      imageUrl,
+      mobileImageUrl,
+      href,
+      order: nextOrder,
+      storeType,
+    })
+    .returning({ id: lookbookItems.id });
   if (inserted) auditLog({ userId, action: "lookbook.add", target: String(inserted.id), details: { label } });
   return {};
 }
