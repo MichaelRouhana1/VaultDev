@@ -59,7 +59,7 @@ export default async function LocaleLayout({
   const nonce = headersList.get("x-nonce") || undefined;
   /** Storefront stays LTR for every locale; Arabic only swaps strings, not layout/mirroring. */
   return (
-    <html lang={locale} dir="ltr" suppressHydrationWarning>
+    <html lang={locale} dir="ltr" suppressHydrationWarning nonce={nonce}>
       <body className={`${geistSans.variable} ${geistMono.variable} antialiased`}>
         <NextIntlClientProvider messages={messages}>
           {/* Clerk: keep sign-in/up on this app so `mosaikClerkAppearance` applies (env-only URLs are easy to drop when editing .env for Supabase). */}
