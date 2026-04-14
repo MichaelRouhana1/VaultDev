@@ -12,7 +12,7 @@ import {
   productOptionValues,
   variantOptionValues,
 } from "@/db/schema";
-import { uploadProductImages } from "@/lib/uploadImages";
+import { parseTrustedR2ImageUrlArrayFromFormKey } from "@/lib/parse-trusted-r2-image-urls";
 import { auditLog } from "@/lib/audit";
 import {
   productCreateBaseSchema,
@@ -192,20 +192,26 @@ export async function createProduct(formData: FormData): Promise<{ success?: boo
   const colorEntries: Array<{
     name: string;
     hexCode: string | null;
-    imageFiles: File[];
+    imageUrls: string[];
   }> = [];
 
   for (let i = 0; i < colorCount; i++) {
     const colorName = (formData.get(`color_${i}_name`) as string)?.trim();
     const colorHex = (formData.get(`color_${i}_hex`) as string)?.trim() || null;
-    const imageFiles = formData.getAll(`color_${i}_images`) as File[];
+    const urlList = parseTrustedR2ImageUrlArrayFromFormKey(formData, `color_${i}_imageUrls`);
+    if (!urlList.ok) {
+      return { success: false, error: urlList.error };
+    }
+    if (urlList.urls.length === 0) {
+      return { success: false, error: `Color ${i + 1} needs at least one image` };
+    }
     if (!colorName) {
       return { success: false, error: `Color ${i + 1} must have a name` };
     }
     colorEntries.push({
       name: colorName,
       hexCode: colorHex,
-      imageFiles: imageFiles.filter((f) => f?.size),
+      imageUrls: urlList.urls,
     });
   }
 
@@ -217,17 +223,6 @@ export async function createProduct(formData: FormData): Promise<{ success?: boo
     .limit(1);
   if (existingSku.length > 0 && existingSku[0].sku) {
     return { success: false, error: `SKU already in use: ${existingSku[0].sku}` };
-  }
-
-  const colorImageUrls: string[][] = [];
-  for (let i = 0; i < colorEntries.length; i++) {
-    const prefix = `product-${Date.now()}-${i}`;
-    const result = await uploadProductImages(colorEntries[i].imageFiles, prefix);
-    if (result.error) {
-      logger.error("Failed to upload product images", undefined, { errorDetails: result.error });
-      return { success: false, error: result.error };
-    }
-    colorImageUrls.push(result.urls);
   }
 
   const productId = await db.transaction(async (tx) => {
@@ -252,7 +247,7 @@ export async function createProduct(formData: FormData): Promise<{ success?: boo
           productId: product.id,
           name: colorEntries[i].name,
           hexCode: colorEntries[i].hexCode,
-          imageUrls: colorImageUrls[i] ?? [],
+          imageUrls: colorEntries[i].imageUrls,
         })
         .returning({ id: productColors.id });
       colorIds.push(pc.id);

@@ -13,7 +13,10 @@ import {
   productOptionValues,
   variantOptionValues,
 } from "@/db/schema";
-import { uploadProductImages } from "@/lib/uploadImages";
+import {
+  parseTrustedR2ImageUrlArray,
+  parseTrustedR2ImageUrlArrayFromFormKey,
+} from "@/lib/parse-trusted-r2-image-urls";
 import { auditLog } from "@/lib/audit";
 import {
   productCreateOptionSchema,
@@ -211,8 +214,7 @@ export async function updateProduct(
     existingId: number | null;
     name: string;
     hexCode: string | null;
-    existingUrls: string[];
-    imageFiles: File[];
+    imageUrls: string[];
   };
 
   const colorEntries: ColorEntry[] = [];
@@ -223,22 +225,32 @@ export async function updateProduct(
     const colorName = (formData.get(`color_${i}_name`) as string)?.trim();
     const colorHex = (formData.get(`color_${i}_hex`) as string)?.trim() || null;
     const existingUrlsRaw = formData.get(`color_${i}_existing_urls`) as string;
-    let existingUrls: string[] = [];
+    let existingParsed: unknown = [];
     try {
-      existingUrls = existingUrlsRaw ? JSON.parse(existingUrlsRaw) : [];
+      existingParsed = existingUrlsRaw ? JSON.parse(existingUrlsRaw) : [];
     } catch {
-      existingUrls = [];
+      return { success: false, error: `Color ${i + 1}: invalid existing image URLs` };
     }
-    const imageFiles = formData.getAll(`color_${i}_images`) as File[];
+    const existingTrusted = parseTrustedR2ImageUrlArray(existingParsed);
+    if (!existingTrusted.ok) {
+      return { success: false, error: `Color ${i + 1}: ${existingTrusted.error}` };
+    }
+    const newUrlsParsed = parseTrustedR2ImageUrlArrayFromFormKey(formData, `color_${i}_newImageUrls`);
+    if (!newUrlsParsed.ok) {
+      return { success: false, error: newUrlsParsed.error };
+    }
     if (!colorName) {
       return { success: false, error: `Color ${i + 1} must have a name` };
+    }
+    const imageUrls = [...existingTrusted.urls, ...newUrlsParsed.urls];
+    if (imageUrls.length === 0) {
+      return { success: false, error: `Color ${i + 1} needs at least one image` };
     }
     colorEntries.push({
       existingId,
       name: colorName,
       hexCode: colorHex,
-      existingUrls: Array.isArray(existingUrls) ? existingUrls : [],
-      imageFiles: imageFiles.filter((f) => f?.size),
+      imageUrls,
     });
   }
 
@@ -264,19 +276,6 @@ export async function updateProduct(
     }
   }
 
-  const colorImageUrls: string[][] = [];
-  for (let i = 0; i < colorEntries.length; i++) {
-    const urls: string[] = [...colorEntries[i].existingUrls];
-    const prefix = `product-${Date.now()}-${i}`;
-    const result = await uploadProductImages(colorEntries[i].imageFiles, prefix);
-    if (result.error) {
-      logger.error("Failed to upload product images in updateProduct", undefined, { errorDetails: result.error, productId });
-      return { success: false, error: result.error };
-    }
-    urls.push(...result.urls);
-    colorImageUrls.push(urls);
-  }
-
   await db.transaction(async (tx) => {
     await tx
       .update(products)
@@ -299,7 +298,7 @@ export async function updateProduct(
     const colorIds: number[] = [];
     for (let i = 0; i < colorEntries.length; i++) {
       const entry = colorEntries[i];
-      const imageUrls = colorImageUrls[i] ?? [];
+      const imageUrls = entry.imageUrls;
 
       const existingColor = entry.existingId != null ? existingColors.find((c) => c.id === entry.existingId) : null;
       if (existingColor) {

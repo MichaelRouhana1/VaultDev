@@ -4,7 +4,8 @@ import { cache } from "react";
 import { asc, eq, inArray, and, count } from "drizzle-orm";
 import { db } from "@/db";
 import { categories, products } from "@/db/schema";
-import { uploadProductImage } from "@/lib/uploadImages";
+import { deleteFromR2 } from "@/lib/uploadImages";
+import { parseOptionalTrustedR2ImageUrlFromForm } from "@/lib/parse-trusted-r2-image-urls";
 import { auditLog } from "@/lib/audit";
 import { headers } from "next/headers";
 import { checkSensitiveOperationLimit } from "@/lib/rate-limit";
@@ -126,7 +127,8 @@ export async function createCategory(formData: FormData): Promise<{ success?: bo
   if (level !== "main") {
     return { error: "Use this form for main categories only." };
   }
-  const imageFile = formData.get("image") as File | null;
+  const imageUrlParsed = parseOptionalTrustedR2ImageUrlFromForm(formData, "imageUrl");
+  if (!imageUrlParsed.ok) return { error: imageUrlParsed.error };
 
   const existing = await db.select().from(categories).where(eq(categories.slug, slug)).limit(1);
   if (existing.length > 0) return { error: "A category with this slug already exists" };
@@ -139,12 +141,7 @@ export async function createCategory(formData: FormData): Promise<{ success?: bo
     if (homeCount.length >= 6) return { error: `Maximum 6 categories can be shown on the ${storeType} home page` };
   }
 
-  let imageUrl: string | null = null;
-  if (imageFile?.size) {
-    const result = await uploadProductImage(imageFile, `category-${slug}-${Date.now()}`);
-    if (result.error) return { error: result.error };
-    imageUrl = result.url ?? null;
-  }
+  const imageUrl = imageUrlParsed.url;
 
   const allCats = await db.select({ sortOrder: categories.sortOrder }).from(categories);
   const nextSortOrder =
@@ -206,7 +203,8 @@ export async function updateCategory(
   const { userId } = await requireAdmin();
 
   const { slug, label, showOnHome, storeType } = parsed.data;
-  const imageFile = formData.get("image") as File | null;
+  const imageUrlParsed = parseOptionalTrustedR2ImageUrlFromForm(formData, "imageUrl");
+  if (!imageUrlParsed.ok) return { error: imageUrlParsed.error };
 
   const [existing] = await db.select().from(categories).where(eq(categories.id, validId)).limit(1);
   if (!existing) return { error: "Category not found" };
@@ -227,10 +225,9 @@ export async function updateCategory(
   }
 
   let imageUrl: string | null = existing.image;
-  if (imageFile?.size) {
-    const result = await uploadProductImage(imageFile, `category-${slug}-${Date.now()}`);
-    if (result.error) return { error: result.error };
-    imageUrl = result.url ?? existing.image;
+  if (imageUrlParsed.url) {
+    if (existing.image && existing.image !== imageUrlParsed.url) await deleteFromR2(existing.image);
+    imageUrl = imageUrlParsed.url;
   }
 
   await db

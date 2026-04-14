@@ -20,6 +20,7 @@ import { toast } from "sonner";
 import { adminImageDropzoneAccept } from "@/lib/image-upload-accept";
 import { MAX_IMAGE_UPLOAD_BYTES } from "@/lib/image-upload-limits";
 import { adminListingStoreTypeLabel } from "@/lib/store-type-display";
+import { uploadImageFileViaPresign } from "@/lib/upload-image-presigned-client";
 
 /** Same as product card / ProductImageUpload preview. */
 const CATEGORY_IMAGE_ASPECT = 2 / 3;
@@ -89,7 +90,14 @@ export function CategoriesAdminClient({ categories: initialCategories, initialSt
     formData.set("showOnHome", String(formShowOnHome));
     formData.set("storeType", formStoreType);
     formData.set("level", "main");
-    if (formImage) formData.set("image", formImage);
+    if (formImage) {
+      const up = await uploadImageFileViaPresign(formImage, "product-images");
+      if ("error" in up) {
+        setError(up.error);
+        return;
+      }
+      formData.set("imageUrl", up.publicUrl);
+    }
 
     if (editingId) {
       const result = await updateCategory(editingId, formData);

@@ -19,6 +19,7 @@ import { toast } from "sonner";
 import { adminImageDropzoneAccept } from "@/lib/image-upload-accept";
 import { MAX_IMAGE_UPLOAD_BYTES } from "@/lib/image-upload-limits";
 import { adminListingStoreTypeLabel } from "@/lib/store-type-display";
+import { uploadImageFileViaPresign } from "@/lib/upload-image-presigned-client";
 
 /** Same as product card / ProductImageUpload. */
 const COLLECTION_COVER_ASPECT = 2 / 3;
@@ -88,7 +89,14 @@ export function CollectionsAdminClient({
     formData.set("slug", formSlug);
     formData.set("description", formDescription);
     formData.set("storeType", formStoreType);
-    if (formImage) formData.set("image", formImage);
+    if (formImage) {
+      const up = await uploadImageFileViaPresign(formImage, "product-images");
+      if ("error" in up) {
+        setError(up.error);
+        return;
+      }
+      formData.set("imageUrl", up.publicUrl);
+    }
 
     if (editingId) {
       const result = await updateCollection(editingId, formData);

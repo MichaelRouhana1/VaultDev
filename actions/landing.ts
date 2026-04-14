@@ -3,7 +3,8 @@
 import { eq } from "drizzle-orm";
 import { db } from "@/db";
 import { landingImages } from "@/db/schema";
-import { uploadLandingImage, deleteFromR2 } from "@/lib/uploadImages";
+import { deleteFromR2 } from "@/lib/uploadImages";
+import { isTrustedR2PublicUrl } from "@/lib/r2-public-url";
 import { auditLog } from "@/lib/audit";
 import { revalidatePath } from "next/cache";
 import { requireAdmin } from "@/lib/security";
@@ -17,22 +18,19 @@ export async function getLandingImages(): Promise<LandingImageRow[]> {
 }
 
 /**
- * Update landing desktop and/or mobile image for a store type. Admin only.
- * Provide `image` (desktop), `mobileImage`, and/or `mobileImageUrl` in FormData.
- * At least one of these must be present. Deletes replaced R2 objects when updating.
+ * Update landing desktop + mobile images for a store type after direct-to-R2 uploads. Admin only.
+ * Deletes replaced R2 objects when updating.
  */
 export async function updateLandingImage(
   storeType: "streetwear" | "formal",
-  formData: FormData
+  payload: { imageUrl: string; mobileImageUrl: string }
 ): Promise<{ success?: boolean; error?: string }> {
   const { userId } = await requireAdmin();
 
-  const file = formData.get("image") as File | null;
-  const mobileFile = formData.get("mobileImage") as File | null;
-  const mobileUrlRaw = formData.get("mobileImageUrl")?.toString()?.trim();
-
-  if (!file?.size && !mobileFile?.size && !mobileUrlRaw) {
-    return { error: "Provide desktop image, mobile image, or mobile image URL" };
+  const imageUrl = z.string().url().parse(payload.imageUrl.trim());
+  const mobileImageUrl = z.string().url().parse(payload.mobileImageUrl.trim());
+  if (!isTrustedR2PublicUrl(imageUrl) || !isTrustedR2PublicUrl(mobileImageUrl)) {
+    return { error: "Image URLs must use configured R2 public storage" };
   }
 
   const [existing] = await db
@@ -44,35 +42,13 @@ export async function updateLandingImage(
     .where(eq(landingImages.storeType, storeType))
     .limit(1);
 
-  let nextImageUrl = existing?.imageUrl;
-  let nextMobileUrl: string | null | undefined = existing?.mobileImageUrl ?? null;
-
-  if (file?.size) {
-    if (existing?.imageUrl) await deleteFromR2(existing.imageUrl);
-    const filename = `landing-${storeType}-${Date.now()}`;
-    const result = await uploadLandingImage(file, filename);
-    if (result.error) return { error: result.error };
-    if (!result.url) return { error: "Upload failed" };
-    nextImageUrl = result.url;
+  if (existing?.imageUrl && existing.imageUrl !== imageUrl) await deleteFromR2(existing.imageUrl);
+  if (existing?.mobileImageUrl && existing.mobileImageUrl !== mobileImageUrl) {
+    await deleteFromR2(existing.mobileImageUrl);
   }
 
-  if (mobileFile?.size) {
-    if (existing?.mobileImageUrl) await deleteFromR2(existing.mobileImageUrl);
-    const mobileFilename = `landing-mobile-${storeType}-${Date.now()}`;
-    const mobileResult = await uploadLandingImage(mobileFile, mobileFilename);
-    if (mobileResult.error) return { error: mobileResult.error };
-    if (!mobileResult.url) return { error: "Mobile upload failed" };
-    nextMobileUrl = mobileResult.url;
-  } else if (mobileUrlRaw) {
-    if (existing?.mobileImageUrl && existing.mobileImageUrl !== mobileUrlRaw) {
-      await deleteFromR2(existing.mobileImageUrl);
-    }
-    nextMobileUrl = z.string().url().parse(mobileUrlRaw);
-  }
-
-  if (!nextImageUrl) {
-    return { error: "Desktop landing image is required before adding mobile-only; upload the main image first" };
-  }
+  const nextImageUrl = imageUrl;
+  const nextMobileUrl = mobileImageUrl;
 
   await db
     .insert(landingImages)

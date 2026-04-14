@@ -5,6 +5,7 @@ import Image from "next/image";
 import { useRouter } from "@/i18n/navigation";
 import { DualImageCropModal } from "@/components/admin/DualImageCropModal";
 import { updateLandingImage, type LandingImageRow } from "@/actions/landing";
+import { uploadImageFileViaPresign } from "@/lib/upload-image-presigned-client";
 import { ensureBrowserDisplayableImage } from "@/lib/ensureBrowserDisplayableImage";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
@@ -110,11 +111,23 @@ export function LandingAdminClient({ images: initialImages }: LandingAdminClient
         type: "image/jpeg",
       });
 
-      const formData = new FormData();
-      formData.append("image", desktopFile);
-      formData.append("mobileImage", mobileFile);
+      const desktopUp = await uploadImageFileViaPresign(desktopFile, "landing-images");
+      if ("error" in desktopUp) {
+        toast.error(desktopUp.error);
+        setUploadingStoreType(null);
+        return;
+      }
+      const mobileUp = await uploadImageFileViaPresign(mobileFile, "landing-images");
+      if ("error" in mobileUp) {
+        toast.error(mobileUp.error);
+        setUploadingStoreType(null);
+        return;
+      }
 
-      const result = await updateLandingImage(current.storeType, formData);
+      const result = await updateLandingImage(current.storeType, {
+        imageUrl: desktopUp.publicUrl,
+        mobileImageUrl: mobileUp.publicUrl,
+      });
       setUploadingStoreType(null);
 
       if (result.error) {

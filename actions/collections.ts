@@ -4,7 +4,8 @@ import { cache } from "react";
 import { asc, eq, inArray } from "drizzle-orm";
 import { db } from "@/db";
 import { collections } from "@/db/schema";
-import { uploadProductImage } from "@/lib/uploadImages";
+import { deleteFromR2 } from "@/lib/uploadImages";
+import { parseOptionalTrustedR2ImageUrlFromForm } from "@/lib/parse-trusted-r2-image-urls";
 import { auditLog } from "@/lib/audit";
 import { headers } from "next/headers";
 import { checkSensitiveOperationLimit } from "@/lib/rate-limit";
@@ -58,17 +59,13 @@ export async function createCollection(formData: FormData): Promise<{ success?: 
 
   const { userId } = await requireAdmin();
   const { name, slug, description, storeType } = parsed.data;
-  const imageFile = formData.get("image") as File | null;
+  const imageUrlParsed = parseOptionalTrustedR2ImageUrlFromForm(formData, "imageUrl");
+  if (!imageUrlParsed.ok) return { error: imageUrlParsed.error };
 
   const [existing] = await db.select().from(collections).where(eq(collections.slug, slug)).limit(1);
   if (existing) return { error: "A collection with this slug already exists" };
 
-  let imageUrl: string | null = null;
-  if (imageFile?.size) {
-    const result = await uploadProductImage(imageFile, `collection-${slug}-${Date.now()}`);
-    if (result.error) return { error: result.error };
-    imageUrl = result.url ?? null;
-  }
+  const imageUrl = imageUrlParsed.url;
 
   await db.insert(collections).values({
     name,
@@ -116,7 +113,8 @@ export async function updateCollection(
 
   const { userId } = await requireAdmin();
   const { name, slug, description, storeType } = parsed.data;
-  const imageFile = formData.get("image") as File | null;
+  const imageUrlParsed = parseOptionalTrustedR2ImageUrlFromForm(formData, "imageUrl");
+  if (!imageUrlParsed.ok) return { error: imageUrlParsed.error };
 
   const [row] = await db.select().from(collections).where(eq(collections.id, validId)).limit(1);
   if (!row) return { error: "Collection not found" };
@@ -125,10 +123,9 @@ export async function updateCollection(
   if (slugRow && slugRow.id !== validId) return { error: "A collection with this slug already exists" };
 
   let imageUrl: string | null = row.imageUrl;
-  if (imageFile?.size) {
-    const result = await uploadProductImage(imageFile, `collection-${slug}-${Date.now()}`);
-    if (result.error) return { error: result.error };
-    imageUrl = result.url ?? row.imageUrl;
+  if (imageUrlParsed.url) {
+    if (row.imageUrl && row.imageUrl !== imageUrlParsed.url) await deleteFromR2(row.imageUrl);
+    imageUrl = imageUrlParsed.url;
   }
 
   await db

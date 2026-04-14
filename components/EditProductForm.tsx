@@ -27,6 +27,7 @@ import {
   type VariantMatrixCell,
 } from "@/components/admin/VariantMatrixEditor";
 import { buildOptionCombos, comboKey } from "@/lib/product-variant-matrix";
+import { uploadImageFileViaPresign } from "@/lib/upload-image-presigned-client";
 import type { Product, ProductColor } from "@/db/schema";
 import type { ProductFormCategoryTree } from "@/actions/categories";
 import type { AttributeWithValues } from "@/actions/attributes";
@@ -359,17 +360,26 @@ export function EditProductForm({
     collectionIds.forEach((id) => formData.append("collectionIds", String(id)));
     formData.set("hasVariants", hasVariants ? "true" : "false");
     formData.set("color_count", String(colorsState.length));
-    colorsState.forEach((color, i) => {
+    for (let i = 0; i < colorsState.length; i++) {
+      const color = colorsState[i]!;
       if (typeof color.id === "number") {
         formData.set(`color_${i}_id`, String(color.id));
       }
       formData.set(`color_${i}_name`, color.name.trim());
       formData.set(`color_${i}_hex`, color.hexCode || "#000000");
       formData.set(`color_${i}_existing_urls`, JSON.stringify(color.imageUrls ?? []));
-      color.imageFiles.forEach((file) => {
-        formData.append(`color_${i}_images`, file);
-      });
-    });
+      const newUrls: string[] = [];
+      for (const file of color.imageFiles) {
+        const up = await uploadImageFileViaPresign(file, "product-images");
+        if ("error" in up) {
+          setState({ error: up.error });
+          setIsPending(false);
+          return;
+        }
+        newUrls.push(up.publicUrl);
+      }
+      formData.set(`color_${i}_newImageUrls`, JSON.stringify(newUrls));
+    }
 
     if (hasVariants) {
       formData.set("optionsJson", JSON.stringify(parsedOptionsForCombos));

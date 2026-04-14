@@ -26,6 +26,7 @@ import {
   type VariantMatrixCell,
 } from "@/components/admin/VariantMatrixEditor";
 import { buildOptionCombos, comboKey } from "@/lib/product-variant-matrix";
+import { uploadImageFileViaPresign } from "@/lib/upload-image-presigned-client";
 import type { ProductFormCategoryTree } from "@/actions/categories";
 import type { AttributeWithValues } from "@/actions/attributes";
 
@@ -269,13 +270,22 @@ export function CreateProductForm({
     const formData = new FormData(form);
     collectionIds.forEach((id) => formData.append("collectionIds", String(id)));
     formData.set("color_count", String(colors.length));
-    colors.forEach((color, i) => {
+    for (let i = 0; i < colors.length; i++) {
+      const color = colors[i]!;
       formData.set(`color_${i}_name`, color.name.trim());
       formData.set(`color_${i}_hex`, color.hexCode || "#000000");
-      color.imageFiles.forEach((file) => {
-        formData.append(`color_${i}_images`, file);
-      });
-    });
+      const urls: string[] = [];
+      for (const file of color.imageFiles) {
+        const up = await uploadImageFileViaPresign(file, "product-images");
+        if ("error" in up) {
+          setState({ error: up.error });
+          setIsPending(false);
+          return;
+        }
+        urls.push(up.publicUrl);
+      }
+      formData.set(`color_${i}_imageUrls`, JSON.stringify(urls));
+    }
 
     if (hasVariants) {
       formData.set("optionsJson", JSON.stringify(parsedOptionsForCombos));
