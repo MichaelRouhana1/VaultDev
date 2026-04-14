@@ -12,7 +12,7 @@ export function HeroMobileSearchBar() {
     <div className="pointer-events-none absolute start-0 end-0 top-14 z-[35] px-4 pt-2 sm:px-6 lg:hidden">
       <Link
         href="/search"
-        className="pointer-events-auto flex w-full items-center gap-2.5 border border-white bg-transparent px-3 py-2.5 text-sm text-white opacity-100"
+        className="pointer-events-auto flex w-full items-center gap-2.5 rounded-md border border-white bg-transparent px-3 py-2.5 text-sm text-white opacity-100 shadow-[0_2px_10px_-2px_rgba(0,0,0,0.35)]"
         aria-label={tNav("search")}
       >
         <span className="shrink-0 text-white" aria-hidden>

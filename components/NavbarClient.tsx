@@ -233,7 +233,7 @@ export function NavbarClient({ streetwearCategories, formalCategories }: NavbarC
       )}
     >
       <div className="w-full px-4 sm:px-6 lg:px-8">
-        <div className="relative flex items-center justify-between h-14">
+        <div className="relative flex items-center justify-between h-14 shadow-[0_1px_3px_-1px_rgba(0,0,0,0.08)] dark:shadow-[0_2px_10px_-4px_rgba(0,0,0,0.45)] lg:shadow-none dark:lg:shadow-none">
           <div className="flex items-center gap-4 sm:gap-6 lg:gap-8 shrink-0 min-w-0">
             <button
               type="button"
