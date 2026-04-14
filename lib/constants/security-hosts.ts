@@ -53,15 +53,6 @@ const STRIPE_IMG_SRC = ["https://*.stripe.com"] as const;
  */
 const CLOUDFLARE_CHALLENGES_ORIGIN = "https://challenges.cloudflare.com" as const;
 
-/**
- * Chrome may report this hash when a tiny Next.js inline bootstrap runs without a matching `nonce`
- * (e.g. some Turbopack / flight paths). Allowing this exact script body avoids breaking admin flows
- * under `strict-dynamic`. Re-verify after major Next.js upgrades if CSP console errors return.
- * @see https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Content-Security-Policy/script-src
- */
-const NEXT_INLINE_BOOTSTRAP_SCRIPT_SHA256 =
-  "'sha256-J9cZHZf5nVzbsm7Pqxc8RsURv1AIXkMgbhfRZvoOs/A='" as const;
-
 const PEXELS_HOST = "images.pexels.com" as const;
 const CLERK_IMG_HOST = "img.clerk.com" as const;
 
@@ -212,7 +203,6 @@ export function buildContentSecurityPolicy(nonce: string): string {
     ? joinCspSources([
         `'nonce-${nonce}'`,
         "'strict-dynamic'",
-        NEXT_INLINE_BOOTSTRAP_SCRIPT_SHA256,
         "'self'",
         ...(clerkCustomFapi ? [clerkCustomFapi] : []),
         ...CLERK_HTTPS_ORIGINS,

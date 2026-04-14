@@ -110,7 +110,7 @@ function verifySiteBasicAuth(req: NextRequest): boolean {
   return timingSafeEqualStr(user, expectedUser) && timingSafeEqualStr(pass, expectedPass);
 }
 
-/** Admin throughput when Upstash is unavailable (stricter than Redis 20/10s — 10 req / 10s per IP per isolate). */
+/** Admin throughput when Upstash is unavailable (stricter than Redis 120/10s — 10 req / 10s per IP per isolate). */
 const adminMemoryLimiter = new MemorySlidingWindow(10, 10_000);
 let warnedMiddlewareAdminMemoryOnly = false;
 let lastMiddlewareRedisErrorLogMs = 0;
@@ -127,9 +127,10 @@ try {
   console.error("Failed to initialize Redis in middleware:", e);
 }
 
+/** Admin UI triggers many parallel RSC GETs (`?_rsc=`) and link prefetches; keep burst budget generous. */
 const globalAdminLimiter = redis ? new Ratelimit({
   redis,
-  limiter: Ratelimit.slidingWindow(20, "10 s"),
+  limiter: Ratelimit.slidingWindow(120, "10 s"),
   prefix: "@upstash/ratelimit:globalAdmin",
 }) : null;
 
@@ -150,6 +151,14 @@ const isAdminRoute = createRouteMatcher([
   "/fr/admin(.*)",
   "/ar/admin(.*)",
 ]);
+
+/** Do not count Next.js flight / prefetch traffic toward admin throughput (same session, high parallelism). */
+function isAdminRscOrPrefetch(req: NextRequest): boolean {
+  if (req.nextUrl.searchParams.has("_rsc")) return true;
+  if (req.headers.get("Next-Router-Prefetch") === "1") return true;
+  if (req.headers.get("Purpose")?.toLowerCase() === "prefetch") return true;
+  return false;
+}
 
 export default clerkMiddleware(async (auth, req) => {
   if (isSitePasswordRequired() && !shouldSkipSiteBasicAuth(req)) {
@@ -207,7 +216,7 @@ export default clerkMiddleware(async (auth, req) => {
   }
 
   // Admin throughput: Upstash when configured; otherwise in-memory sliding window (per Edge isolate).
-  if (isAdminRoute(req)) {
+  if (isAdminRoute(req) && !isAdminRscOrPrefetch(req)) {
     const ip =
       req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ??
       req.headers.get("x-real-ip") ??

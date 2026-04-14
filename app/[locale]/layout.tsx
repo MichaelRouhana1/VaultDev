@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { connection } from "next/server";
 import { notFound } from "next/navigation";
 import { NextIntlClientProvider } from "next-intl";
 import { getMessages, setRequestLocale } from "next-intl/server";
@@ -30,6 +31,20 @@ const geistMono = Geist_Mono({
   subsets: ["latin"],
 });
 
+/** Middleware sets `x-nonce`; Next may expose it as `x-middleware-request-x-nonce` to `headers()`. */
+function resolveCspNonce(headersList: Headers): string | undefined {
+  const direct =
+    headersList.get("x-nonce")?.trim() ||
+    headersList.get("x-middleware-request-x-nonce")?.trim();
+  if (direct) return direct;
+  const csp =
+    headersList.get("x-middleware-request-content-security-policy")?.trim() ||
+    headersList.get("content-security-policy")?.trim();
+  if (!csp) return undefined;
+  const m = csp.match(/'nonce-([^']+)'/);
+  return m?.[1]?.trim();
+}
+
 export const metadata: Metadata = {
   title: "VAULT",
   description: "Clothing designed with intention.",
@@ -46,6 +61,8 @@ export default async function LocaleLayout({
   children: React.ReactNode;
   params: Promise<{ locale: string }>;
 }>) {
+  /** Ensures per-request CSP nonce from middleware reaches `ThemeProvider` / Clerk (SSG would omit it). */
+  await connection();
   const { locale } = await params;
   if (!isMosaikLocale(locale)) {
     notFound();
@@ -56,7 +73,7 @@ export default async function LocaleLayout({
   const tLayout = await getTranslations("Layout");
   const tAuthClerk = await getTranslations("AuthClerk");
   const headersList = await headers();
-  const nonce = headersList.get("x-nonce") || undefined;
+  const nonce = resolveCspNonce(headersList);
   /** Storefront stays LTR for every locale; Arabic only swaps strings, not layout/mirroring. */
   return (
     <html lang={locale} dir="ltr" suppressHydrationWarning nonce={nonce}>
@@ -79,7 +96,7 @@ export default async function LocaleLayout({
             signInFallbackRedirectUrl={`/${locale}/account`}
             signUpFallbackRedirectUrl={`/${locale}/account`}
           >
-            <ThemeProvider>
+            <ThemeProvider nonce={nonce}>
               <WishlistProvider>
                 <WishlistSyncProvider />
                 <CurrencyProvider>
