@@ -78,13 +78,20 @@ export function getR2PublicHostname(): string | null {
 }
 
 /**
- * S3-compatible API origin for presigned PUT uploads from the browser (`connect-src`).
+ * S3-compatible API origins for presigned PUT uploads from the browser (`connect-src`).
+ * AWS SDK / R2 often signs **virtual-hosted–style** URLs:
+ * `https://<bucket>.<account-id>.r2.cloudflarestorage.com` (not only `https://<account-id>.r2...`).
  * Distinct from the public object URL host in `NEXT_PUBLIC_R2_PUBLIC_URL`.
  */
-export function getR2S3ApiConnectOrigin(): string | null {
+export function getR2S3ApiConnectOrigins(): string[] {
   const id = process.env.R2_ACCOUNT_ID?.trim();
-  if (!id) return null;
-  return `https://${id}.r2.cloudflarestorage.com`;
+  if (!id) return [];
+  const bucket = process.env.R2_BUCKET_NAME?.trim();
+  const origins = [`https://${id}.r2.cloudflarestorage.com`];
+  if (bucket) {
+    origins.push(`https://${bucket}.${id}.r2.cloudflarestorage.com`);
+  }
+  return origins;
 }
 
 /**
@@ -195,8 +202,8 @@ function joinCspSources(parts: string[]): string {
  * **Images:** `blob:` is required for admin image crop / preview (`URL.createObjectURL`). `data:`
  * is omitted unless we add inline data-URI images.
  *
- * **Connect:** Presigned direct-to-R2 uploads use `fetch` to `https://<R2_ACCOUNT_ID>.r2.cloudflarestorage.com`
- * (requires `R2_ACCOUNT_ID` in the deployment env so this origin is included in `connect-src`).
+ * **Connect:** Presigned R2 uploads may use `https://<bucket>.<R2_ACCOUNT_ID>.r2.cloudflarestorage.com`
+ * (virtual-hosted style). `connect-src` lists that origin when `R2_BUCKET_NAME` and `R2_ACCOUNT_ID` are set.
  *
  * **Frames:** Stripe (`js.stripe.com`, `hooks.stripe.com`, Checkout), Clerk hosted flows, Cloudflare Turnstile.
  *
@@ -260,10 +267,7 @@ export function buildContentSecurityPolicy(nonce: string): string {
     connectParts.push(upstash);
   }
   connectParts.push(...STRIPE_CONNECT_SRC);
-  const r2S3Api = getR2S3ApiConnectOrigin();
-  if (r2S3Api) {
-    connectParts.push(r2S3Api);
-  }
+  connectParts.push(...getR2S3ApiConnectOrigins());
 
   const connectSrc = joinCspSources(connectParts);
 
