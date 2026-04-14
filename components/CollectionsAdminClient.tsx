@@ -16,6 +16,8 @@ import { Label } from "@/components/ui/label";
 import { ImageCropModal } from "@/components/ImageCropModal";
 import { ensureBrowserDisplayableImage } from "@/lib/ensureBrowserDisplayableImage";
 import { toast } from "sonner";
+import { adminImageDropzoneAccept } from "@/lib/image-upload-accept";
+import { MAX_IMAGE_UPLOAD_BYTES } from "@/lib/image-upload-limits";
 import { adminListingStoreTypeLabel } from "@/lib/store-type-display";
 
 /** Same as product card / ProductImageUpload. */
@@ -155,8 +157,8 @@ export function CollectionsAdminClient({
 
   const { getRootProps, getInputProps } = useDropzone({
     onDrop: handleCoverDrop,
-    accept: { "image/*": [".png", ".jpg", ".jpeg", ".webp", ".gif", ".heic", ".heif"] },
-    maxSize: 5 * 1024 * 1024,
+    accept: adminImageDropzoneAccept,
+    maxSize: MAX_IMAGE_UPLOAD_BYTES,
     maxFiles: 1,
     disabled: (!adding && editingId === null) || !!cropObjectUrl,
   });

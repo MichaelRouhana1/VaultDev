@@ -1,9 +1,10 @@
 "use server";
 
 import convert from "heic-convert";
+import { MAX_IMAGE_UPLOAD_BYTES } from "@/lib/image-upload-limits";
 import { requireAdmin } from "@/lib/security";
 
-const MAX_BYTES = 5 * 1024 * 1024;
+const MAX_BYTES = MAX_IMAGE_UPLOAD_BYTES;
 
 /** Admin-only: decode HEIC/HEIF to JPEG bytes (fallback when browser heic2any fails). */
 export async function convertHeicToJpegServer(
@@ -12,7 +13,7 @@ export async function convertHeicToJpegServer(
   await requireAdmin();
 
   if (!file?.size) return { error: "No file provided" };
-  if (file.size > MAX_BYTES) return { error: "File too large (max 5MB)" };
+  if (file.size > MAX_BYTES) return { error: `File too large (max ${Math.round(MAX_BYTES / (1024 * 1024))}MB)` };
 
   try {
     // heic-decode uses spread on buffer slices; plain ArrayBuffer is not iterable — use Buffer.

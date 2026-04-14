@@ -8,14 +8,33 @@ import { getLocale } from "next-intl/server";
 import { redirect } from "@/i18n/navigation";
 import { auditLog } from "@/lib/audit";
 import { isDashboardRole } from "@/lib/clerk-dashboard-role";
+import { MAX_IMAGE_UPLOAD_BYTES } from "@/lib/image-upload-limits";
 
 /** Allowed image extensions and MIME types for product/hero/lookbook uploads */
-export const ALLOWED_IMAGE_EXTENSIONS = ["jpg", "jpeg", "png", "gif", "webp"] as const;
+export const ALLOWED_IMAGE_EXTENSIONS = [
+  "jpg",
+  "jpeg",
+  "png",
+  "gif",
+  "webp",
+  "avif",
+  "heic",
+  "heif",
+  "tif",
+  "tiff",
+  "svg",
+] as const;
 export const ALLOWED_IMAGE_MIME_TYPES = [
   "image/jpeg",
   "image/png",
   "image/gif",
   "image/webp",
+  "image/avif",
+  "image/heic",
+  "image/heif",
+  "image/heif-sequence",
+  "image/tiff",
+  "image/svg+xml",
 ] as const;
 
 /** Canonical `Content-Type` for R2/S3 after upload (from validated extension; avoids empty / wrong client MIME). */
@@ -25,6 +44,12 @@ const IMAGE_EXT_TO_MIME: Record<string, string> = {
   png: "image/png",
   gif: "image/gif",
   webp: "image/webp",
+  avif: "image/avif",
+  heic: "image/heic",
+  heif: "image/heif",
+  tif: "image/tiff",
+  tiff: "image/tiff",
+  svg: "image/svg+xml",
 };
 
 export function canonicalImageMimeFromExt(ext: string): string {
@@ -55,6 +80,28 @@ function imageMimeMatchesExtension(ext: string, rawType: string): boolean {
     if (generic) return true;
     return type === "image/webp";
   }
+  if (ext === "avif") {
+    if (generic) return true;
+    return type === "image/avif";
+  }
+  if (ext === "heic" || ext === "heif") {
+    if (generic) return true;
+    return (
+      type === "image/heic" ||
+      type === "image/heif" ||
+      type === "image/heif-sequence" ||
+      /** iOS sometimes labels HEIC as QuickTime */
+      type === "video/quicktime"
+    );
+  }
+  if (ext === "tif" || ext === "tiff") {
+    if (generic) return true;
+    return type === "image/tiff";
+  }
+  if (ext === "svg") {
+    if (generic) return true;
+    return type === "image/svg+xml" || type === "text/xml" || type === "application/xml";
+  }
   return false;
 }
 
@@ -66,14 +113,14 @@ export const ALLOWED_VIDEO_MIME_TYPES = [
 ] as const;
 
 /** Max file sizes in bytes */
-export const MAX_IMAGE_SIZE_BYTES = 5 * 1024 * 1024; // 5MB
+export const MAX_IMAGE_SIZE_BYTES = MAX_IMAGE_UPLOAD_BYTES;
 export const MAX_VIDEO_SIZE_BYTES = 50 * 1024 * 1024; // 50MB
 
 /**
  * Cap for payloads accepted by Server Actions (`next.config.ts` `experimental.serverActions.bodySizeLimit`).
- * Image uploads through actions must not exceed this or Next will reject the request before the action runs.
+ * Must be ≥ largest image + multipart overhead. Keep in sync with `next.config.ts` `bodySizeLimit`.
  */
-export const MAX_SERVER_ACTION_BODY_BYTES = 10 * 1024 * 1024; // 10mb — keep in sync with next.config.ts `experimental.serverActions.bodySizeLimit`
+export const MAX_SERVER_ACTION_BODY_BYTES = 20 * 1024 * 1024; // 20 MiB — keep in sync with next.config.ts `experimental.serverActions.bodySizeLimit`
 
 /**
  * Escapes HTML special characters to prevent XSS when interpolating user input into HTML.
@@ -149,7 +196,7 @@ export function validateUploadFile(
     if (!imageMimeMatchesExtension(ext, file.type)) {
       return {
         ok: false,
-        error: `Invalid MIME type for .${ext}. Use JPEG, PNG, GIF, or WebP.`,
+        error: `Invalid MIME type for .${ext}. Use a supported image type (JPEG, PNG, GIF, WebP, AVIF, HEIC, TIFF, SVG).`,
       };
     }
   } else if (!allowedMimes.includes(file.type)) {
@@ -163,7 +210,7 @@ export function validateUploadFile(
     return { ok: false, error: "File is empty" };
   }
   if (file.size > maxSize) {
-    const maxMB = kind === "image" ? 5 : 50;
+    const maxMB = Math.round(maxSize / (1024 * 1024));
     return { ok: false, error: `File too large. Maximum ${maxMB}MB` };
   }
 

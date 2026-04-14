@@ -10,6 +10,8 @@ import { Button } from "@/components/ui/button";
 import { AdminHexColorField } from "@/components/admin/AdminHexColorField";
 import { cn } from "@/lib/utils";
 import { ensureBrowserDisplayableImage } from "@/lib/ensureBrowserDisplayableImage";
+import { adminImageDropzoneAccept } from "@/lib/image-upload-accept";
+import { MAX_IMAGE_UPLOAD_BYTES } from "@/lib/image-upload-limits";
 import { toast } from "sonner";
 
 export interface ColorEntry {
@@ -95,8 +97,8 @@ export function ImageUploader({
 
     const { getRootProps, getInputProps, isDragActive } = useDropzone({
         onDrop,
-        accept: { "image/*": [".png", ".jpg", ".jpeg", ".webp", ".gif", ".heic", ".heif"] },
-        maxSize: 5 * 1024 * 1024,
+        accept: adminImageDropzoneAccept,
+        maxSize: MAX_IMAGE_UPLOAD_BYTES,
     });
 
     return (
@@ -162,7 +164,7 @@ export function ImageUploader({
                     <p className="text-center text-sm text-muted-foreground">
                         {isDragActive ? "Drop images here…" : "Drag & drop or click to add images"}
                     </p>
-                    <p className="mt-1 text-xs text-muted-foreground">PNG, JPG, WebP, GIF up to 5MB</p>
+                    <p className="mt-1 text-xs text-muted-foreground">PNG, JPG, WebP, GIF up to 15MB</p>
                 </div>
                 {color.imageFiles.length > 0 && (
                     <ul className="mt-2 flex flex-wrap gap-2">

@@ -7,6 +7,8 @@ import { useDropzone } from "react-dropzone";
 import { DualImageCropModal } from "@/components/admin/DualImageCropModal";
 import { addHeroImageFromFile, deleteHeroImage } from "@/actions/hero";
 import { ensureBrowserDisplayableImage } from "@/lib/ensureBrowserDisplayableImage";
+import { adminImageDropzoneAccept } from "@/lib/image-upload-accept";
+import { MAX_IMAGE_UPLOAD_BYTES } from "@/lib/image-upload-limits";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import { storeTypeLabelEn } from "@/lib/store-type-display";
@@ -124,8 +126,8 @@ export function HeroAdminClient({ images: initialImages, initialStoreType }: Her
 
   const { getRootProps, getInputProps } = useDropzone({
     onDrop,
-    accept: { "image/*": [".png", ".jpg", ".jpeg", ".webp", ".gif", ".heic", ".heif"] },
-    maxSize: 5 * 1024 * 1024,
+    accept: adminImageDropzoneAccept,
+    maxSize: MAX_IMAGE_UPLOAD_BYTES,
     maxFiles: 1,
     disabled: !!cropFile || isAdding,
   });

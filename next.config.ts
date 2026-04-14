@@ -8,12 +8,14 @@ const withNextIntl = createNextIntlPlugin("./i18n.ts");
 const nextConfig: NextConfig = {
   experimental: {
     serverActions: {
-      /** Must be ≥ multipart admin uploads (e.g. 5MB files + overhead); keep in sync with `MAX_SERVER_ACTION_BODY_BYTES`. */
-      bodySizeLimit: "10mb",
+      /** Must be ≥ largest image upload + multipart overhead; keep in sync with `MAX_SERVER_ACTION_BODY_BYTES` in `lib/security.ts`. */
+      bodySizeLimit: "20mb",
     },
   },
   images: {
     remotePatterns: getImageRemotePatterns(),
+    /** User-uploaded SVGs from R2; only trusted admin uploads. */
+    dangerouslyAllowSVG: true,
   },
   async rewrites() {
     return {
