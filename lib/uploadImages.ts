@@ -1,5 +1,5 @@
 import { S3Client, PutObjectCommand, DeleteObjectCommand } from "@aws-sdk/client-s3";
-import { validateUploadFile } from "@/lib/security";
+import { canonicalImageMimeFromExt, validateUploadFile } from "@/lib/security";
 
 const accountId = process.env.R2_ACCOUNT_ID;
 const accessKeyId = process.env.R2_ACCESS_KEY_ID;
@@ -39,7 +39,7 @@ async function uploadToR2(file: File, folder: string): Promise<{ url: string; er
         Bucket: bucketName,
         Key: uniqueFilename,
         Body: buffer,
-        ContentType: file.type,
+        ContentType: canonicalImageMimeFromExt(ext),
       })
     );
 

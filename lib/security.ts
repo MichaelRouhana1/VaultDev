@@ -18,6 +18,46 @@ export const ALLOWED_IMAGE_MIME_TYPES = [
   "image/webp",
 ] as const;
 
+/** Canonical `Content-Type` for R2/S3 after upload (from validated extension; avoids empty / wrong client MIME). */
+const IMAGE_EXT_TO_MIME: Record<string, string> = {
+  jpg: "image/jpeg",
+  jpeg: "image/jpeg",
+  png: "image/png",
+  gif: "image/gif",
+  webp: "image/webp",
+};
+
+export function canonicalImageMimeFromExt(ext: string): string {
+  return IMAGE_EXT_TO_MIME[ext.toLowerCase()] ?? "application/octet-stream";
+}
+
+/**
+ * Whether the browser-reported MIME is acceptable for this image extension.
+ * JPEG is often reported as `image/jpg` (non-standard) or `image/pjpeg`; many clients send `""` or `application/octet-stream`.
+ */
+function imageMimeMatchesExtension(ext: string, rawType: string): boolean {
+  const type = rawType.trim().toLowerCase();
+  const generic = type === "" || type === "application/octet-stream";
+
+  if (ext === "jpg" || ext === "jpeg") {
+    if (generic) return true;
+    return type === "image/jpeg" || type === "image/jpg" || type === "image/pjpeg";
+  }
+  if (ext === "png") {
+    if (generic) return true;
+    return type === "image/png";
+  }
+  if (ext === "gif") {
+    if (generic) return true;
+    return type === "image/gif";
+  }
+  if (ext === "webp") {
+    if (generic) return true;
+    return type === "image/webp";
+  }
+  return false;
+}
+
 /** Allowed video extensions and MIME types for home video upload */
 export const ALLOWED_VIDEO_EXTENSIONS = ["mp4", "webm"] as const;
 export const ALLOWED_VIDEO_MIME_TYPES = [
@@ -105,7 +145,14 @@ export function validateUploadFile(
     };
   }
 
-  if (!allowedMimes.includes(file.type)) {
+  if (kind === "image") {
+    if (!imageMimeMatchesExtension(ext, file.type)) {
+      return {
+        ok: false,
+        error: `Invalid MIME type for .${ext}. Use JPEG, PNG, GIF, or WebP.`,
+      };
+    }
+  } else if (!allowedMimes.includes(file.type)) {
     return {
       ok: false,
       error: `Invalid MIME type. Allowed: ${allowedMimes.join(", ")}`,
