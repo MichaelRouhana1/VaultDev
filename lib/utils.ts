@@ -71,6 +71,14 @@ export function getProductDisplayPrice(product: ProductWithPrice): string {
 }
 
 /**
+ * Numeric price for storefront filter/sort/range: matches {@link getProductDisplayPrice}
+ * (active, valid sale → sale price; otherwise catalog price).
+ */
+export function getProductEffectivePriceNumber(product: ProductWithPrice): number {
+  return parsePrice(getProductDisplayPrice(product));
+}
+
+/**
  * Returns whether the product currently has an active sale (for badges, etc.)
  */
 export function isProductOnSale(product: ProductWithPrice): boolean {

@@ -18,7 +18,7 @@ import {
   type ShopSortOption,
   type AttributeFilterSection,
 } from "@/components/FilterPanel";
-import { cn, getProductBasePriceNumber } from "@/lib/utils";
+import { cn, getProductEffectivePriceNumber } from "@/lib/utils";
 import type { StorefrontProductResolved, ProductVariant, ProductColor } from "@/db/schema";
 import type { ProductCategory } from "@/actions/categories";
 import type { ProductCategoryFilterTags } from "@/actions/storefront-products";
@@ -90,19 +90,19 @@ export function ShopClient({
   const [visibleCount, setVisibleCount] = useState(PRODUCTS_PER_PAGE);
   const priceInitialized = useRef(false);
 
-  /** Parse base price once per product; reuse for bounds, filter, and sort (no parseFloat in sort comparator). */
+  /** Effective (post-discount when sale is active) price once per product; bounds, filter, sort. */
   const productRows = useMemo(
     () =>
       products.map((p) => ({
         product: p,
-        basePrice: getProductBasePriceNumber(p),
+        effectivePrice: getProductEffectivePriceNumber(p),
       })),
     [products],
   );
 
   const priceBounds = useMemo(() => {
     if (productRows.length === 0) return { min: 0, max: 500 };
-    const prices = productRows.map((r) => r.basePrice);
+    const prices = productRows.map((r) => r.effectivePrice);
     return {
       min: Math.floor(Math.min(...prices)),
       max: Math.ceil(Math.max(...prices)) || 500,
@@ -156,7 +156,7 @@ export function ShopClient({
 
     const priceMin = filters.priceMin ?? 0;
     const priceMax = filters.priceMax ?? Infinity;
-    list = list.filter(({ basePrice }) => basePrice >= priceMin && basePrice <= priceMax);
+    list = list.filter(({ effectivePrice }) => effectivePrice >= priceMin && effectivePrice <= priceMax);
 
     if (filters.mainCategory.length > 0) {
       list = list.filter(({ product: p }) => {
@@ -192,9 +192,9 @@ export function ShopClient({
     }
 
     if (sort === "price-low") {
-      list.sort((a, b) => a.basePrice - b.basePrice);
+      list.sort((a, b) => a.effectivePrice - b.effectivePrice);
     } else {
-      list.sort((a, b) => b.basePrice - a.basePrice);
+      list.sort((a, b) => b.effectivePrice - a.effectivePrice);
     }
 
     return list.map(({ product }) => product);

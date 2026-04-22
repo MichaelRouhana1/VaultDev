@@ -16,6 +16,8 @@ type CarouselProps = {
   plugins?: CarouselPlugin;
   orientation?: "horizontal" | "vertical";
   setApi?: (api: CarouselApi) => void;
+  /** Applied to the Embla viewport (`overflow-hidden` wrapper) — e.g. cursor-grab for draggable strips. */
+  viewportClassName?: string;
 };
 
 const CarouselContext = React.createContext<{
@@ -48,6 +50,7 @@ const Carousel = React.forwardRef<
       opts,
       setApi,
       plugins,
+      viewportClassName,
       className,
       children,
       ...props
@@ -125,7 +128,7 @@ const Carousel = React.forwardRef<
         >
           <div
             ref={carouselRef}
-            className="min-w-0 w-full overflow-hidden"
+            className={cn("min-w-0 w-full overflow-hidden", viewportClassName)}
           >
             {React.Children.toArray(children)[0]}
           </div>

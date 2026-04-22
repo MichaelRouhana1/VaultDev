@@ -21,7 +21,7 @@ import {
   type FilterState,
   type ShopSortOption,
 } from "@/components/FilterPanel";
-import { cn, getProductBasePriceNumber } from "@/lib/utils";
+import { cn, getProductEffectivePriceNumber } from "@/lib/utils";
 import type { ProductColor, ProductVariant } from "@/db/schema";
 import type { MosaikLocale } from "@/lib/i18n-locales";
 import {
@@ -240,14 +240,14 @@ export function SearchClient({
     () =>
       searchProducts.map((p) => ({
         product: p,
-        basePrice: getProductBasePriceNumber(p),
+        effectivePrice: getProductEffectivePriceNumber(p),
       })),
     [searchProducts],
   );
 
   const priceBounds = useMemo(() => {
     if (productRows.length === 0) return { min: 0, max: 500 };
-    const prices = productRows.map((r) => r.basePrice);
+    const prices = productRows.map((r) => r.effectivePrice);
     return {
       min: Math.floor(Math.min(...prices)),
       max: Math.ceil(Math.max(...prices)) || 500,
@@ -293,7 +293,7 @@ export function SearchClient({
 
     const priceMin = filters.priceMin ?? 0;
     const priceMax = filters.priceMax ?? Infinity;
-    list = list.filter(({ basePrice }) => basePrice >= priceMin && basePrice <= priceMax);
+    list = list.filter(({ effectivePrice }) => effectivePrice >= priceMin && effectivePrice <= priceMax);
 
     if (filters.mainCategory.length > 0) {
       list = list.filter(({ product: p }) => {
@@ -329,9 +329,9 @@ export function SearchClient({
     }
 
     if (sort === "price-low") {
-      list.sort((a, b) => a.basePrice - b.basePrice);
+      list.sort((a, b) => a.effectivePrice - b.effectivePrice);
     } else {
-      list.sort((a, b) => b.basePrice - a.basePrice);
+      list.sort((a, b) => b.effectivePrice - a.effectivePrice);
     }
 
     return list.map(({ product }) => product);

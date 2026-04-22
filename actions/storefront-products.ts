@@ -6,7 +6,7 @@
  */
 
 import { cache } from "react";
-import { and, asc, desc, eq, inArray, ne, type SQL } from "drizzle-orm";
+import { and, asc, desc, eq, inArray, ne, sql, type SQL } from "drizzle-orm";
 import { alias } from "drizzle-orm/pg-core";
 import { db } from "@/db";
 import {
@@ -234,6 +234,25 @@ export const getHomeDiscoverProductsWithFirstImage = cache(
 
 export type ShopListingPriceSort = "price-asc" | "price-desc";
 
+/**
+ * PostgreSQL expression aligned with `getProductEffectivePriceNumber` / `getProductDisplayPrice`
+ * (active sale window and valid sale price → `sale_price`, else `price`).
+ */
+const productListingEffectivePriceNumeric = sql`(
+  CASE
+    WHEN ${products.isSaleActive} = false
+      OR ${products.salePrice} IS NULL
+      OR ${products.salePrice}::numeric <= 0
+      OR ${products.salePrice}::numeric >= ${products.price}::numeric
+    THEN ${products.price}::numeric
+    WHEN ${products.saleStartsAt} IS NOT NULL AND ${products.saleStartsAt} > NOW()
+    THEN ${products.price}::numeric
+    WHEN ${products.saleEndsAt} IS NOT NULL AND ${products.saleEndsAt} < NOW()
+    THEN ${products.price}::numeric
+    ELSE ${products.salePrice}::numeric
+  END
+)`;
+
 /** Shop grid: store + optional category + optional search. Attribute facets filter on the client. */
 export const getShopProductsForStore = cache(
   async (
@@ -255,8 +274,8 @@ export const getShopProductsForStore = cache(
       .where(and(...baseFilters));
     const rows = await withDbRetry(() =>
       options?.priceSort === "price-desc"
-        ? base.orderBy(desc(products.price), asc(products.id))
-        : base.orderBy(asc(products.price), asc(products.id)),
+        ? base.orderBy(desc(productListingEffectivePriceNumeric), asc(products.id))
+        : base.orderBy(asc(productListingEffectivePriceNumeric), asc(products.id)),
     );
     return rows.map((row) => withLocalizedProductCopy(row, locale));
   },
