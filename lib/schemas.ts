@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { formatProductNameTitleCase } from "@/lib/format-product-label";
 
 /** Store type values matching db schema storeTypeEnum */
 export const STORE_TYPE_VALUES = ["streetwear", "formal", "both"] as const;
@@ -10,7 +11,7 @@ export const PRODUCT_LISTING_STORE_VALUES = ["streetwear", "formal"] as const;
 export const productListingStoreTypeSchema = z.enum(PRODUCT_LISTING_STORE_VALUES);
 
 export const collectionFormSchema = z.object({
-  name: z.string().min(1, "Name is required").trim(),
+  name: z.string().min(1, "Name is required").trim().transform(formatProductNameTitleCase),
   slug: z.string().min(1).trim().toLowerCase().regex(/^[a-z0-9-]+$/),
   description: z.string().trim().nullable().optional(),
   storeType: storeTypeSchema.default("streetwear"),
@@ -18,7 +19,7 @@ export const collectionFormSchema = z.object({
 
 export const categorySchema = z.object({
   slug: z.string().min(1).trim().toLowerCase().regex(/^[a-z0-9-]+$/),
-  label: z.string().min(1).trim(),
+  label: z.string().min(1).trim().transform(formatProductNameTitleCase),
   showOnHome: z.boolean(),
   level: z.enum(["root", "main"]).default("main"),
   storeType: storeTypeSchema.default("both"),
@@ -26,7 +27,7 @@ export const categorySchema = z.object({
 
 /** Shared fields for admin product create (no variant payload). */
 export const productCreateBaseSchema = z.object({
-  name: z.string().min(1, "Name is required").trim(),
+  name: z.string().min(1, "Name is required").trim().transform(formatProductNameTitleCase),
   description: z.string().trim().nullable().optional(),
   price: z.string().min(1).regex(/^\d+(\.\d{1,2})?$/, "Valid price is required"),
   storeType: productListingStoreTypeSchema,
@@ -35,11 +36,22 @@ export const productCreateBaseSchema = z.object({
 });
 
 export const productCreateOptionSchema = z.object({
-  name: z.string().min(1, "Option name is required").trim(),
+  name: z.string().min(1, "Option name is required").trim().transform(formatProductNameTitleCase),
   values: z
     .array(z.string().min(1).trim())
     .min(1, "Each option needs at least one value")
-    .transform((arr) => [...new Set(arr)]),
+    .transform((arr) => {
+      const seen = new Set<string>();
+      const out: string[] = [];
+      for (const v of arr) {
+        const t = formatProductNameTitleCase(v);
+        const k = t.toLowerCase();
+        if (seen.has(k)) continue;
+        seen.add(k);
+        out.push(t);
+      }
+      return out;
+    }),
 });
 
 export const productCreateVariantMatrixRowSchema = z.object({
@@ -50,7 +62,7 @@ export const productCreateVariantMatrixRowSchema = z.object({
 });
 
 export const productSchema = z.object({
-    name: z.string().min(1, "Name is required").trim(),
+    name: z.string().min(1, "Name is required").trim().transform(formatProductNameTitleCase),
     description: z.string().trim().nullable().optional(),
     price: z.string().min(1).regex(/^\d+(\.\d{1,2})?$/, "Valid price is required"),
     storeType: productListingStoreTypeSchema,

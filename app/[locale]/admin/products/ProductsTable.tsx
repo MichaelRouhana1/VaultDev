@@ -34,9 +34,11 @@ import {
 } from "@/components/ui/dialog";
 import { MoreHorizontal } from "lucide-react";
 import { deleteProduct } from "@/actions/deleteProduct";
+import { unarchiveProduct } from "@/actions/unarchiveProduct";
 import { storeTypeLabelEn } from "@/lib/store-type-display";
 import { forceDeleteProduct } from "@/actions/forceDeleteProduct";
 import { bulkArchiveProducts } from "@/actions/bulkArchiveProducts";
+import { bulkUnarchiveProducts } from "@/actions/bulkUnarchiveProducts";
 import { bulkForceDeleteProducts } from "@/actions/bulkForceDeleteProducts";
 import { applyBulkDiscount, removeBulkDiscount, clearExpiredSales } from "@/actions/bulk-discount";
 import { getProductDisplayPrice, isProductOnSale, getProductDiscountPercent } from "@/lib/utils";
@@ -103,6 +105,7 @@ export function ProductsTable({
     summary: string;
   } | null>(null);
   const [isBulkArchiving, startBulkArchive] = useTransition();
+  const [isBulkUnarchiving, startBulkUnarchive] = useTransition();
   const [isForceDeleting, setIsForceDeleting] = useState(false);
 
   const handleSearch = () => {
@@ -158,6 +161,47 @@ export function ProductsTable({
         return;
       }
       toast.success(`Archived ${res.archived} product(s)`);
+      setRowSelection({});
+      router.refresh();
+    });
+  };
+
+  const handleUnarchive = async (id: number, name: string) => {
+    if (
+      !confirm(
+        `Unarchive "${name}"? It will be eligible for the storefront again (if visible).`,
+      )
+    )
+      return;
+    const res = await unarchiveProduct(id);
+    if (res.success === false) {
+      toast.error(res.error);
+      return;
+    }
+    toast.success("Product unarchived");
+    setRowSelection((prev) => {
+      const next = { ...prev };
+      delete next[String(id)];
+      return next;
+    });
+    router.refresh();
+  };
+
+  const handleBulkUnarchive = () => {
+    if (selectedCount === 0) return;
+    if (
+      !confirm(
+        `Unarchive ${selectedCount} product${selectedCount !== 1 ? "s" : ""}? They can appear on the storefront again (if visible).`,
+      )
+    )
+      return;
+    startBulkUnarchive(async () => {
+      const res = await bulkUnarchiveProducts(selectedIds);
+      if (res.success === false) {
+        toast.error(res.error);
+        return;
+      }
+      toast.success(`Unarchived ${res.unarchived} product(s)`);
       setRowSelection({});
       router.refresh();
     });
@@ -500,6 +544,14 @@ export function ProductsTable({
               {isBulkArchiving ? "Archiving…" : "Archive selected"}
             </Button>
             <Button
+              variant="outline"
+              size="sm"
+              onClick={handleBulkUnarchive}
+              disabled={isBulkUnarchiving}
+            >
+              {isBulkUnarchiving ? "Unarchiving…" : "Unarchive selected"}
+            </Button>
+            <Button
               variant="destructive"
               size="sm"
               onClick={() =>
@@ -607,7 +659,18 @@ export function ProductsTable({
                   Archive
                 </Button>
               ) : (
-                <p className="text-xs text-muted-foreground">This product is already archived.</p>
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="w-full justify-center"
+                  onClick={() => {
+                    const p = rowActionsProduct;
+                    setRowActionsProduct(null);
+                    void handleUnarchive(p.id, p.name);
+                  }}
+                >
+                  Unarchive
+                </Button>
               )}
               <Button
                 type="button"

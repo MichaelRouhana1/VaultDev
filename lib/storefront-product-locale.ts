@@ -1,5 +1,8 @@
 import type { MosaikLocale } from "@/lib/i18n-locales";
 import { isMosaikLocale } from "@/lib/i18n-locales";
+import { formatProductNameTitleCase } from "@/lib/format-product-label";
+
+export { formatProductNameTitleCase };
 
 type LocalizedNameFields = {
   name: string;
@@ -36,9 +39,11 @@ export function localizedProductName(locale: MosaikLocale, row: LocalizedNameFie
   const en = row.nameEn?.trim();
   const fr = row.nameFr?.trim();
   const ar = row.nameAr?.trim();
-  if (locale === "ar") return ar || en || row.name;
-  if (locale === "fr") return fr || en || row.name;
-  return en || row.name;
+  let raw: string;
+  if (locale === "ar") raw = ar || en || row.name;
+  else if (locale === "fr") raw = fr || en || row.name;
+  else raw = en || row.name;
+  return formatProductNameTitleCase(raw);
 }
 
 export function localizedProductDescription(

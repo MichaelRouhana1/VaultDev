@@ -1,3 +1,5 @@
+import { formatProductNameTitleCase } from "@/lib/format-product-label";
+
 /** Stable key for a variant combo row (matrix state + React keys). */
 export function comboKey(optionNames: string[], values: Record<string, string>): string {
   return optionNames.map((n) => `${n}=${values[n] ?? ""}`).join("&");
@@ -16,6 +18,28 @@ export function buildOptionCombos(options: { name: string; values: string[] }[])
     rows = next;
   }
   return rows;
+}
+
+/**
+ * Aligns matrix JSON keys/values with parsed options (case-insensitive keys, title-case values)
+ * so option-value maps and color linking stay consistent with admin normalization.
+ */
+export function normalizeVariantMatrixOptionValues(
+  variants: { optionValues: Record<string, string> }[],
+  options: { name: string; values: string[] }[],
+): void {
+  for (const v of variants) {
+    const aligned: Record<string, string> = {};
+    for (const o of options) {
+      const rawEntry = Object.entries(v.optionValues).find(
+        ([k]) => k.toLowerCase() === o.name.toLowerCase(),
+      );
+      const raw = rawEntry?.[1] ?? v.optionValues[o.name];
+      if (raw == null || String(raw).trim() === "") continue;
+      aligned[o.name] = formatProductNameTitleCase(String(raw).trim());
+    }
+    v.optionValues = aligned;
+  }
 }
 
 /** Product name → initials for SKU prefix (e.g. "Baggy Jeans" → "BJ"). */

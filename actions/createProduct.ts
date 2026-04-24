@@ -19,7 +19,9 @@ import {
   productCreateOptionSchema,
   productCreateVariantMatrixRowSchema,
 } from "@/lib/schemas";
-import { buildOptionCombos, comboKey } from "@/lib/product-variant-matrix";
+import { buildOptionCombos, comboKey, normalizeVariantMatrixOptionValues } from "@/lib/product-variant-matrix";
+import { mergeColorEntriesCaseInsensitive } from "@/lib/product-color-merge";
+import { formatProductNameTitleCase } from "@/lib/format-product-label";
 import {
   allocateUniqueOptionValueSlug,
   productColorIdForOptionValue,
@@ -118,6 +120,7 @@ export async function createProduct(formData: FormData): Promise<{ success?: boo
       return { success: false, error: varParsed.error.issues[0]?.message ?? "Invalid variants" };
     }
     variantsPayload = varParsed.data;
+    normalizeVariantMatrixOptionValues(variantsPayload, optionsPayload);
 
     const optionNames = optionsPayload.map((o) => o.name.trim());
     const combos = buildOptionCombos(optionsPayload);
@@ -215,6 +218,8 @@ export async function createProduct(formData: FormData): Promise<{ success?: boo
     });
   }
 
+  const mergedColors = mergeColorEntriesCaseInsensitive(colorEntries);
+
   const allSkus = variantsPayload.map((v) => v.sku);
   const existingSku = await db
     .select({ sku: productVariants.sku })
@@ -234,20 +239,20 @@ export async function createProduct(formData: FormData): Promise<{ success?: boo
         price: parseFloat(price).toFixed(2),
         storeType,
         mainCategoryId,
-        color: colorEntries[0]?.name ?? null,
+        color: mergedColors[0]?.name ?? null,
         isVisible,
       })
       .returning({ id: products.id });
 
     const colorIds: number[] = [];
-    for (let i = 0; i < colorEntries.length; i++) {
+    for (let i = 0; i < mergedColors.length; i++) {
       const [pc] = await tx
         .insert(productColors)
         .values({
           productId: product.id,
-          name: colorEntries[i].name,
-          hexCode: colorEntries[i].hexCode,
-          imageUrls: colorEntries[i].imageUrls,
+          name: mergedColors[i].name,
+          hexCode: mergedColors[i].hexCode,
+          imageUrls: mergedColors[i].imageUrls,
         })
         .returning({ id: productColors.id });
       colorIds.push(pc.id);
@@ -255,7 +260,7 @@ export async function createProduct(formData: FormData): Promise<{ success?: boo
 
     const fallbackColorId = colorIds[0]!;
     const colorNameToId = new Map(
-      colorEntries.map((c, i) => [c.name.trim().toLowerCase(), colorIds[i]!] as const),
+      mergedColors.map((c, i) => [c.name.trim().toLowerCase(), colorIds[i]!] as const),
     );
 
     if (hasVariants && optionsPayload.length > 0) {
@@ -282,7 +287,7 @@ export async function createProduct(formData: FormData): Promise<{ success?: boo
         const labelToId = new Map<string, number>();
         let sortOrder = 0;
         for (const val of o.values) {
-          const trimmed = val.trim();
+          const trimmed = formatProductNameTitleCase(val.trim());
           const slug = allocateUniqueOptionValueSlug(trimmed, slugUsed);
           const productColorId = productColorIdForOptionValue(o.name, trimmed, colorNameToId);
           const [ins] = await tx
@@ -329,7 +334,7 @@ export async function createProduct(formData: FormData): Promise<{ success?: boo
             throw new Error(`Missing option value for ${o.name}`);
           }
           const map = valueIdByOptionIndex.get(oi)!;
-          const optValId = map.get(label.trim());
+          const optValId = map.get(formatProductNameTitleCase(label.trim()));
           if (optValId == null) {
             throw new Error(`Unknown value "${label}" for option ${o.name}`);
           }

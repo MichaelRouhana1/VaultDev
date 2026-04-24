@@ -23,7 +23,9 @@ import {
   productCreateVariantMatrixRowSchema,
   updateProductSchema,
 } from "@/lib/schemas";
-import { buildOptionCombos, comboKey } from "@/lib/product-variant-matrix";
+import { buildOptionCombos, comboKey, normalizeVariantMatrixOptionValues } from "@/lib/product-variant-matrix";
+import { mergeColorEntriesCaseInsensitiveWithExistingId } from "@/lib/product-color-merge";
+import { formatProductNameTitleCase } from "@/lib/format-product-label";
 import {
   allocateUniqueOptionValueSlug,
   productColorIdForOptionValue,
@@ -136,6 +138,7 @@ export async function updateProduct(
       return { success: false, error: varParsed.error.issues[0]?.message ?? "Invalid variants" };
     }
     variantsPayload = varParsed.data;
+    normalizeVariantMatrixOptionValues(variantsPayload, optionsPayload);
 
     const optionNames = optionsPayload.map((o) => o.name.trim());
     const combos = buildOptionCombos(optionsPayload);
@@ -254,6 +257,8 @@ export async function updateProduct(
     });
   }
 
+  const mergedColors = mergeColorEntriesCaseInsensitiveWithExistingId(colorEntries);
+
   const incomingSkus = variantsPayload.map((v) => v.sku.trim());
   const skuConflicts = await db
     .select({ sku: productVariants.sku, pid: productVariants.productId })
@@ -285,7 +290,7 @@ export async function updateProduct(
         price: parseFloat(price).toFixed(2),
         storeType,
         mainCategoryId,
-        color: colorEntries[0]?.name ?? null,
+        color: mergedColors[0]?.name ?? null,
         isVisible,
       })
       .where(eq(products.id, validProductId));
@@ -296,11 +301,14 @@ export async function updateProduct(
       .where(eq(productColors.productId, validProductId));
 
     const colorIds: number[] = [];
-    for (let i = 0; i < colorEntries.length; i++) {
-      const entry = colorEntries[i];
+    for (let i = 0; i < mergedColors.length; i++) {
+      const entry = mergedColors[i];
       const imageUrls = entry.imageUrls;
 
-      const existingColor = entry.existingId != null ? existingColors.find((c) => c.id === entry.existingId) : null;
+      const existingColor =
+        entry.existingId != null
+          ? existingColors.find((c) => c.id === entry.existingId)
+          : existingColors.find((c) => c.name.trim().toLowerCase() === entry.name.trim().toLowerCase()) ?? null;
       if (existingColor) {
         await tx
           .update(productColors)
@@ -348,7 +356,7 @@ export async function updateProduct(
 
     const fallbackColorId = colorIds[0]!;
     const colorNameToId = new Map(
-      colorEntries.map((c, i) => [c.name.trim().toLowerCase(), colorIds[i]!] as const),
+      mergedColors.map((c, i) => [c.name.trim().toLowerCase(), colorIds[i]!] as const),
     );
 
     const keptVariantIds = new Set<number>();
@@ -420,7 +428,7 @@ export async function updateProduct(
         const labelToId = new Map<string, number>();
         let sortOrder = 0;
         for (const val of o.values) {
-          const trimmed = val.trim();
+          const trimmed = formatProductNameTitleCase(val.trim());
           const slug = allocateUniqueOptionValueSlug(trimmed, slugUsed);
           const productColorId = productColorIdForOptionValue(o.name, trimmed, colorNameToId);
           const [ins] = await tx
@@ -460,7 +468,7 @@ export async function updateProduct(
             throw new Error(`Missing option value for ${o.name}`);
           }
           const map = valueIdByOptionIndex.get(oi)!;
-          const optValId = map.get(label.trim());
+          const optValId = map.get(formatProductNameTitleCase(label.trim()));
           if (optValId == null) {
             throw new Error(`Unknown value "${label}" for option ${o.name}`);
           }
