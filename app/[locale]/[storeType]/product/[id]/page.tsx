@@ -107,7 +107,7 @@ export default async function ProductPage({
 
   return (
     <div className="pt-14">
-      <div className="flex items-center gap-2 text-sm text-muted-foreground mb-6 px-6">
+      <div className="mb-6 flex items-center gap-2 px-6 pt-4 text-sm text-muted-foreground md:pt-5">
         <Link href="/" className="hover:text-foreground">Home</Link>
         <span>/</span>
         <Link href={`/${storeType}/shop`} className="hover:text-foreground">

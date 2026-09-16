@@ -54,6 +54,7 @@ export function ProductDetailClient({
   const router = useRouter();
   const t = useTranslations("ProductDetail");
   const tCommon = useTranslations("Common");
+  const tNav = useTranslations("Navbar");
   const searchParams = useSearchParams();
   const { addToCart, openCart } = useCart();
   const { formatPrice } = useCurrency();
@@ -82,13 +83,6 @@ export function ProductDetailClient({
       ? colors.find((c) => c.name.toLowerCase() === colorFromUrl.toLowerCase())!
       : firstColor;
   const [selectedColor, setSelectedColorState] = useState<ProductColor | null>(initialColor ?? null);
-
-  useEffect(() => {
-    const matched = colorFromUrl?.trim()
-      ? colors.find((col) => col.name.toLowerCase() === colorFromUrl.toLowerCase())
-      : undefined;
-    setSelectedColorState(matched ?? firstColor ?? null);
-  }, [colorFromUrl, firstColor, colors]);
 
   const imageUrls = useMemo(
     () => (selectedColor?.imageUrls ?? product.images) ?? [],
@@ -160,17 +154,15 @@ export function ProductDetailClient({
 
   const hasMultipleImages = imageUrls.length >= 2;
 
-  const handleColorSelect = useCallback(
-    (color: ProductColor) => {
-      setSelectedColorState(color);
-      setSelectedSize(null);
-      setIsColorMenuOpen(false);
-      const params = new URLSearchParams(searchParams.toString());
-      params.set("color", color.name);
-      router.replace(`?${params.toString()}`, { scroll: false });
-    },
-    [router, searchParams]
-  );
+  const handleColorSelect = useCallback((color: ProductColor) => {
+    setSelectedColorState(color);
+    setSelectedSize(null);
+    setIsColorMenuOpen(false);
+    // Shallow URL update — router.replace() would remount loading.tsx and jump scroll to top.
+    const url = new URL(window.location.href);
+    url.searchParams.set("color", color.name);
+    window.history.replaceState(window.history.state, "", `${url.pathname}${url.search}${url.hash}`);
+  }, []);
   const price = typeof product.price === "string" ? product.price : String(product.price);
   const displayPrice = getProductDisplayPrice(product);
   const onSale = isProductOnSale(product);
@@ -413,7 +405,7 @@ export function ProductDetailClient({
                 type="button"
                 onClick={() => openCart()}
                 className={navIconPill}
-                aria-label={tCommon("viewShoppingBagAria")}
+                aria-label={tNav("viewShoppingBagAria")}
               >
                 <ShoppingBag className="h-5 w-5" aria-hidden />
               </button>

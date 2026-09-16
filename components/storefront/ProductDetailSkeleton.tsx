@@ -74,7 +74,7 @@ export default function ProductDetailSkeleton() {
 
       {/* Desktop breadcrumb + 2-col PDP */}
       <div className="hidden md:block">
-        <div className="mb-6 flex items-center gap-2 px-6" aria-hidden>
+        <div className="mb-6 flex items-center gap-2 px-6 pt-4 md:pt-5" aria-hidden>
           <ShimmerBlock className="h-4 w-12" />
           <ShimmerBlock className="h-4 w-2" />
           <ShimmerBlock className="h-4 w-20" />
