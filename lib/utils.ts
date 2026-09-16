@@ -107,6 +107,18 @@ export function getProductDiscountPercent(product: ProductWithPrice): number {
 }
 
 /**
+ * Catalog minus effective sale price (USD base), when {@link isProductOnSale} is true; otherwise 0.
+ */
+export function getProductDiscountSaveAmountNumber(product: ProductWithPrice): number {
+  if (!isProductOnSale(product)) return 0;
+  const base = getProductBasePriceNumber(product);
+  const effective = getProductEffectivePriceNumber(product);
+  const save = base - effective;
+  if (!(save > 0) || !Number.isFinite(save)) return 0;
+  return Math.round(save * 100) / 100;
+}
+
+/**
  * URL-safe slug for `product_option_values.slug` (e.g. "US 9.5" → "us-9-5").
  * Uniqueness per option is enforced separately (append suffix if needed).
  */

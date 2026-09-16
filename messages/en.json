@@ -43,7 +43,8 @@
     "removeFromWishlistAria": "Remove from wishlist",
     "colorAria": "Color: {name}",
     "viewDetailsAria": "View {name} — product details",
-    "addToCartSizeAria": "Add to cart, size {size}"
+    "addToCartSizeAria": "Add to cart, size {size}",
+    "saveBadge": "SAVE {amount}"
   },
   "UtilityBar": {
     "filters": "Filters",

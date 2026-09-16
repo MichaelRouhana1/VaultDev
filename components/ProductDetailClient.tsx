@@ -373,8 +373,8 @@ export function ProductDetailClient({
 
   const priceBlock = onSale ? (
     <span className="inline-flex flex-wrap items-baseline gap-2">
-      <span className="line-through text-muted-foreground text-sm">{formatPrice(price)}</span>
       <span className="text-destructive font-semibold">{formatPrice(displayPrice)}</span>
+      <span className="line-through text-muted-foreground text-sm">{formatPrice(price)}</span>
     </span>
   ) : (
     <span className="text-sm font-semibold">{formatPrice(displayPrice)}</span>
@@ -561,8 +561,8 @@ export function ProductDetailClient({
           <p className="mt-5 text-lg font-normal text-foreground">
             {onSale ? (
               <>
-                <span className="text-muted-foreground line-through">{formatPrice(price)}</span>{" "}
-                <span className="font-medium text-destructive">{formatPrice(displayPrice)}</span>
+                <span className="font-medium text-destructive">{formatPrice(displayPrice)}</span>{" "}
+                <span className="text-muted-foreground line-through">{formatPrice(price)}</span>
               </>
             ) : (
               formatPrice(displayPrice)
@@ -819,8 +819,8 @@ export function ProductDetailClient({
           <p className="mt-6 text-lg font-normal text-foreground">
             {onSale ? (
               <>
-                <span className="line-through text-muted-foreground">{formatPrice(price)}</span>{" "}
-                <span className="text-destructive font-medium">{formatPrice(displayPrice)}</span>
+                <span className="text-destructive font-medium">{formatPrice(displayPrice)}</span>{" "}
+                <span className="line-through text-muted-foreground">{formatPrice(price)}</span>
               </>
             ) : (
               formatPrice(displayPrice)

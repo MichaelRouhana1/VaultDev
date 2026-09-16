@@ -3,7 +3,7 @@ import { getLookbookItems, getLookbookSectionVisible } from "@/actions/lookbook"
 import { getCategoriesForHome, getStoreCategorySlugs } from "@/actions/categories";
 import { getHomeDiscoverProductsWithFirstImage } from "@/actions/storefront-products";
 import { storefrontLocaleFromParam } from "@/lib/storefront-product-locale";
-import { getProductDisplayPrice, isProductOnSale, getProductDiscountPercent } from "@/lib/utils";
+import { getProductDisplayPrice, isProductOnSale, getProductDiscountSaveAmountNumber } from "@/lib/utils";
 import { notFound } from "next/navigation";
 import { HeroCarousel } from "@/components/HeroCarousel";
 // Newsletter UI disabled — see docs/commented-out.md
@@ -73,7 +73,7 @@ export default async function HomePage({
       price: typeof p.price === "string" ? p.price : String(p.price),
       displayPrice: getProductDisplayPrice(p),
       onSale: isProductOnSale(p),
-      percentOff: getProductDiscountPercent(p),
+      saveAmountUsd: getProductDiscountSaveAmountNumber(p),
       storeType: p.storeType,
       images: imageUrls,
     };

@@ -2,6 +2,7 @@
 
 import { Link } from "@/i18n/navigation";
 import Image from "next/image";
+import { useTranslations } from "next-intl";
 import { useCurrency } from "@/context/CurrencyContext";
 import { Carousel, CarouselContent, CarouselItem } from "@/components/ui/carousel";
 
@@ -12,7 +13,7 @@ export interface DiscoverProduct {
     displayPrice: string;
     description?: string | null;
     onSale: boolean;
-    percentOff: number;
+    saveAmountUsd: number;
     storeType: string;
     images: string[];
 }
@@ -25,6 +26,7 @@ interface ProductDiscoveryProps {
 
 export function ProductDiscovery({ products, currentStoreType, fallbackImage }: ProductDiscoveryProps) {
     const { formatPrice } = useCurrency();
+    const t = useTranslations("ProductCard");
 
     return (
         <section className="px-6 pt-10 pb-24 bg-background md:pt-14" aria-labelledby="discover-heading">
@@ -57,9 +59,9 @@ export function ProductDiscovery({ products, currentStoreType, fallbackImage }: 
                                         draggable={false}
                                     >
                                         <div className="aspect-[2/3] overflow-hidden mb-4 relative">
-                                            {product.onSale && product.percentOff > 0 && (
+                                            {product.onSale && product.saveAmountUsd > 0 && (
                                                 <span className="absolute top-2 left-2 z-10 px-2 py-0.5 text-xs font-semibold uppercase tracking-wider bg-destructive text-destructive-foreground">
-                                                    -{product.percentOff}%
+                                                    {t("saveBadge", { amount: formatPrice(product.saveAmountUsd) })}
                                                 </span>
                                             )}
                                             <Image
@@ -77,10 +79,10 @@ export function ProductDiscovery({ products, currentStoreType, fallbackImage }: 
                                         <p className="text-sm font-light text-muted-foreground mt-1">
                                             {product.onSale ? (
                                                 <>
-                                                    <span className="line-through">{formatPrice(product.price)}</span>{" "}
                                                     <span className="text-destructive font-medium">
                                                         {formatPrice(product.displayPrice)}
-                                                    </span>
+                                                    </span>{" "}
+                                                    <span className="line-through">{formatPrice(product.price)}</span>
                                                 </>
                                             ) : (
                                                 formatPrice(product.displayPrice)

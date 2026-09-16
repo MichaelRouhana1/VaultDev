@@ -43,7 +43,8 @@
     "removeFromWishlistAria": "إزالة من المفضلة",
     "colorAria": "اللون: {name}",
     "viewDetailsAria": "عرض {name} — تفاصيل المنتج",
-    "addToCartSizeAria": "إضافة إلى السلة، المقاس {size}"
+    "addToCartSizeAria": "إضافة إلى السلة، المقاس {size}",
+    "saveBadge": "وفر {amount}"
   },
   "UtilityBar": {
     "filters": "عوامل التصفية",

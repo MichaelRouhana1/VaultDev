@@ -13,7 +13,7 @@ import {
   cn,
   getProductDisplayPrice,
   isProductOnSale,
-  getProductDiscountPercent,
+  getProductDiscountSaveAmountNumber,
   sortSizes,
 } from "@/lib/utils";
 import type { Product, StorefrontProduct, StorefrontProductResolved } from "@/db/schema";
@@ -102,7 +102,7 @@ export function ProductCard({
   const price = typeof product.price === "string" ? product.price : String(product.price);
   const displayPrice = getProductDisplayPrice(product);
   const onSale = isProductOnSale(product);
-  const percentOff = getProductDiscountPercent(product);
+  const saveAmountUsd = getProductDiscountSaveAmountNumber(product);
 
   const variantsForColor =
     colors && activeColor
@@ -240,9 +240,9 @@ export function ProductCard({
             isCompactView && "max-md:aspect-[20/31]",
           )}
         >
-          {onSale && percentOff > 0 && (
+          {onSale && saveAmountUsd > 0 && (
             <span className="absolute top-2 start-2 z-10 px-2 py-0.5 text-xs font-semibold uppercase tracking-wider bg-destructive text-destructive-foreground">
-              -{percentOff}%
+              {t("saveBadge", { amount: formatPrice(saveAmountUsd) })}
             </span>
           )}
           {currentImage ? (
@@ -512,8 +512,8 @@ export function ProductCard({
           <p className="mt-0.5 text-sm font-light text-foreground">
             {onSale ? (
               <>
-                <span className="line-through text-muted-foreground">{formatPrice(price)}</span>{" "}
-                <span className="text-destructive font-medium">{formatPrice(displayPrice)}</span>
+                <span className="text-destructive font-medium">{formatPrice(displayPrice)}</span>{" "}
+                <span className="line-through text-muted-foreground">{formatPrice(price)}</span>
               </>
             ) : (
               formatPrice(displayPrice)
