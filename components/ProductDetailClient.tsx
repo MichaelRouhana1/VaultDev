@@ -27,6 +27,11 @@ import { ChevronLeft, Search, ShoppingBag, User } from "lucide-react";
 
 const DEFAULT_SIZES = ["XS", "S", "M", "L", "XL"];
 
+function usableImageUrls(urls: string[] | null | undefined): string[] {
+  if (!Array.isArray(urls)) return [];
+  return urls.filter((url) => typeof url === "string" && url.trim().length > 0);
+}
+
 interface ProductDetailClientProps {
   product: StorefrontProductResolved & { images?: string[] };
   variants: ProductVariant[];
@@ -62,6 +67,7 @@ export function ProductDetailClient({
   const wishlistState = hasHydrated ? isInWishlist(product.id) : initialInWishlist;
   const [selectedSize, setSelectedSize] = useState<string | null>(null);
   const [displayOrder, setDisplayOrder] = useState<number[]>([]);
+  const [displayOrderKey, setDisplayOrderKey] = useState<string>("");
   const [imageErrors, setImageErrors] = useState<Record<number, boolean>>({});
   const [lightboxOpen, setLightboxOpen] = useState(false);
   const [lightboxIndex, setLightboxIndex] = useState(0);
@@ -85,9 +91,15 @@ export function ProductDetailClient({
   const [selectedColor, setSelectedColorState] = useState<ProductColor | null>(initialColor ?? null);
 
   const imageUrls = useMemo(
-    () => (selectedColor?.imageUrls ?? product.images) ?? [],
+    () => usableImageUrls(selectedColor?.imageUrls ?? product.images),
     [selectedColor?.imageUrls, product.images]
   );
+  const galleryKey = `${product.id}:${selectedColor?.id ?? "none"}:${imageUrls.join("\0")}`;
+  if (displayOrderKey !== galleryKey) {
+    setDisplayOrderKey(galleryKey);
+    setDisplayOrder(imageUrls.map((_, i) => i));
+    setImageErrors({});
+  }
 
   const mobileCarouselOpts = useMemo<EmblaOptionsType>(
     () => ({
@@ -97,10 +109,6 @@ export function ProductDetailClient({
     }),
     [imageUrls.length]
   );
-
-  useEffect(() => {
-    setDisplayOrder(imageUrls.map((_, i) => i));
-  }, [imageUrls, product.id, selectedColor?.id]);
 
   useEffect(() => {
     carouselApi?.scrollTo(0);
@@ -414,8 +422,7 @@ export function ProductDetailClient({
           <Carousel setApi={setCarouselApi} opts={mobileCarouselOpts} className="relative z-0 w-full min-w-0">
             <CarouselContent>
               {imageUrls.map((url, idx) => {
-                const hasError = imageErrors[idx];
-                const src = !hasError && url ? url : null;
+                if (imageErrors[idx]) return null;
                 return (
                   <CarouselItem key={idx} className="min-w-0 max-w-full shrink-0 grow-0 basis-full">
                     <div
@@ -429,20 +436,14 @@ export function ProductDetailClient({
                       onKeyDown={(e) => e.key === "Enter" && (setLightboxIndex(idx), openLightbox())}
                       aria-label={t("viewFullImage")}
                     >
-                      {src ? (
-                        <Image
-                          src={src}
-                          alt={product.description ? `${product.name} - ${product.description}` : product.name}
-                          fill
-                          className="object-cover"
-                          onError={() => handleImageError(idx)}
-                          sizes="100vw"
-                        />
-                      ) : (
-                        <div className="flex h-full w-full items-center justify-center text-sm text-muted-foreground">
-                          {t("noImage")}
-                        </div>
-                      )}
+                      <Image
+                        src={url}
+                        alt={product.description ? `${product.name} - ${product.description}` : product.name}
+                        fill
+                        className="object-cover"
+                        onError={() => handleImageError(idx)}
+                        sizes="100vw"
+                      />
                     </div>
                   </CarouselItem>
                 );
@@ -710,8 +711,8 @@ export function ProductDetailClient({
               <div className="grid grid-cols-2 gap-4 mt-4">
                 {displayOrder.slice(1).map((urlIndex, i) => {
                   const position = i + 1;
-                  const hasError = imageErrors[urlIndex];
                   const url = imageUrls[urlIndex];
+                  if (!url || imageErrors[urlIndex]) return null;
                   return (
                     <button
                       key={urlIndex}
@@ -719,20 +720,14 @@ export function ProductDetailClient({
                       onClick={() => handleThumbnailClick(position)}
                       className="relative aspect-[2/3] overflow-hidden bg-muted border-2 border-transparent transition-colors hover:border-muted-foreground/30"
                     >
-                      {!hasError && url ? (
-                        <Image
-                          src={url}
-                          alt={t("thumbAlt", { index: position, name: product.name })}
-                          fill
-                          className="object-cover"
-                          onError={() => handleImageError(urlIndex)}
-                          sizes="(max-width: 1024px) 45vw, (max-width: 1536px) 32vw, 480px"
-                        />
-                      ) : (
-                        <div className="flex h-full w-full items-center justify-center text-muted-foreground text-sm">
-                          —
-                        </div>
-                      )}
+                      <Image
+                        src={url}
+                        alt={t("thumbAlt", { index: position, name: product.name })}
+                        fill
+                        className="object-cover"
+                        onError={() => handleImageError(urlIndex)}
+                        sizes="(max-width: 1024px) 45vw, (max-width: 1536px) 32vw, 480px"
+                      />
                     </button>
                   );
                 })}
@@ -892,8 +887,8 @@ export function ProductDetailClient({
           <div className="flex h-full max-h-[90vh] w-full max-w-[95vw] items-center gap-4 px-4">
             <div className="scrollbar-hide hidden max-h-[90vh] w-16 shrink-0 flex-col gap-2 overflow-y-auto py-2 md:flex">
               {imageUrls.map((url, idx) => {
+                if (imageErrors[idx]) return null;
                 const isSelected = lightboxIndex === idx;
-                const hasError = imageErrors[idx];
                 return (
                   <button
                     key={idx}
@@ -909,19 +904,13 @@ export function ProductDetailClient({
                       : "border border-white/20 opacity-60 hover:border-white/40 hover:opacity-80"
                       }`}
                   >
-                    {!hasError && url ? (
-                      <Image
-                        src={url}
-                        alt={t("thumbAlt", { index: idx + 1, name: product.name })}
-                        width={64}
-                        height={80}
-                        className="h-full w-full object-cover"
-                      />
-                    ) : (
-                      <div className="flex h-20 w-full items-center justify-center bg-muted text-xs text-muted-foreground">
-                        —
-                      </div>
-                    )}
+                    <Image
+                      src={url}
+                      alt={t("thumbAlt", { index: idx + 1, name: product.name })}
+                      width={64}
+                      height={80}
+                      className="h-full w-full object-cover"
+                    />
                   </button>
                 );
               })}
