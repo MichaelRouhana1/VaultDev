@@ -23,10 +23,22 @@ interface UpdateOrderStatusProps {
   currentStatus: string;
 }
 
+function statusHint(status: string): string {
+  if (status === "CANCELLED") {
+    return "This order is cancelled. Items were returned to inventory and the order cannot be reopened.";
+  }
+  if (status === "SHIPPED" || status === "DELIVERED") {
+    return "Cancel is unavailable after ship or deliver — stock is not returned once the order has left.";
+  }
+  return "Cancelling a pending or processing order returns items to inventory.";
+}
+
 export function UpdateOrderStatus({ orderId, currentStatus }: UpdateOrderStatusProps) {
   const [status, setStatus] = useState(currentStatus);
   const [isPending, setIsPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  const isCancelled = status === "CANCELLED";
 
   async function handleChange(newStatus: string) {
     if (newStatus === status) return;
@@ -49,19 +61,24 @@ export function UpdateOrderStatus({ orderId, currentStatus }: UpdateOrderStatusP
       <Select
         value={status}
         onValueChange={handleChange}
-        disabled={isPending}
+        disabled={isPending || isCancelled}
       >
         <SelectTrigger className="w-[180px]">
           <SelectValue placeholder="Select status" />
         </SelectTrigger>
         <SelectContent>
-          {STATUS_OPTIONS.map((opt) => (
-            <SelectItem key={opt.value} value={opt.value}>
-              {opt.label}
-            </SelectItem>
-          ))}
+          {STATUS_OPTIONS.map((opt) => {
+            const disableCancel =
+              opt.value === "CANCELLED" && (status === "SHIPPED" || status === "DELIVERED");
+            return (
+              <SelectItem key={opt.value} value={opt.value} disabled={disableCancel}>
+                {opt.label}
+              </SelectItem>
+            );
+          })}
         </SelectContent>
       </Select>
+      <p className="text-xs text-muted-foreground">{statusHint(status)}</p>
       {error && (
         <p className="text-sm text-destructive">{error}</p>
       )}
