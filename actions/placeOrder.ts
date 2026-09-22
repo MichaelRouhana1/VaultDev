@@ -19,7 +19,8 @@ import { validatePromoInTransaction } from "@/actions/promo";
 import { getProductDisplayPrice, getPublicSiteUrl, generateOrderNumber } from "@/lib/utils";
 import { checkPlaceOrderLimit } from "@/lib/rate-limit";
 import { logger } from "@/lib/logger";
-import { sendOrderConfirmationEmail } from "@/lib/resend";
+import { sendNewOrderStaffEmail, sendOrderConfirmationEmail } from "@/lib/resend";
+import { routing } from "@/lib/i18n-routing";
 import {
   ACTIVATION_ORDER_ID_COOKIE,
   ACTIVATION_TOKEN_COOKIE,
@@ -317,12 +318,19 @@ export async function placeOrder(
 
     await tx.insert(orderItems).values(orderItemsToInsert);
 
+    const lineItems = Array.from(variantQuantities.values()).map((v) => ({
+      name: productById[v.productId]?.name ?? `Product #${v.productId}`,
+      size: v.size,
+      quantity: v.quantity,
+    }));
+
     return {
       orderId: order.id,
       orderNumber: order.orderNumber,
       totalAmount: totalAmount.toFixed(2),
       guestEmail,
       activationToken,
+      lineItems,
     };
   });
 
@@ -333,9 +341,9 @@ export async function placeOrder(
     cookieStore.set(ACTIVATION_TOKEN_COOKIE, orderResult.activationToken, cookieOpts);
   }
 
+  const baseUrl = getPublicSiteUrl();
   const emailTo = orderResult.guestEmail || undefined;
   if (emailTo) {
-    const baseUrl = getPublicSiteUrl();
     const activationLink =
       orderResult.activationToken && baseUrl
         ? `${baseUrl}/api/auth/verify?token=${encodeURIComponent(orderResult.activationToken)}&orderId=${orderResult.orderId}`
@@ -353,6 +361,21 @@ export async function placeOrder(
       showActivationConfigNote: Boolean(orderResult.activationToken && !baseUrl),
     });
   }
+
+  void sendNewOrderStaffEmail({
+    orderId: orderResult.orderId,
+    orderNumber: orderResult.orderNumber,
+    totalAmount: orderResult.totalAmount,
+    customerName,
+    phoneNumber,
+    addressLine1,
+    city,
+    customerEmail: orderResult.guestEmail,
+    lineItems: orderResult.lineItems,
+    adminOrderUrl: baseUrl
+      ? `${baseUrl}/${routing.defaultLocale}/admin/orders/${orderResult.orderId}`
+      : undefined,
+  });
 
   if (userId && saveAsDefaultAddress) {
     await saveCheckoutAsDefaultAddress(userId, {
