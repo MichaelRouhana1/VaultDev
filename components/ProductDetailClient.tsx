@@ -17,6 +17,8 @@ import {
   type CarouselApi,
 } from "@/components/ui/carousel";
 import { cn, getProductDisplayPrice, isProductOnSale, sortSizes } from "@/lib/utils";
+import { META_PIXEL_CURRENCY, metaMoney } from "@/lib/analytics/meta-commerce";
+import { trackMetaEvent } from "@/lib/analytics/meta-pixel-client";
 import { ProductDetailAccordion } from "@/components/ProductDetailAccordion";
 import type { ProductPageAccordionResolved } from "@/actions/product-page-copy";
 import type { ProductVariant, ProductColor, StorefrontProductResolved } from "@/db/schema";
@@ -174,6 +176,19 @@ export function ProductDetailClient({
   const price = typeof product.price === "string" ? product.price : String(product.price);
   const displayPrice = getProductDisplayPrice(product);
   const onSale = isProductOnSale(product);
+  const viewContentSentFor = useRef<number | null>(null);
+
+  useEffect(() => {
+    if (viewContentSentFor.current === product.id) return;
+    viewContentSentFor.current = product.id;
+    trackMetaEvent("ViewContent", {
+      content_ids: [String(product.id)],
+      content_type: "product",
+      content_name: product.name,
+      value: metaMoney(parseFloat(displayPrice)),
+      currency: META_PIXEL_CURRENCY,
+    });
+  }, [product.id, product.name, displayPrice]);
 
   const variantsForColor =
     selectedColor?.id != null

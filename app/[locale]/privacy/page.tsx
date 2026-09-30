@@ -4,7 +4,7 @@ import { Link } from "@/i18n/navigation";
 import { getLegalContactEmail } from "@/lib/legal-contact-email";
 
 /** Update when this policy changes materially (displayed on the public page). */
-const PRIVACY_POLICY_LAST_UPDATED = "3 April 2026";
+const PRIVACY_POLICY_LAST_UPDATED = "30 September 2026";
 
 export async function generateMetadata({
   params,
@@ -161,6 +161,21 @@ export default async function PrivacyPage({
             that flow is used, and admin-only cookies for staff.
           </p>
           <p>
+            <strong>Advertising measurement (Meta).</strong> When a Meta (Facebook) Pixel is enabled, Meta may set cookies such as{" "}
+            <code className="rounded bg-muted px-1 py-0.5 text-xs">_fbp</code> and{" "}
+            <code className="rounded bg-muted px-1 py-0.5 text-xs">_fbc</code> and receive page views, product views, items added to your bag,
+            checkout starts, and purchases (including the order value) so we can measure ads. See{" "}
+            <a
+              href="https://www.facebook.com/privacy/policy/"
+              className="underline underline-offset-4 hover:opacity-80"
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              Meta&apos;s privacy policy
+            </a>
+            .
+          </p>
+          <p>
             <strong>Rate limiting.</strong> When configured, we use Upstash Redis to limit abuse; this can involve processing IP addresses and
             operation-specific keys.
           </p>
@@ -178,7 +193,8 @@ export default async function PrivacyPage({
           <p>
             <strong>Your data may be processed on servers located outside of Lebanon</strong> (for example in the <strong>European Union</strong>, the{" "}
             <strong>United States</strong>, or other regions) by Vault and by our subprocessors, including{" "}
-            <strong>Vercel</strong>, <strong>Clerk</strong>, <strong>Resend</strong>, and <strong>Upstash</strong> (when used), as well as our database and file-storage providers. Those transfers are
+            <strong>Vercel</strong>, <strong>Clerk</strong>, <strong>Resend</strong>, <strong>Meta</strong> (when the pixel is enabled), and{" "}
+            <strong>Upstash</strong> (when used), as well as our database and file-storage providers. Those transfers are
             carried out to operate the service; subprocessors&apos; own terms and privacy notices apply to their processing.
           </p>
         </section>
@@ -257,8 +273,9 @@ export default async function PrivacyPage({
         <section className="mt-10 space-y-3">
           <h2 className="text-base font-semibold text-foreground">10. Subprocessors</h2>
           <p>
-            We rely on service providers including Clerk (authentication), Resend (transactional email), Vercel (hosting), Upstash (rate limiting when
-            configured), and our database and object storage vendors. We share only what is needed for their services.
+            We rely on service providers including Clerk (authentication), Resend (transactional email), Vercel (hosting), Meta (advertising
+            measurement, when the pixel is enabled), Upstash (rate limiting when configured), and our database and object storage vendors. We share
+            only what is needed for their services.
           </p>
         </section>
 

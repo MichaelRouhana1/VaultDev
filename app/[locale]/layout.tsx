@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { Suspense } from "react";
 import { connection } from "next/server";
 import { notFound } from "next/navigation";
 import { NextIntlClientProvider } from "next-intl";
@@ -19,6 +20,8 @@ import { routing } from "@/lib/i18n-routing";
 import { getTranslations } from "next-intl/server";
 import { LandingAwareSiteFooter } from "@/components/storefront/LandingAwareSiteFooter";
 import { ShopListingNavProvider } from "@/components/storefront/ShopListingNavContext";
+import { MetaPixel } from "@/components/analytics/MetaPixel";
+import { MetaPixelRouteTracker } from "@/components/analytics/MetaPixelRouteTracker";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -74,6 +77,7 @@ export default async function LocaleLayout({
   const tAuthClerk = await getTranslations("AuthClerk");
   const headersList = await headers();
   const nonce = resolveCspNonce(headersList);
+  const metaPixelId = process.env.NEXT_PUBLIC_META_PIXEL_ID?.trim();
   /** Storefront stays LTR for every locale; Arabic only swaps strings, not layout/mirroring. */
   return (
     <html lang={locale} dir="ltr" suppressHydrationWarning nonce={nonce}>
@@ -112,6 +116,14 @@ export default async function LocaleLayout({
                       <div id="main-content">{children}</div>
                       <LandingAwareSiteFooter />
                       <Toaster richColors position="top-right" />
+                      {metaPixelId ? (
+                        <>
+                          <MetaPixel pixelId={metaPixelId} nonce={nonce} />
+                          <Suspense fallback={null}>
+                            <MetaPixelRouteTracker />
+                          </Suspense>
+                        </>
+                      ) : null}
                     </ShopListingNavProvider>
                   </CartProvider>
                 </CurrencyProvider>

@@ -289,7 +289,7 @@ The project applies several strong controls aligned with OWASP: Clerk for authen
 - **CSP + nonce:** `middleware.ts` sets CSP and `x-nonce`; `app/layout.tsx` passes `nonce` to `ClerkProvider`.  
 - **Rate limiting:** Upstash when configured; stricter in-memory fallback on Redis errors in `lib/rate-limit.ts`; admin throughput limits in middleware.  
 - **Internal audit route:** Per-IP limits before secret check; shared secret header (`x-mosaik-internal-secret`).  
-- **Analytics:** No third-party analytics SDK found in current dependencies—reduced third-party data sharing surface.  
+- **Analytics:** Meta Pixel is optional (`NEXT_PUBLIC_META_PIXEL_ID`). When set, the storefront sends page and ecommerce events to Meta, and CSP allows Meta's script, image, and connect origins. A server Purchase is sent only when `META_CAPI_ACCESS_TOKEN` is also set.  
 
 ---
 

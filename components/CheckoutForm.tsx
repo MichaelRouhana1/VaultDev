@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useMemo } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useActionState } from "react";
 import { useTranslations } from "next-intl";
 import { Link, useRouter } from "@/i18n/navigation";
@@ -30,6 +30,8 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { toast } from "sonner";
+import { META_PIXEL_CURRENCY, metaLineValue, metaMoney } from "@/lib/analytics/meta-commerce";
+import { trackMetaEvent } from "@/lib/analytics/meta-pixel-client";
 
 const DEFAULT_SHIPPING_FEE = 5;
 
@@ -127,6 +129,7 @@ export function CheckoutForm() {
   const displayItems = useMemo(() => cartItemsToDisplay(items), [items]);
   const cartForOrder = useMemo(() => toPlaceOrderCartItems(displayItems), [displayItems]);
   const [state, formAction, isPending] = useActionState(placeOrderAction, null);
+  const checkoutTracked = useRef(false);
   const [promoInput, setPromoInput] = useState("");
   const [appliedPromo, setAppliedPromo] = useState<{
     code: string;
@@ -186,6 +189,29 @@ export function CheckoutForm() {
       router.replace("/bag");
     }
   }, [cartHydrated, items.length, state?.orderId, router]);
+
+  useEffect(() => {
+    if (!cartHydrated || items.length === 0 || state?.orderId) return;
+    if (checkoutTracked.current) return;
+    checkoutTracked.current = true;
+    const contents = items.map((item) => ({
+      id: String(item.productId),
+      quantity: item.quantity,
+      item_price: metaMoney(parseFloat(item.priceAtPurchase)),
+    }));
+    const value = items.reduce(
+      (sum, item) => sum + metaLineValue(item.priceAtPurchase, item.quantity),
+      0,
+    );
+    trackMetaEvent("InitiateCheckout", {
+      content_ids: contents.map((line) => line.id),
+      content_type: "product",
+      contents,
+      num_items: items.reduce((sum, item) => sum + item.quantity, 0),
+      value: metaMoney(value),
+      currency: META_PIXEL_CURRENCY,
+    });
+  }, [cartHydrated, items, state?.orderId]);
 
   if (state?.orderId) {
     return null;

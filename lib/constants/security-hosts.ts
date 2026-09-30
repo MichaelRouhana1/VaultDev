@@ -129,6 +129,11 @@ export function getUpstashRestOrigin(): string | null {
   return parseHttpsHostname(process.env.UPSTASH_REDIS_REST_URL);
 }
 
+/** Meta Pixel (see `components/analytics/MetaPixel.tsx`). CSP widened only when configured. */
+export function isMetaPixelEnabled(): boolean {
+  return Boolean(process.env.NEXT_PUBLIC_META_PIXEL_ID?.trim());
+}
+
 /** https:// + host for CSP (exact project) or wildcard fallback when env missing. */
 export function getSupabaseCspImgSources(): string[] {
   const h = getSupabaseHostname();
@@ -207,17 +212,25 @@ function joinCspSources(parts: string[]): string {
  *
  * **Frames:** Stripe (`js.stripe.com`, `hooks.stripe.com`, Checkout), Clerk hosted flows, Cloudflare Turnstile.
  *
- * **Analytics:** No third-party analytics scripts in this repo. If you add GTM, Plausible, Vercel Analytics, etc.,
- * extend `script-src` / `connect-src` / `img-src` here with those vendors’ documented hostnames (avoid `*`).
+ * **Analytics:** When `NEXT_PUBLIC_META_PIXEL_ID` is set, `isMetaPixelEnabled()` adds Meta Pixel
+ * origins: `script-src https://connect.facebook.net`; `img-src https://www.facebook.com` (the `/tr`
+ * beacon); `connect-src https://www.facebook.com`, `https://connect.facebook.net`, and
+ * `https://graph.facebook.com`. For other vendors (GTM, Plausible, etc.), extend CSP here (avoid `*`).
  *
  * **Clickjacking:** `frame-ancestors 'none'` (redundant with `X-Frame-Options: DENY` in
  * `next.config.ts` but enforced by CSP-aware clients).
  */
 export function buildContentSecurityPolicy(nonce: string): string {
   const isProduction = process.env.NODE_ENV === "production";
+  const metaPixel = isMetaPixelEnabled();
 
   // Nonce first, then strict-dynamic; host sources support legacy UAs that ignore strict-dynamic.
   const clerkCustomFapi = getClerkFrontendApiOrigin();
+
+  /** @see https://developers.facebook.com/docs/meta-pixel/advanced/ — script + pixel beacons. */
+  const META_SCRIPT_HOST = "https://connect.facebook.net" as const;
+  const META_IMG_ORIGIN = "https://www.facebook.com" as const;
+  const META_GRAPH_ORIGIN = "https://graph.facebook.com" as const;
 
   const scriptSrc = isProduction
     ? joinCspSources([
@@ -228,6 +241,7 @@ export function buildContentSecurityPolicy(nonce: string): string {
         ...CLERK_HTTPS_ORIGINS,
         CLOUDFLARE_CHALLENGES_ORIGIN,
         ...STRIPE_SCRIPT_SRC,
+        ...(metaPixel ? [META_SCRIPT_HOST] : []),
       ])
     : joinCspSources([
         `'nonce-${nonce}'`,
@@ -238,6 +252,7 @@ export function buildContentSecurityPolicy(nonce: string): string {
         ...CLERK_HTTPS_ORIGINS,
         CLOUDFLARE_CHALLENGES_ORIGIN,
         ...STRIPE_SCRIPT_SRC,
+        ...(metaPixel ? [META_SCRIPT_HOST] : []),
       ]);
 
   const r2Host = getR2PublicHostname();
@@ -250,6 +265,7 @@ export function buildContentSecurityPolicy(nonce: string): string {
     `https://${CLERK_IMG_HOST}`,
     ...(r2Host ? [`https://${r2Host}`] : []),
     ...STRIPE_IMG_SRC,
+    ...(metaPixel ? [META_IMG_ORIGIN] : []),
   ]);
 
   const connectParts: string[] = [
@@ -268,6 +284,9 @@ export function buildContentSecurityPolicy(nonce: string): string {
   }
   connectParts.push(...STRIPE_CONNECT_SRC);
   connectParts.push(...getR2S3ApiConnectOrigins());
+  if (metaPixel) {
+    connectParts.push(META_SCRIPT_HOST, META_IMG_ORIGIN, META_GRAPH_ORIGIN);
+  }
 
   const connectSrc = joinCspSources(connectParts);
 

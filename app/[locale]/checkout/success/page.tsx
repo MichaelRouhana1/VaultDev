@@ -12,8 +12,10 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { MetaPurchaseTracker } from "@/components/analytics/MetaPurchaseTracker";
 import { db } from "@/db";
-import { orders } from "@/db/schema";
+import { orderItems, orders } from "@/db/schema";
+import { metaMoney, type MetaContent } from "@/lib/analytics/meta-commerce";
 import { clerkClient } from "@clerk/nextjs/server";
 import { clerkUserExistsForEmail } from "@/lib/clerk-user-lookup";
 import { linkGuestOrdersToUser } from "@/lib/link-guest-orders";
@@ -84,13 +86,46 @@ export default async function CheckoutSuccessPage() {
   }
 
   let displayOrderNumber: string | null = null;
+  let purchase:
+    | {
+        orderId: number;
+        value: number;
+        contentIds: string[];
+        contents: MetaContent[];
+        numItems: number;
+      }
+    | null = null;
   if (displayOrderId != null) {
-    const [row] = await db
-      .select({ orderNumber: orders.orderNumber })
-      .from(orders)
-      .where(eq(orders.id, displayOrderId))
-      .limit(1);
+    const [[row], lines] = await Promise.all([
+      db
+        .select({ orderNumber: orders.orderNumber, totalAmount: orders.totalAmount })
+        .from(orders)
+        .where(eq(orders.id, displayOrderId))
+        .limit(1),
+      db
+        .select({
+          productId: orderItems.productId,
+          quantity: orderItems.quantity,
+          priceAtPurchase: orderItems.priceAtPurchase,
+        })
+        .from(orderItems)
+        .where(eq(orderItems.orderId, displayOrderId)),
+    ]);
     displayOrderNumber = orderNumberOrFallback(row?.orderNumber, displayOrderId);
+    if (row) {
+      const contents: MetaContent[] = lines.map((line) => ({
+        id: String(line.productId),
+        quantity: line.quantity,
+        item_price: metaMoney(parseFloat(String(line.priceAtPurchase))),
+      }));
+      purchase = {
+        orderId: displayOrderId,
+        value: metaMoney(parseFloat(String(row.totalAmount))),
+        contentIds: contents.map((line) => line.id),
+        contents,
+        numItems: contents.reduce((sum, line) => sum + line.quantity, 0),
+      };
+    }
   }
 
   if (sessionMissing && displayOrderId == null && guestUpsell == null) {
@@ -111,6 +146,15 @@ export default async function CheckoutSuccessPage() {
 
   return (
     <div className="pt-14">
+      {purchase ? (
+        <MetaPurchaseTracker
+          orderId={purchase.orderId}
+          value={purchase.value}
+          contentIds={purchase.contentIds}
+          contents={purchase.contents}
+          numItems={purchase.numItems}
+        />
+      ) : null}
       <div className="container mx-auto flex max-w-lg flex-col items-center gap-8 px-4 py-16 text-center">
         <div className="space-y-4">
           <h1 className="text-2xl font-bold">{t("title")}</h1>

@@ -28,6 +28,8 @@ import {
 import { getLowStockThreshold } from "@/actions/inventory-settings";
 import { saveCheckoutAsDefaultAddress } from "@/actions/updateVaultProfile";
 import { TERMS_PRIVACY_CONSENT_ERROR_MESSAGE } from "@/lib/checkout-consent";
+import { metaMoney } from "@/lib/analytics/meta-commerce";
+import { sendMetaPurchase } from "@/lib/analytics/meta-capi";
 
 const DEFAULT_SHIPPING_FEE = 5;
 
@@ -321,6 +323,12 @@ export async function placeOrder(
       quantity: v.quantity,
     }));
 
+    const purchaseContents = Array.from(variantQuantities.values()).map((line) => ({
+      id: String(line.productId),
+      quantity: line.quantity,
+      item_price: metaMoney(parseFloat(line.priceAtPurchase)),
+    }));
+
     return {
       orderId: order.id,
       orderNumber: order.orderNumber,
@@ -328,6 +336,7 @@ export async function placeOrder(
       guestEmail,
       activationToken,
       lineItems,
+      purchaseContents,
     };
   });
 
@@ -358,6 +367,22 @@ export async function placeOrder(
       showActivationConfigNote: Boolean(orderResult.activationToken && !baseUrl),
     });
   }
+
+  void sendMetaPurchase({
+    orderId: orderResult.orderId,
+    totalAmountUsd: orderResult.totalAmount,
+    contents: orderResult.purchaseContents,
+    email: orderResult.guestEmail,
+    phone: phoneNumber,
+    customerName,
+    city,
+    externalId: userId ?? null,
+    clientIpAddress: ip,
+    clientUserAgent: headersList.get("user-agent"),
+    eventSourceUrl: headersList.get("referer"),
+    fbp: cookieStore.get("_fbp")?.value ?? null,
+    fbc: cookieStore.get("_fbc")?.value ?? null,
+  });
 
   void sendNewOrderStaffEmail({
     orderId: orderResult.orderId,
