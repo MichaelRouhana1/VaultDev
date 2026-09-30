@@ -19,10 +19,13 @@ VAULT is a fashion e-commerce Next.js 15 app (App Router, Turbopack, React 19, T
 | `NEXT_PUBLIC_SUPABASE_URL` | Supabase Storage |
 | `SUPABASE_SERVICE_ROLE_KEY` | Supabase Storage (server) |
 | `RESEND_API_KEY` | Optional — order emails |
+| `RESEND_FROM_EMAIL` | Optional — From address for Resend (verified domain). Falls back to `onboarding@resend.dev`. |
+| `ORDER_NOTIFY_EMAIL` | Optional — comma-separated staff inboxes for “new order” alerts (`lib/resend.ts`). |
 | `UPSTASH_REDIS_REST_URL` | Optional — Upstash Redis for rate limiting |
 | `UPSTASH_REDIS_REST_TOKEN` | Optional — Upstash Redis token |
 | `INTERNAL_API_SECRET` | Optional — shared secret for `x-mosaik-internal-secret` when calling `/api/internal/security-audit` (middleware + `lib/internal-security-audit-ingest.ts`). Legacy: `INTERNAL_AUDIT_SECRET` is read if this is unset. |
 | `CLERK_FRONTEND_API_URL` | Optional — required when Clerk **Domains** uses a custom Frontend API (e.g. `https://clerk.yourdomain.com`). Adds that origin to CSP `connect-src` / `script-src` so the Clerk client can load (`lib/constants/security-hosts.ts`). `NEXT_PUBLIC_CLERK_FRONTEND_API_URL` is also read. |
+| `NEXT_PUBLIC_META_PIXEL_ID` | Optional — Meta (Facebook) Ads Pixel. Enables `fbq` in `components/analytics/MetaPixel.tsx`; CSP additions in `security-hosts` apply only when this is set. |
 
 These must be written to `.env.local` before the app can start. See `.env.example` for a template. The update script handles this automatically from injected environment variables.
 
