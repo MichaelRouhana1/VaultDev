@@ -12,10 +12,9 @@ import {
   productVariants,
   productColors,
   products,
-  promoCodes,
   notifications,
 } from "@/db/schema";
-import { validatePromoInTransaction } from "@/actions/promo";
+import { claimPromoUse, validatePromoInTransaction } from "@/actions/promo";
 import { getProductDisplayPrice, getPublicSiteUrl, generateOrderNumber } from "@/lib/utils";
 import { checkPlaceOrderLimit } from "@/lib/rate-limit";
 import { logger } from "@/lib/logger";
@@ -246,7 +245,8 @@ export async function placeOrder(
         tx,
         promoCode.trim(),
         subtotalAmount,
-        shippingFee
+        shippingFee,
+        { userId: userId ?? null, email: guestEmail },
       );
       discountAmount = validated.discountAmount;
       promoCodeId = validated.promoCodeId;
@@ -297,10 +297,7 @@ export async function placeOrder(
     }
 
     if (promoCodeId != null) {
-      await tx
-        .update(promoCodes)
-        .set({ currentUses: sql`${promoCodes.currentUses} + 1` })
-        .where(eq(promoCodes.id, promoCodeId));
+      await claimPromoUse(tx, promoCodeId);
     }
 
     const orderItemsToInsert = items.map((item) => {

@@ -35,6 +35,7 @@ export type AuditAction =
   | "promo.create"
   | "promo.delete"
   | "promo.toggle_status"
+  | "promo.update_expiry"
   | "hero.add"
   | "hero.delete"
   | "lookbook.add"

@@ -220,7 +220,10 @@ export function CheckoutForm() {
     }
     setPromoLoading(true);
     try {
-      const result = await validatePromoCode(code, subtotal, shippingFee);
+      const result = await validatePromoCode(code, subtotal, shippingFee, {
+        userId: clerkUserId ?? null,
+        email: guestEmail,
+      });
       if (!result.success) {
         throw new Error(result.error);
       }

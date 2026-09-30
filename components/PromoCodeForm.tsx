@@ -101,7 +101,7 @@ export function PromoCodeForm() {
             />
           </div>
           <div className="space-y-2">
-            <Label htmlFor="maxUses">Max uses (optional)</Label>
+            <Label htmlFor="maxUses">Max uses in total (optional)</Label>
             <Input
               id="maxUses"
               name="maxUses"
@@ -109,6 +109,22 @@ export function PromoCodeForm() {
               min="1"
               placeholder="Unlimited"
             />
+            <p className="text-xs text-muted-foreground">
+              How many orders can use this code, across every customer. Leave empty for unlimited.
+            </p>
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="maxUsesPerCustomer">Max uses per customer (optional)</Label>
+            <Input
+              id="maxUsesPerCustomer"
+              name="maxUsesPerCustomer"
+              type="number"
+              min="1"
+              placeholder="Unlimited"
+            />
+            <p className="text-xs text-muted-foreground">
+              How many orders one customer can use this code on. One bag counts as one use, and the discount applies to every item in that bag. Leave empty for unlimited.
+            </p>
           </div>
           <div className="space-y-2">
             <Label htmlFor="expiresAt">Expiration date (optional)</Label>

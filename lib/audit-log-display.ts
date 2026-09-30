@@ -55,6 +55,7 @@ export function getAuditActionLabel(
     COLLECTION_CREATE: "Collection created",
     COLLECTION_UPDATE: "Collection updated",
     COLLECTION_DELETE: "Collection deleted",
+    PROMO_UPDATE_EXPIRY: "Promo expiry updated",
   };
   return staticLabels[action] ?? action.replace(/_/g, " ");
 }

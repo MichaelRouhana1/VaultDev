@@ -1,14 +1,20 @@
 "use server";
 
 import { headers } from "next/headers";
-import { eq, and } from "drizzle-orm";
+import { and, count, eq, isNull, or, sql, type SQL } from "drizzle-orm";
 import { db } from "@/db";
-import { promoCodes } from "@/db/schema";
+import { orders, promoCodes } from "@/db/schema";
 import { checkValidatePromoLimit } from "@/lib/rate-limit";
 import { auditLog } from "@/lib/audit";
 import { z } from "zod";
 import { logger } from "@/lib/logger";
 import { requireAdmin } from "@/lib/security";
+import {
+  normalizePromoCustomer,
+  PROMO_TOTAL_LIMIT_REACHED,
+  promoUseLimitError,
+  type PromoCustomer,
+} from "@/lib/promo-limits";
 
 const DEFAULT_SHIPPING_FEE = 5;
 
@@ -52,22 +58,55 @@ function computeDiscount(
   }
 }
 
+function customerOrderMatch(customer: PromoCustomer): SQL | undefined {
+  const parts: SQL[] = [];
+  if (customer.userId) parts.push(eq(orders.userId, customer.userId));
+  if (customer.email) {
+    parts.push(sql`lower(trim(${orders.guestEmail})) = ${customer.email}`);
+  }
+  const [first, second, ...rest] = parts;
+  if (!first) return undefined;
+  if (!second) return first;
+  return or(first, second, ...rest);
+}
+
+async function countCustomerPromoOrders(
+  client: DbClient,
+  promoId: number,
+  customer: PromoCustomer,
+): Promise<number | null> {
+  const match = customerOrderMatch(customer);
+  if (!match) return null;
+  const [row] = await client
+    .select({ value: count() })
+    .from(orders)
+    .where(and(eq(orders.promoCodeId, promoId), match));
+  const n = Number(row?.value ?? 0);
+  if (!Number.isFinite(n)) {
+    throw new Error("Invalid code");
+  }
+  return n;
+}
+
 async function validateAndGetPromo(
   client: DbClient,
   code: string,
   cartSubtotal: number,
-  shippingFee: number
+  shippingFee: number,
+  customer: PromoCustomer,
+  lock: boolean,
 ): Promise<InternalPromoValidation> {
   const normalizedCode = code?.trim().toUpperCase();
   if (!normalizedCode) {
     throw new Error("Please enter a promo code");
   }
 
-  const [promo] = await client
+  const promoQuery = client
     .select()
     .from(promoCodes)
     .where(and(eq(promoCodes.code, normalizedCode), eq(promoCodes.isActive, true)))
     .limit(1);
+  const [promo] = lock ? await promoQuery.for("update") : await promoQuery;
 
   if (!promo) {
     throw new Error("Invalid code");
@@ -77,8 +116,18 @@ async function validateAndGetPromo(
     throw new Error("Code expired");
   }
 
-  if (promo.maxUses != null && (promo.currentUses ?? 0) >= promo.maxUses) {
-    throw new Error("Usage limit reached");
+  const customerOrderCount =
+    promo.maxUsesPerCustomer == null
+      ? null
+      : await countCustomerPromoOrders(client, promo.id, customer);
+  const limitError = promoUseLimitError({
+    maxUses: promo.maxUses,
+    currentUses: promo.currentUses ?? 0,
+    maxUsesPerCustomer: promo.maxUsesPerCustomer,
+    customerOrderCount,
+  });
+  if (limitError) {
+    throw new Error(limitError);
   }
 
   const minOrder = parseFloat(String(promo.minOrderAmount ?? 0));
@@ -107,12 +156,9 @@ async function validateAndGetPromo(
 export async function validatePromoCode(
   code: string,
   cartSubtotal: number,
-  shippingFee: number = DEFAULT_SHIPPING_FEE
+  shippingFee: number = DEFAULT_SHIPPING_FEE,
+  customer?: { userId?: string | null; email?: string | null },
 ): Promise<ValidatePromoCodeResult> {
-  const validatedCode = z.string().min(1).parse(code);
-  const validatedCartSubtotal = z.number().min(0).parse(cartSubtotal);
-  const validatedShippingFee = z.number().min(0).parse(shippingFee);
-
   const headersList = await headers();
   const ip = headersList.get("x-forwarded-for")?.split(",")[0]?.trim() ?? headersList.get("x-real-ip") ?? "unknown";
   const limit = await checkValidatePromoLimit(ip);
@@ -120,13 +166,29 @@ export async function validatePromoCode(
     logger.warn("Rate limit exceeded for validatePromo", { ip });
     return { success: false, error: "Too many requests. Please wait before trying again." };
   }
-  const result = await validateAndGetPromo(db, validatedCode, validatedCartSubtotal, validatedShippingFee);
-  return {
-    success: true,
-    code: result.code,
-    discountAmount: result.discountAmount,
-    discountType: result.discountType,
-  };
+
+  try {
+    const validatedCode = z.string().min(1).parse(code);
+    const validatedCartSubtotal = z.number().min(0).parse(cartSubtotal);
+    const validatedShippingFee = z.number().min(0).parse(shippingFee);
+    const result = await validateAndGetPromo(
+      db,
+      validatedCode,
+      validatedCartSubtotal,
+      validatedShippingFee,
+      normalizePromoCustomer(customer),
+      false,
+    );
+    return {
+      success: true,
+      code: result.code,
+      discountAmount: result.discountAmount,
+      discountType: result.discountType,
+    };
+  } catch (e) {
+    const message = e instanceof Error ? e.message : "Invalid code";
+    return { success: false, error: message };
+  }
 }
 
 /**
@@ -137,17 +199,42 @@ export async function validatePromoInTransaction(
   tx: DbClient,
   code: string,
   cartSubtotal: number,
-  shippingFee: number
+  shippingFee: number,
+  customer?: { userId?: string | null; email?: string | null },
 ): Promise<{ discountAmount: number; promoCodeId: number }> {
   const validatedCode = z.string().min(1).parse(code);
   const validatedCartSubtotal = z.number().min(0).parse(cartSubtotal);
   const validatedShippingFee = z.number().min(0).parse(shippingFee);
 
-  const result = await validateAndGetPromo(tx, validatedCode, validatedCartSubtotal, validatedShippingFee);
+  const result = await validateAndGetPromo(
+    tx,
+    validatedCode,
+    validatedCartSubtotal,
+    validatedShippingFee,
+    normalizePromoCustomer(customer),
+    true,
+  );
   return {
     discountAmount: result.discountAmount,
     promoCodeId: result.promoCodeId,
   };
+}
+
+/** Increments total uses only while the shared cap still has room. Call inside the same transaction that locked the row. */
+export async function claimPromoUse(tx: DbClient, promoCodeId: number): Promise<void> {
+  const claimed = await tx
+    .update(promoCodes)
+    .set({ currentUses: sql`${promoCodes.currentUses} + 1` })
+    .where(
+      and(
+        eq(promoCodes.id, promoCodeId),
+        or(isNull(promoCodes.maxUses), sql`${promoCodes.currentUses} < ${promoCodes.maxUses}`),
+      ),
+    )
+    .returning({ id: promoCodes.id });
+  if (claimed.length === 0) {
+    throw new Error(PROMO_TOTAL_LIMIT_REACHED);
+  }
 }
 
 // --- Admin CRUD ---
@@ -159,6 +246,7 @@ export async function createPromoCode(formData: FormData): Promise<{ success?: b
     discountValue: z.number().min(0),
     minOrderAmount: z.number().min(0),
     maxUses: z.number().int().positive().nullable(),
+    maxUsesPerCustomer: z.number().int().positive().nullable(),
     expiresAt: z.date().nullable(),
   });
 
@@ -168,6 +256,10 @@ export async function createPromoCode(formData: FormData): Promise<{ success?: b
   const minOrderAmountRaw = parseFloat(String(formData.get("minOrderAmount") ?? 0));
   const maxUsesRawStr = formData.get("maxUses") as string;
   const maxUsesRaw = maxUsesRawStr?.trim() ? parseInt(maxUsesRawStr, 10) : null;
+  const maxUsesPerCustomerRawStr = formData.get("maxUsesPerCustomer") as string;
+  const maxUsesPerCustomerRaw = maxUsesPerCustomerRawStr?.trim()
+    ? parseInt(maxUsesPerCustomerRawStr, 10)
+    : null;
   const expiresAtRawStr = formData.get("expiresAt") as string;
   const expiresAtRaw = expiresAtRawStr?.trim() ? new Date(expiresAtRawStr) : null;
 
@@ -177,6 +269,7 @@ export async function createPromoCode(formData: FormData): Promise<{ success?: b
     discountValue: discountValueRaw,
     minOrderAmount: minOrderAmountRaw,
     maxUses: maxUsesRaw,
+    maxUsesPerCustomer: maxUsesPerCustomerRaw,
     expiresAt: expiresAtRaw,
   });
 
@@ -188,7 +281,8 @@ export async function createPromoCode(formData: FormData): Promise<{ success?: b
 
   const { userId } = await requireAdmin();
 
-  const { code, discountType, discountValue, minOrderAmount, maxUses, expiresAt } = parsed.data;
+  const { code, discountType, discountValue, minOrderAmount, maxUses, maxUsesPerCustomer, expiresAt } =
+    parsed.data;
 
   if (discountType !== "FREE_SHIPPING" && discountValue <= 0) {
     logger.error("Invalid discount value for promo code", undefined, { discountType, discountValue });
@@ -204,11 +298,17 @@ export async function createPromoCode(formData: FormData): Promise<{ success?: b
         discountValue: (discountType === "FREE_SHIPPING" ? 0 : discountValue).toFixed(2),
         minOrderAmount: minOrderAmount.toFixed(2),
         maxUses,
+        maxUsesPerCustomer,
         expiresAt,
       })
       .returning({ id: promoCodes.id });
     if (!inserted) return { error: "Failed to create promo code" };
-    auditLog({ userId, action: "promo.create", target: String(inserted.id), details: { code } });
+    auditLog({
+      userId,
+      action: "promo.create",
+      target: String(inserted.id),
+      details: { code, maxUses, maxUsesPerCustomer },
+    });
     return { id: inserted.id };
   } catch (e) {
     if (e && typeof e === "object" && "code" in e && (e as { code: string }).code === "23505") {
@@ -218,6 +318,39 @@ export async function createPromoCode(formData: FormData): Promise<{ success?: b
     logger.error("Failed to create promo code", e, { code });
     return { success: false, error: "Failed to create promo code" };
   }
+}
+
+export async function updatePromoExpiry(
+  id: number,
+  expiresAtRaw: string | null,
+): Promise<{ error?: string }> {
+  const idParsed = z.number().int().positive().safeParse(id);
+  if (!idParsed.success) return { error: "Promo not found" };
+
+  let expiresAt: Date | null = null;
+  if (expiresAtRaw != null && expiresAtRaw.trim() !== "") {
+    expiresAt = new Date(expiresAtRaw.trim());
+    if (Number.isNaN(expiresAt.getTime())) {
+      return { error: "Enter a valid expiration date" };
+    }
+  }
+
+  const { userId } = await requireAdmin();
+  const [promo] = await db
+    .select({ code: promoCodes.code })
+    .from(promoCodes)
+    .where(eq(promoCodes.id, idParsed.data))
+    .limit(1);
+  if (!promo) return { error: "Promo not found" };
+
+  await db.update(promoCodes).set({ expiresAt }).where(eq(promoCodes.id, idParsed.data));
+  auditLog({
+    userId,
+    action: "promo.update_expiry",
+    target: String(idParsed.data),
+    details: { code: promo.code, expiresAt: expiresAt?.toISOString() ?? null },
+  });
+  return {};
 }
 
 export async function togglePromoStatus(id: number): Promise<{ error?: string }> {

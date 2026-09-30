@@ -275,11 +275,18 @@ export const promoCodes = pgTable("promo_codes", {
   discountValue: decimal("discount_value", { precision: 10, scale: 2 }).notNull(),
   minOrderAmount: decimal("min_order_amount", { precision: 10, scale: 2 }).notNull().default("0"),
   maxUses: integer("max_uses"),
+  /** Orders one customer may place with this code. Null means unlimited. One order is one use. */
+  maxUsesPerCustomer: integer("max_uses_per_customer"),
   currentUses: integer("current_uses").notNull().default(0),
   expiresAt: timestamp("expires_at"),
   isActive: boolean("is_active").notNull().default(true),
   createdAt: timestamp("created_at").defaultNow().notNull(),
-});
+}, (t) => [
+  check(
+    "promo_codes_max_uses_per_customer_positive",
+    sql`${t.maxUsesPerCustomer} IS NULL OR ${t.maxUsesPerCustomer} > 0`,
+  ),
+]);
 
 // Orders
 export const orders = pgTable("orders", {
@@ -303,7 +310,10 @@ export const orders = pgTable("orders", {
   activationToken: text("activation_token"),
   activationTokenExpires: timestamp("activation_token_expires"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
-}, (t) => [index("orders_created_at_idx").on(t.createdAt)]);
+}, (t) => [
+  index("orders_created_at_idx").on(t.createdAt),
+  index("orders_promo_code_id_idx").on(t.promoCodeId),
+]);
 
 // OrderItems
 export const orderItems = pgTable("order_items", {
