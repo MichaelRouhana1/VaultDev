@@ -13,30 +13,49 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
-import { saveProductPageAccordionCopy } from "@/actions/product-page-copy";
+import {
+  loadAdminProductPageAccordionCopy,
+  saveProductPageAccordionCopy,
+} from "@/actions/product-page-copy";
 import { storeTypeLabelEn } from "@/lib/store-type-display";
-import type { ProductPageAccordionResolved } from "@/actions/product-page-copy";
 
 const textareaClass =
   "border-input mt-1.5 min-h-[100px] w-full rounded-md border bg-transparent px-3 py-2 text-sm shadow-xs focus:outline-none focus:ring-2 focus:ring-ring";
 
 type Props = {
   storeType: "streetwear" | "formal";
-  initialCopy: ProductPageAccordionResolved;
 };
 
-export function ProductPageCopyButton({ storeType, initialCopy }: Props) {
+export function ProductPageCopyButton({ storeType }: Props) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [busy, setBusy] = useState(false);
-  const [shippingDelivery, setShippingDelivery] = useState(initialCopy.shippingDelivery);
-  const [returnsText, setReturnsText] = useState(initialCopy.returnsText);
+  const [loadingCopy, setLoadingCopy] = useState(false);
+  const [copyReady, setCopyReady] = useState(false);
+  const [shippingDelivery, setShippingDelivery] = useState("");
+  const [returnsText, setReturnsText] = useState("");
 
   useEffect(() => {
     if (!open) return;
-    setShippingDelivery(initialCopy.shippingDelivery);
-    setReturnsText(initialCopy.returnsText);
-  }, [open, initialCopy.shippingDelivery, initialCopy.returnsText]);
+    let cancelled = false;
+    setLoadingCopy(true);
+    setCopyReady(false);
+    void (async () => {
+      const res = await loadAdminProductPageAccordionCopy(storeType);
+      if (cancelled) return;
+      setLoadingCopy(false);
+      if (!res.success) {
+        toast.error(res.error);
+        return;
+      }
+      setShippingDelivery(res.copy.shippingDelivery);
+      setReturnsText(res.copy.returnsText);
+      setCopyReady(true);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [open, storeType]);
 
   async function handleSave() {
     setBusy(true);
@@ -85,6 +104,7 @@ export function ProductPageCopyButton({ storeType, initialCopy }: Props) {
                 onChange={(e) => setShippingDelivery(e.target.value)}
                 className={textareaClass}
                 rows={5}
+                disabled={loadingCopy}
               />
             </div>
             <div>
@@ -97,6 +117,7 @@ export function ProductPageCopyButton({ storeType, initialCopy }: Props) {
                 onChange={(e) => setReturnsText(e.target.value)}
                 className={textareaClass}
                 rows={5}
+                disabled={loadingCopy}
               />
             </div>
           </div>
@@ -107,7 +128,7 @@ export function ProductPageCopyButton({ storeType, initialCopy }: Props) {
             <Button
               type="button"
               className="rounded-none uppercase tracking-wider"
-              disabled={busy}
+              disabled={busy || loadingCopy || !copyReady}
               onClick={() => void handleSave()}
             >
               {busy ? "Saving…" : "Save"}

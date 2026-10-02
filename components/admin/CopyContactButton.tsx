@@ -3,13 +3,15 @@
 import { Copy } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
+import { logContactExport } from "@/actions/getContactExport";
 
 interface CopyContactButtonProps {
   data: string[];
   label: string;
+  kind: "emails" | "phones";
 }
 
-export function CopyContactButton({ data, label }: CopyContactButtonProps) {
+export function CopyContactButton({ data, label, kind }: CopyContactButtonProps) {
   async function handleClick() {
     const lines = data.filter((s) => s.trim().length > 0);
     if (lines.length === 0) {
@@ -19,6 +21,7 @@ export function CopyContactButton({ data, label }: CopyContactButtonProps) {
     const text = lines.join("\n");
     try {
       await navigator.clipboard.writeText(text);
+      void logContactExport(kind, lines.length);
       toast.success(`Copied ${lines.length} ${lines.length === 1 ? "line" : "lines"}`);
     } catch {
       toast.error("Could not copy to clipboard");

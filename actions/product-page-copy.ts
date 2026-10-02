@@ -46,6 +46,20 @@ export const getProductPageAccordionCopy = cache(
   },
 );
 
+/** Admin dialog only. Storefront PDP keeps using `getProductPageAccordionCopy`. */
+export async function loadAdminProductPageAccordionCopy(
+  storeType: unknown,
+): Promise<{ success: true; copy: ProductPageAccordionResolved } | { success: false; error: string }> {
+  const gate = await requireAdminAction({ auditTarget: "product-page-copy:read" });
+  if (!gate.authorized) {
+    return { success: false, error: gate.response.error };
+  }
+  const st = storeSchema.safeParse(storeType);
+  if (!st.success) return { success: false, error: "Invalid store" };
+  const copy = await getProductPageAccordionCopy(st.data);
+  return { success: true, copy };
+}
+
 export async function saveProductPageAccordionCopy(
   storeType: unknown,
   input: unknown,

@@ -63,3 +63,19 @@ export async function getContactExport(): Promise<ContactExportResult> {
 
   return { ok: true, emails, phones };
 }
+
+/** Audit a clipboard export without scanning orders again. Admin only. */
+export async function logContactExport(
+  kind: "emails" | "phones",
+  count: number,
+): Promise<void> {
+  const gate = await requireAdminAction({ auditTarget: "contact.export" });
+  if (!gate.authorized) return;
+  const safeCount = Number.isFinite(count) && count > 0 ? Math.floor(count) : 0;
+  auditLog({
+    userId: gate.userId,
+    action: "contact.export",
+    target: "orders",
+    details: { kind, count: safeCount },
+  });
+}

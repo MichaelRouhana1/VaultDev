@@ -1,4 +1,3 @@
-import { Suspense } from "react";
 import { Link } from "@/i18n/navigation";
 import { db } from "@/db";
 import {
@@ -10,19 +9,14 @@ import {
   productOptionValues,
   variantOptionValues,
 } from "@/db/schema";
-import { inArray, desc, eq, and } from "drizzle-orm";
-import { alias } from "drizzle-orm/pg-core";
+import { inArray, desc, asc, eq, sql } from "drizzle-orm";
 import { ProductsTable } from "./ProductsTable";
 import type { AdminVariantStockRow } from "./StockHoverCell";
-import { getAllCategories } from "@/actions/categories";
 import { getAdminStoreType } from "@/actions/admin-store";
 import { getLowStockThreshold } from "@/actions/inventory-settings";
 import { LowStockThresholdForm } from "@/components/admin/LowStockThresholdForm";
 import { requireAdmin } from "@/lib/security";
-import { getProductPageAccordionCopy } from "@/actions/product-page-copy";
 import { ProductPageCopyButton } from "@/components/admin/ProductPageCopyButton";
-import { buildProductSearchWhere } from "@/lib/product-search";
-import { conditionProductsMatchCategorySlug } from "@/lib/shop-category-filter";
 
 type VariantAgg = {
   productId: number;
@@ -97,51 +91,49 @@ export default async function AdminProductsPage({
   const category = params.category;
 
   await requireAdmin();
-  const lowStockThreshold = await getLowStockThreshold();
   const adminStore = await getAdminStoreType();
-  const productPageAccordionCopy = await getProductPageAccordionCopy(adminStore);
-  const allCategories = await getAllCategories();
-  const categoryList = allCategories
-    .filter((c) => (c.storeType === adminStore || c.storeType === "both") && c.level !== "root")
-    .map((c) => ({ id: c.id, slug: c.slug, label: c.label }));
-  const categoryLabels = Object.fromEntries(categoryList.map((c) => [c.slug, c.label]));
 
-  const whereConditions = [eq(products.storeType, adminStore)];
-  if (category && category !== "all") {
-    whereConditions.push(await conditionProductsMatchCategorySlug(category));
-  }
-  const ftsClause = buildProductSearchWhere(q ?? "");
-  if (ftsClause) {
-    whereConditions.push(ftsClause);
-  }
-
-  const productList = await db
-    .select()
-    .from(products)
-    .where(and(...whereConditions))
-    .orderBy(desc(products.id));
-
-  const productIds = productList.map((p) => p.id);
-  const pmain = alias(categories, "admin_product_main");
-  let slugRows: { productId: number; slug: string }[] = [];
-  if (productIds.length > 0) {
-    slugRows = await db
+  const [lowStockThreshold, categoryRows, productList] = await Promise.all([
+    getLowStockThreshold(),
+    db
       .select({
-        productId: products.id,
-        slug: pmain.slug,
+        id: categories.id,
+        slug: categories.slug,
+        label: categories.label,
+        storeType: categories.storeType,
+        level: categories.level,
+      })
+      .from(categories)
+      .orderBy(asc(categories.sortOrder), asc(categories.id)),
+    db
+      .select({
+        id: products.id,
+        name: products.name,
+        description: products.description,
+        price: products.price,
+        salePrice: products.salePrice,
+        saleStartsAt: products.saleStartsAt,
+        saleEndsAt: products.saleEndsAt,
+        isSaleActive: products.isSaleActive,
+        color: products.color,
+        isVisible: products.isVisible,
+        isArchived: products.isArchived,
+        categorySlug: categories.slug,
+        categoryLabel: categories.label,
       })
       .from(products)
-      .innerJoin(pmain, eq(products.mainCategoryId, pmain.id))
-      .where(inArray(products.id, productIds));
-  }
-  const primarySlugByProductId: Record<number, string> = {};
-  for (const row of slugRows) {
-    if (primarySlugByProductId[row.productId] === undefined) {
-      primarySlugByProductId[row.productId] = row.slug;
-    }
-  }
+      .innerJoin(categories, eq(products.mainCategoryId, categories.id))
+      .where(eq(products.storeType, adminStore))
+      .orderBy(desc(products.id)),
+  ]);
 
-  const [variantJoinRows, colorsList] =
+  const categoryList = categoryRows
+    .filter((c) => (c.storeType === adminStore || c.storeType === "both") && c.level !== "root")
+    .map((c) => ({ id: c.id, slug: c.slug, label: c.label }));
+
+  const productIds = productList.map((p) => p.id);
+
+  const [variantJoinRows, colorRows] =
     productIds.length > 0
       ? await Promise.all([
           db
@@ -168,7 +160,10 @@ export default async function AdminProductsPage({
             .leftJoin(productOptions, eq(productOptions.id, productOptionValues.productOptionId))
             .where(inArray(productVariants.productId, productIds)),
           db
-            .select()
+            .select({
+              productId: productColors.productId,
+              imageUrl: sql<string | null>`${productColors.imageUrls}[1]`,
+            })
             .from(productColors)
             .where(inArray(productColors.productId, productIds)),
         ])
@@ -217,20 +212,29 @@ export default async function AdminProductsPage({
   }
 
   const firstImageByProductId: Record<number, string> = {};
-  for (const c of colorsList) {
-    if (!firstImageByProductId[c.productId] && c.imageUrls?.[0]) {
-      firstImageByProductId[c.productId] = c.imageUrls[0];
+  for (const c of colorRows) {
+    if (!firstImageByProductId[c.productId] && c.imageUrl) {
+      firstImageByProductId[c.productId] = c.imageUrl;
     }
   }
 
   const productsWithStock = productList.map((p) => ({
-    ...p,
+    id: p.id,
+    name: p.name,
+    searchText: `${p.name} ${p.description ?? ""}`.toLowerCase(),
+    price: p.price,
+    salePrice: p.salePrice,
+    saleStartsAt: p.saleStartsAt,
+    saleEndsAt: p.saleEndsAt,
+    isSaleActive: p.isSaleActive,
     images: firstImageByProductId[p.id] ? [firstImageByProductId[p.id]] : [],
+    isVisible: p.isVisible,
+    isArchived: p.isArchived,
     totalStock: totalStockByProduct[p.id] ?? 0,
     variantStockRows: variantsByProductId[p.id] ?? [],
-    categoryLabel:
-      categoryLabels[primarySlugByProductId[p.id] ?? ""] ?? primarySlugByProductId[p.id] ?? "—",
-    colorLabel: (p as { color?: string | null }).color ?? deriveColor(p.name, p.description),
+    categorySlug: p.categorySlug,
+    categoryLabel: p.categoryLabel,
+    colorLabel: p.color ?? deriveColor(p.name, p.description),
   }));
 
   return (
@@ -243,7 +247,7 @@ export default async function AdminProductsPage({
           </span>
         </div>
         <div className="flex items-center gap-3">
-          <ProductPageCopyButton storeType={adminStore} initialCopy={productPageAccordionCopy} />
+          <ProductPageCopyButton storeType={adminStore} />
           <Link
             href="/admin/products/new"
             className="px-6 py-2.5 bg-foreground text-background text-sm font-medium uppercase tracking-wider hover:opacity-90 transition-opacity"
@@ -257,16 +261,14 @@ export default async function AdminProductsPage({
         <LowStockThresholdForm initialThreshold={lowStockThreshold} />
       </div>
 
-      <Suspense fallback={<div className="animate-pulse h-64 bg-muted rounded" />}>
-        <ProductsTable
-          products={productsWithStock}
-          initialQuery={q}
-          initialCategory={category}
-          categories={categoryList}
-          storeType={adminStore}
-          lowStockThreshold={lowStockThreshold}
-        />
-      </Suspense>
+      <ProductsTable
+        products={productsWithStock}
+        initialQuery={q}
+        initialCategory={category}
+        categories={categoryList}
+        storeType={adminStore}
+        lowStockThreshold={lowStockThreshold}
+      />
     </div>
   );
 }

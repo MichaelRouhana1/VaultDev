@@ -18,7 +18,7 @@ export function AdminLayoutClient({
       <AdminSidebar open={sidebarOpen} onClose={() => setSidebarOpen(false)} />
       <div className="flex min-h-screen min-w-0 flex-col pl-0 md:pl-64">
         <AdminHeader onMenuClick={() => setSidebarOpen(true)} initialStore={initialStore} />
-        <main className="min-w-0 flex-1 p-4 md:p-6">{children}</main>
+        <main id="main-content" className="min-w-0 flex-1 p-4 md:p-6">{children}</main>
       </div>
     </div>
   );

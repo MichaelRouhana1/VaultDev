@@ -1,7 +1,6 @@
 "use client";
 
 import {
-  Fragment,
   useCallback,
   useEffect,
   useLayoutEffect,
@@ -41,7 +40,10 @@ const EMPTY_SEARCH_FILTERS: SearchPageFilterContext = {
 };
 
 const SCROLL_TOP_THRESHOLD_PX = 800;
-/** Invisible trigger sits immediately before the product index that is 8 tiles from the end (2 rows in a 4-col grid). */
+/**
+ * Card to observe, counted back from the end of the visible list (about two rows of the 4-col grid).
+ * The node is positioned on that card so it never occupies a grid cell.
+ */
 const SENTINEL_OFFSET_FROM_END = 8;
 
 const RECENT_SEARCHES_STORAGE_KEY = "mosaik_recent_searches";
@@ -583,23 +585,21 @@ export function SearchClient({
                     )}
                   >
                     {filteredAndSorted.map((product, i) => (
-                      <Fragment key={product.id}>
-                        {i === triggerInsertIndex ? (
+                      <div key={product.id} className="relative min-w-0">
+                        {hasMoreServer && i === triggerInsertIndex ? (
                           <div
                             ref={sentinelRef}
-                            className="col-span-2 md:col-span-4 h-px min-h-px w-full overflow-hidden opacity-0"
+                            className="pointer-events-none absolute inset-x-0 top-0 h-px"
                             aria-hidden
                           />
                         ) : null}
-                        <div className="min-w-0">
-                          <ProductCard
-                            product={product}
-                            variants={searchVariantsByProductId[product.id] ?? []}
-                            colors={searchColorsByProductId[product.id]}
-                            inWishlist={wishlistProductIds.includes(product.id)}
-                          />
-                        </div>
-                      </Fragment>
+                        <ProductCard
+                          product={product}
+                          variants={searchVariantsByProductId[product.id] ?? []}
+                          colors={searchColorsByProductId[product.id]}
+                          inWishlist={wishlistProductIds.includes(product.id)}
+                        />
+                      </div>
                     ))}
                   </div>
                   {isLoadingMore ? (

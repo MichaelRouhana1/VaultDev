@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useEffect, useMemo, useState, useTransition } from "react";
 import {
   useReactTable,
   getCoreRowModel,
@@ -12,7 +12,6 @@ import {
 import { StockHoverCell, productHasLowStock, type AdminVariantStockRow } from "./StockHoverCell";
 import { DEFAULT_LOW_STOCK_THRESHOLD } from "@/lib/low-stock-threshold";
 import { useRouter } from "@/i18n/navigation";
-import { useSearchParams } from "next/navigation";
 import Image from "next/image";
 import { Link } from "@/i18n/navigation";
 import {
@@ -48,7 +47,8 @@ import { Badge } from "@/components/ui/badge";
 interface ProductWithMeta {
   id: number;
   name: string;
-  description: string | null;
+  /** Lowercased name + description, used for instant local search. */
+  searchText: string;
   price: string;
   salePrice: string | null;
   saleStartsAt?: Date | string | null;
@@ -59,6 +59,7 @@ interface ProductWithMeta {
   isArchived?: boolean;
   totalStock: number;
   variantStockRows: AdminVariantStockRow[];
+  categorySlug: string;
   categoryLabel: string;
   colorLabel: string;
 }
@@ -88,7 +89,6 @@ export function ProductsTable({
   lowStockThreshold = DEFAULT_LOW_STOCK_THRESHOLD,
 }: ProductsTableProps) {
   const router = useRouter();
-  const searchParams = useSearchParams();
   const [query, setQuery] = useState(initialQuery);
   const [category, setCategory] = useState(initialCategory);
   const [rowSelection, setRowSelection] = useState<RowSelectionState>({});
@@ -108,21 +108,46 @@ export function ProductsTable({
   const [isBulkUnarchiving, startBulkUnarchive] = useTransition();
   const [isForceDeleting, setIsForceDeleting] = useState(false);
 
-  const handleSearch = () => {
-    const params = new URLSearchParams(searchParams.toString());
-    if (query) params.set("q", query);
+  const visibleProducts = useMemo(() => {
+    const tokens = query
+      .trim()
+      .toLowerCase()
+      .split(/\s+/)
+      .filter((token) => token.length >= 2);
+    return products.filter((product) => {
+      if (category && category !== "all" && product.categorySlug !== category) return false;
+      if (tokens.length === 0) return true;
+      return tokens.every((token) => product.searchText.includes(token));
+    });
+  }, [products, query, category]);
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const trimmed = query.trim();
+    if (trimmed) params.set("q", trimmed);
     else params.delete("q");
     if (category && category !== "all") params.set("category", category);
     else params.delete("category");
-    router.push(`/admin/products?${params.toString()}`);
-  };
+    const qs = params.toString();
+    const next = qs ? `${window.location.pathname}?${qs}` : window.location.pathname;
+    const current = `${window.location.pathname}${window.location.search}`;
+    if (next !== current) {
+      window.history.replaceState(null, "", next);
+    }
+  }, [query, category]);
+
+  useEffect(() => {
+    const onPop = () => {
+      const params = new URLSearchParams(window.location.search);
+      setQuery(params.get("q") ?? "");
+      setCategory(params.get("category") ?? "all");
+    };
+    window.addEventListener("popstate", onPop);
+    return () => window.removeEventListener("popstate", onPop);
+  }, []);
 
   const handleCategoryChange = (value: string) => {
     setCategory(value);
-    const params = new URLSearchParams(searchParams.toString());
-    if (value && value !== "all") params.set("category", value);
-    else params.delete("category");
-    router.push(`/admin/products?${params.toString()}`);
   };
 
   const handleArchive = async (id: number, name: string) => {
@@ -480,7 +505,7 @@ export function ProductsTable({
   ];
 
   const table = useReactTable({
-    data: products,
+    data: visibleProducts,
     columns,
     getRowId: (row) => String(row.id),
     state: { rowSelection },
@@ -497,12 +522,8 @@ export function ProductsTable({
           placeholder="Search by name..."
           value={query}
           onChange={(e) => setQuery(e.target.value)}
-          onKeyDown={(e) => e.key === "Enter" && handleSearch()}
           className="w-full sm:max-w-xs"
         />
-        <Button onClick={handleSearch} variant="default" className="w-full shrink-0 sm:w-auto">
-          Search
-        </Button>
         <Select value={category} onValueChange={handleCategoryChange}>
           <SelectTrigger className="w-full sm:w-[200px]">
             <SelectValue placeholder="All categories" />

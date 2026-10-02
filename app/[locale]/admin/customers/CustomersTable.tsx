@@ -1,11 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Link } from "@/i18n/navigation";
-import { useRouter } from "@/i18n/navigation";
-import { useSearchParams } from "next/navigation";
 import { Input } from "@/components/ui/input";
-import { Button } from "@/components/ui/button";
 import {
   Select,
   SelectContent,
@@ -40,22 +37,42 @@ export function CustomersTable({
   initialQuery = "",
   initialSort = "spend-desc",
 }: CustomersTableProps) {
-  const router = useRouter();
-  const searchParams = useSearchParams();
   const [query, setQuery] = useState(initialQuery);
+  const [sort, setSort] = useState(initialSort);
 
-  const handleSearch = () => {
-    const params = new URLSearchParams(searchParams.toString());
-    if (query) params.set("q", query);
+  const visibleCustomers = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    const rows = q
+      ? customers.filter(
+          (customer) =>
+            customer.email.toLowerCase().includes(q) || customer.name.toLowerCase().includes(q),
+        )
+      : customers;
+    const sorted = [...rows];
+    if (sort === "spend-asc") {
+      sorted.sort((a, b) => a.lifetimeSpend - b.lifetimeSpend);
+    } else if (sort === "orders-desc") {
+      sorted.sort((a, b) => b.totalOrders - a.totalOrders);
+    } else if (sort === "orders-asc") {
+      sorted.sort((a, b) => a.totalOrders - b.totalOrders);
+    } else {
+      sorted.sort((a, b) => b.lifetimeSpend - a.lifetimeSpend);
+    }
+    return sorted;
+  }, [customers, query, sort]);
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const trimmed = query.trim();
+    if (trimmed) params.set("q", trimmed);
     else params.delete("q");
-    router.push(`/admin/customers?${params.toString()}`);
-  };
-
-  const handleSortChange = (value: string) => {
-    const params = new URLSearchParams(searchParams.toString());
-    params.set("sort", value);
-    router.push(`/admin/customers?${params.toString()}`);
-  };
+    if (sort && sort !== "spend-desc") params.set("sort", sort);
+    else params.delete("sort");
+    const qs = params.toString();
+    const next = qs ? `${window.location.pathname}?${qs}` : window.location.pathname;
+    const current = `${window.location.pathname}${window.location.search}`;
+    if (next !== current) window.history.replaceState(null, "", next);
+  }, [query, sort]);
 
   return (
     <div className="space-y-6">
@@ -64,13 +81,9 @@ export function CustomersTable({
           placeholder="Search by name or email..."
           value={query}
           onChange={(e) => setQuery(e.target.value)}
-          onKeyDown={(e) => e.key === "Enter" && handleSearch()}
           className="w-full sm:max-w-xs"
         />
-        <Button onClick={handleSearch} variant="default" className="w-full shrink-0 sm:w-auto">
-          Search
-        </Button>
-        <Select value={initialSort} onValueChange={handleSortChange}>
+        <Select value={sort} onValueChange={setSort}>
           <SelectTrigger className="w-full sm:w-[220px]">
             <SelectValue />
           </SelectTrigger>
@@ -106,7 +119,7 @@ export function CustomersTable({
             </tr>
           </thead>
           <tbody>
-            {customers.length === 0 ? (
+            {visibleCustomers.length === 0 ? (
               <tr>
                 <td
                   colSpan={5}
@@ -116,7 +129,7 @@ export function CustomersTable({
                 </td>
               </tr>
             ) : (
-              customers.map((customer) => (
+              visibleCustomers.map((customer) => (
                 <tr
                   key={customer.email}
                   className="border-t border-border hover:bg-muted/30"

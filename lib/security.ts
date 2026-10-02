@@ -3,6 +3,7 @@
  * and centralized Clerk admin authorization (P3).
  */
 
+import { cache } from "react";
 import { auth } from "@clerk/nextjs/server";
 import { getLocale } from "next-intl/server";
 import { redirect } from "@/i18n/navigation";
@@ -227,13 +228,14 @@ export type AdminSessionCheck =
  * True when the user is signed in and `sessionClaims.metadata.role` is `admin` or `superadmin`.
  * Matches middleware and existing server-action checks.
  */
-export async function checkAdminSession(): Promise<AdminSessionCheck> {
+/** One Clerk session read per request. Each server action is its own request, so it still checks. */
+export const checkAdminSession = cache(async (): Promise<AdminSessionCheck> => {
   const { userId, sessionClaims } = await auth();
   if (!userId || !isDashboardRole(sessionClaims?.metadata?.role)) {
     return { ok: false, userId: userId ?? null };
   }
   return { ok: true, userId };
-}
+});
 
 /**
  * For RSC / server actions that should redirect non-admins (defense in depth with middleware).

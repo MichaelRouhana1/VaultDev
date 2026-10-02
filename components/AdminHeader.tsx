@@ -58,6 +58,7 @@ export function AdminHeader({ onMenuClick, initialStore }: AdminHeaderProps) {
         )}
         <Link
           href="/"
+          prefetch={false}
           className="truncate text-sm font-medium text-foreground transition-opacity hover:opacity-70"
         >
           Vault

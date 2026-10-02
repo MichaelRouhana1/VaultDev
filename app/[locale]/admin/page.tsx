@@ -8,15 +8,15 @@ import { AdminExchangeRatesForm } from "@/components/admin/AdminExchangeRatesFor
 
 export default async function AdminDashboardPage() {
   const storeType = await getAdminStoreType();
-  const exchangeRates = await getStorefrontExchangeRatesFromDb();
   const now = new Date();
   const thirtyDaysAgo = new Date(now);
   thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
   const sevenDaysAgo = new Date(now);
   sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
 
-  const [totalProducts, totalOrders, revenue30d, orders7d, recentOrders] =
+  const [exchangeRates, totalProducts, totalOrders, revenue30d, orders7d, recentOrders] =
     await Promise.all([
+      getStorefrontExchangeRatesFromDb(),
       db.select({ count: sql<number>`count(*)::int` }).from(products).where(eq(products.storeType, storeType)),
       db.select({ count: sql<number>`count(*)::int` }).from(orders),
       db
@@ -30,7 +30,14 @@ export default async function AdminDashboardPage() {
         .from(orders)
         .where(gte(orders.createdAt, sevenDaysAgo)),
       db
-        .select()
+        .select({
+          id: orders.id,
+          orderNumber: orders.orderNumber,
+          guestEmail: orders.guestEmail,
+          userId: orders.userId,
+          totalAmount: orders.totalAmount,
+          createdAt: orders.createdAt,
+        })
         .from(orders)
         .orderBy(desc(orders.createdAt))
         .limit(5),

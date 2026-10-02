@@ -41,7 +41,7 @@ function AdminSidebarNav({
   return (
     <>
       <div className="border-b border-border p-6">
-        <Link href="/admin" onClick={onNavigate} className="text-lg font-bold tracking-tight">
+        <Link href="/admin" prefetch={false} onClick={onNavigate} className="text-lg font-bold tracking-tight">
           VAULT Admin
         </Link>
       </div>
@@ -53,6 +53,7 @@ function AdminSidebarNav({
             <Link
               key={href}
               href={href}
+              prefetch={false}
               onClick={onNavigate}
               className={`block px-4 py-3 text-sm font-medium uppercase tracking-wider transition-colors ${
                 isActive

@@ -2,10 +2,20 @@ import { Link } from "@/i18n/navigation";
 import { db } from "@/db";
 import { orders } from "@/db/schema";
 import { desc } from "drizzle-orm";
+import { requireAdmin } from "@/lib/security";
 
 export default async function AdminOrdersPage() {
+  await requireAdmin();
   const orderList = await db
-    .select()
+    .select({
+      id: orders.id,
+      orderNumber: orders.orderNumber,
+      guestEmail: orders.guestEmail,
+      userId: orders.userId,
+      status: orders.status,
+      totalAmount: orders.totalAmount,
+      createdAt: orders.createdAt,
+    })
     .from(orders)
     .orderBy(desc(orders.createdAt));
 
