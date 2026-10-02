@@ -6,6 +6,12 @@ import { useTheme } from "next-themes";
 import { SignOutButton } from "@clerk/nextjs";
 import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
 
+function isAdminTabActive(path: string | null | undefined, href: string): boolean {
+  if (!path) return false;
+  if (href === "/admin") return path === "/admin";
+  return path === href || path.startsWith(`${href}/`);
+}
+
 const NAV_ITEMS = [
   { label: "Dashboard", href: "/admin" },
   { label: "Hero", href: "/admin/hero" },
@@ -25,36 +31,54 @@ const NAV_ITEMS = [
 interface AdminSidebarProps {
   open?: boolean;
   onClose?: () => void;
+  pendingHref?: string | null;
+  onTabIntent?: (href: string) => void;
 }
 
 function AdminSidebarNav({
   pathname,
+  pendingHref,
+  onTabIntent,
   onNavigate,
   theme,
   toggleTheme,
 }: {
   pathname: string | null;
+  pendingHref?: string | null;
+  onTabIntent?: (href: string) => void;
   onNavigate: () => void;
   theme: string | undefined;
   toggleTheme: () => void;
 }) {
+  const highlightPath = pendingHref ?? pathname;
+
+  const openTab = (href: string) => {
+    onNavigate();
+    if (pathname !== href) onTabIntent?.(href);
+  };
+
   return (
     <>
       <div className="border-b border-border p-6">
-        <Link href="/admin" prefetch={false} onClick={onNavigate} className="text-lg font-bold tracking-tight">
+        <Link
+          href="/admin"
+          prefetch={false}
+          onClick={() => openTab("/admin")}
+          className="text-lg font-bold tracking-tight"
+        >
           VAULT Admin
         </Link>
       </div>
       <nav className="flex-1 space-y-1 overflow-y-auto p-4">
         {NAV_ITEMS.map(({ label, href }) => {
-          const isActive =
-            href === "/admin" ? pathname === "/admin" : pathname?.startsWith(href);
+          const isActive = isAdminTabActive(highlightPath, href);
           return (
             <Link
               key={href}
               href={href}
               prefetch={false}
-              onClick={onNavigate}
+              onClick={() => openTab(href)}
+              aria-current={isActive ? "page" : undefined}
               className={`block px-4 py-3 text-sm font-medium uppercase tracking-wider transition-colors ${
                 isActive
                   ? "bg-muted text-foreground"
@@ -108,7 +132,12 @@ function AdminSidebarNav({
   );
 }
 
-export function AdminSidebar({ open = false, onClose }: AdminSidebarProps) {
+export function AdminSidebar({
+  open = false,
+  onClose,
+  pendingHref = null,
+  onTabIntent,
+}: AdminSidebarProps) {
   const pathname = usePathname();
   const { theme, setTheme } = useTheme();
 
@@ -124,6 +153,8 @@ export function AdminSidebar({ open = false, onClose }: AdminSidebarProps) {
       <aside className="fixed inset-y-0 left-0 z-40 hidden w-64 flex-col border-r border-border bg-background md:flex">
         <AdminSidebarNav
           pathname={pathname}
+          pendingHref={pendingHref}
+          onTabIntent={onTabIntent}
           onNavigate={() => {}}
           theme={theme}
           toggleTheme={toggleTheme}
@@ -139,6 +170,8 @@ export function AdminSidebar({ open = false, onClose }: AdminSidebarProps) {
           <SheetTitle className="sr-only">Admin navigation</SheetTitle>
           <AdminSidebarNav
             pathname={pathname}
+            pendingHref={pendingHref}
+            onTabIntent={onTabIntent}
             onNavigate={closeSidebar}
             theme={theme}
             toggleTheme={toggleTheme}
