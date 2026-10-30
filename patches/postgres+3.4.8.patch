@@ -1,0 +1,83 @@
+diff --git a/node_modules/postgres/cf/src/connection.js b/node_modules/postgres/cf/src/connection.js
+index 8e79170..cdf7f5f 100644
+--- a/node_modules/postgres/cf/src/connection.js
++++ b/node_modules/postgres/cf/src/connection.js
+@@ -172,11 +172,15 @@ function Connection(options, queues = {}, { onopen = noop, onend = noop, onclose
+         : (query = q, query.active = true)
+ 
+       build(q)
+-      return write(toBuffer(q))
++      // Patched (patches/postgres+3.4.8.patch): always invoke onexecute (sql.begin relies on it
++      // to reserve the connection) so max_pipeline: 0 can fully disable pipelining.
++      const pipelinable = write(toBuffer(q))
+         && !q.describeFirst
+         && !q.cursorFn
+         && sent.length < max_pipeline
+-        && (!q.options.onexecute || q.options.onexecute(connection))
++      return q.options.onexecute
++        ? (q.options.onexecute(connection) && pipelinable)
++        : pipelinable
+     } catch (error) {
+       sent.length === 0 && write(Sync)
+       errored(error)
+diff --git a/node_modules/postgres/cjs/src/connection.js b/node_modules/postgres/cjs/src/connection.js
+index 07f6716..6435c8c 100644
+--- a/node_modules/postgres/cjs/src/connection.js
++++ b/node_modules/postgres/cjs/src/connection.js
+@@ -170,11 +170,15 @@ function Connection(options, queues = {}, { onopen = noop, onend = noop, onclose
+         : (query = q, query.active = true)
+ 
+       build(q)
+-      return write(toBuffer(q))
++      // Patched (patches/postgres+3.4.8.patch): always invoke onexecute (sql.begin relies on it
++      // to reserve the connection) so max_pipeline: 0 can fully disable pipelining.
++      const pipelinable = write(toBuffer(q))
+         && !q.describeFirst
+         && !q.cursorFn
+         && sent.length < max_pipeline
+-        && (!q.options.onexecute || q.options.onexecute(connection))
++      return q.options.onexecute
++        ? (q.options.onexecute(connection) && pipelinable)
++        : pipelinable
+     } catch (error) {
+       sent.length === 0 && write(Sync)
+       errored(error)
+diff --git a/node_modules/postgres/src/connection.js b/node_modules/postgres/src/connection.js
+index 1b1cccd..f4a69a7 100644
+--- a/node_modules/postgres/src/connection.js
++++ b/node_modules/postgres/src/connection.js
+@@ -170,11 +170,15 @@ function Connection(options, queues = {}, { onopen = noop, onend = noop, onclose
+         : (query = q, query.active = true)
+ 
+       build(q)
+-      return write(toBuffer(q))
++      // Patched (patches/postgres+3.4.8.patch): always invoke onexecute (sql.begin relies on it
++      // to reserve the connection) so max_pipeline: 0 can fully disable pipelining.
++      const pipelinable = write(toBuffer(q))
+         && !q.describeFirst
+         && !q.cursorFn
+         && sent.length < max_pipeline
+-        && (!q.options.onexecute || q.options.onexecute(connection))
++      return q.options.onexecute
++        ? (q.options.onexecute(connection) && pipelinable)
++        : pipelinable
+     } catch (error) {
+       sent.length === 0 && write(Sync)
+       errored(error)
+diff --git a/node_modules/postgres/types/index.d.ts b/node_modules/postgres/types/index.d.ts
+index 4b79679..2b2777a 100644
+--- a/node_modules/postgres/types/index.d.ts
++++ b/node_modules/postgres/types/index.d.ts
+@@ -121,6 +121,12 @@ interface BaseOptions<T extends Record<string, postgres.PostgresType>> {
+   onclose: (connId: number) => void;
+   backoff: boolean | ((attemptNum: number) => number);
+   max_lifetime: number | null;
++  /**
++   * Max number of queries pipelined on one connection beyond the active one; 0 disables pipelining
++   * (runtime option already honoured by the driver; typing added by patches/postgres+3.4.8.patch)
++   * @default 100
++   */
++  max_pipeline: number;
+   keep_alive: number | null;
+ }
+ 
