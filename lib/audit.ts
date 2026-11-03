@@ -42,6 +42,7 @@ export type AuditAction =
   | "lookbook.update"
   | "lookbook.delete"
   | "landing.update"
+  | "landing.gender.update"
   | "video.upload"
   | "video.delete"
   | "auth.failed_admin"

@@ -5,6 +5,7 @@ import { usePathname } from "@/i18n/navigation";
 import { AdminSidebar } from "@/components/AdminSidebar";
 import { AdminHeader } from "@/components/AdminHeader";
 import { AdminPageSkeleton } from "@/components/admin/AdminPageSkeleton";
+import type { ListingStore } from "@/lib/store-scope";
 
 function reachedAdminTab(pathname: string, href: string): boolean {
   return pathname === href;
@@ -15,7 +16,7 @@ export function AdminLayoutClient({
   initialStore,
 }: {
   children: React.ReactNode;
-  initialStore: "streetwear" | "formal";
+  initialStore: ListingStore;
 }) {
   const pathname = usePathname();
   const [sidebarOpen, setSidebarOpen] = useState(false);

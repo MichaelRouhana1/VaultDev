@@ -34,7 +34,7 @@ type ListingSelectRow = {
   isSaleActive: boolean;
   color: string | null;
   isVisible: boolean;
-  storeType: "streetwear" | "formal";
+  storeType: "streetwear" | "formal" | "women";
   mainCategoryId: number;
 };
 

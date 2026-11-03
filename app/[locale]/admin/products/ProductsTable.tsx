@@ -35,6 +35,7 @@ import { MoreHorizontal } from "lucide-react";
 import { deleteProduct } from "@/actions/deleteProduct";
 import { unarchiveProduct } from "@/actions/unarchiveProduct";
 import { storeTypeLabelEn } from "@/lib/store-type-display";
+import { isListingStore } from "@/lib/store-scope";
 import { forceDeleteProduct } from "@/actions/forceDeleteProduct";
 import { bulkArchiveProducts } from "@/actions/bulkArchiveProducts";
 import { bulkUnarchiveProducts } from "@/actions/bulkUnarchiveProducts";
@@ -631,7 +632,7 @@ export function ProductsTable({
                   className="px-4 py-8 text-center text-muted-foreground"
                 >
                   No items found for this store. Add your first{" "}
-                  <span>{storeTypeLabelEn(storeType === "formal" ? "formal" : "streetwear")}</span> item.
+                  <span>{storeTypeLabelEn(isListingStore(storeType) ? storeType : "streetwear")}</span> item.
                 </td>
               </tr>
             ) : (

@@ -17,27 +17,24 @@ import { categorySchema } from "@/lib/schemas";
 import { logger } from "@/lib/logger";
 import { requireAdmin } from "@/lib/security";
 import { revalidateStorefrontCategoriesCache } from "@/lib/revalidate-storefront-categories";
+import { storeScopeFor, type ListingStore } from "@/lib/store-scope";
 /** Valid `?cat=` slugs: main categories only. */
 export const getValidCategorySlugs = cache(async (): Promise<string[]> => {
   const catRows = await db.select({ slug: categories.slug }).from(categories);
   return catRows.map((c) => c.slug);
 });
 
-export const getStoreCategorySlugs = cache(async (storeType: string): Promise<string[]> => {
-  const st = [storeType, "both"] as ("streetwear" | "formal" | "both")[];
+export const getStoreCategorySlugs = cache(async (storeType: ListingStore): Promise<string[]> => {
   const catRows = await db
     .select({ slug: categories.slug })
     .from(categories)
-    .where(inArray(categories.storeType, st));
+    .where(inArray(categories.storeType, storeScopeFor(storeType)));
   return catRows.map((c) => c.slug);
 });
 
-export const getCategories = cache(async (storeType?: string): Promise<ProductCategory[]> => {
+export const getCategories = cache(async (storeType?: ListingStore): Promise<ProductCategory[]> => {
   const base = eq(categories.level, "main");
-  const where =
-    storeType != null && storeType !== ""
-      ? and(base, inArray(categories.storeType, [storeType, "both"] as ("streetwear" | "formal" | "both")[]))
-      : base;
+  const where = storeType != null ? and(base, inArray(categories.storeType, storeScopeFor(storeType))) : base;
   return db
     .select()
     .from(categories)
@@ -46,14 +43,14 @@ export const getCategories = cache(async (storeType?: string): Promise<ProductCa
 });
 
 export const getMainCategoriesForProductForm = cache(
-  async (storeType: "streetwear" | "formal"): Promise<ProductCategory[]> => {
+  async (storeType: ListingStore): Promise<ProductCategory[]> => {
     return db
       .select()
       .from(categories)
       .where(
         and(
           eq(categories.level, "main"),
-          inArray(categories.storeType, [storeType, "both"]),
+          inArray(categories.storeType, storeScopeFor(storeType)),
         ),
       )
       .orderBy(asc(categories.sortOrder), asc(categories.id));
@@ -66,13 +63,13 @@ export type ProductFormCategoryTree = {
 
 /** Main categories for the product listing store. */
 export const getProductFormCategoryTree = cache(
-  async (storeType: "streetwear" | "formal"): Promise<ProductFormCategoryTree> => {
+  async (storeType: ListingStore): Promise<ProductFormCategoryTree> => {
     const mains = await getMainCategoriesForProductForm(storeType);
     return { mains };
   },
 );
 
-export const getCategoriesForHome = cache(async (storeType: string): Promise<ProductCategory[]> => {
+export const getCategoriesForHome = cache(async (storeType: ListingStore): Promise<ProductCategory[]> => {
   return db
     .select()
     .from(categories)
@@ -80,7 +77,7 @@ export const getCategoriesForHome = cache(async (storeType: string): Promise<Pro
       and(
         eq(categories.showOnHome, true),
         eq(categories.level, "main"),
-        inArray(categories.storeType, [storeType, "both"] as ("streetwear" | "formal" | "both")[]),
+        inArray(categories.storeType, storeScopeFor(storeType)),
       ),
     )
     .orderBy(asc(categories.sortOrder))

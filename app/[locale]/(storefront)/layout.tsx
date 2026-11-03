@@ -6,6 +6,7 @@ import { CartProvider } from "@/context/CartContext";
 import { WishlistProvider } from "@/context/WishlistContext";
 import { WishlistSyncProvider } from "@/components/WishlistSyncProvider";
 import { Navbar } from "@/components/Navbar";
+import { GateHandoffLayer } from "@/components/storefront/GateHandoffLayer";
 import { LandingAwareSiteFooter } from "@/components/storefront/LandingAwareSiteFooter";
 import { ShopListingNavProvider } from "@/components/storefront/ShopListingNavContext";
 import { MetaPixel } from "@/components/analytics/MetaPixel";
@@ -45,15 +46,17 @@ export default async function StorefrontLayout({
       <CurrencyProvider>
         <CartProvider>
           <ShopListingNavProvider>
-            <a
-              href="#main-content"
-              className="sr-only focus:not-sr-only focus:absolute focus:z-[100] focus:p-4 focus:bg-background focus:text-foreground"
-            >
-              {tLayout("skipToContent")}
-            </a>
-            <Navbar />
-            <div id="main-content">{children}</div>
-            <LandingAwareSiteFooter />
+            <GateHandoffLayer>
+              <a
+                href="#main-content"
+                className="sr-only focus:not-sr-only focus:absolute focus:z-[100] focus:p-4 focus:bg-background focus:text-foreground"
+              >
+                {tLayout("skipToContent")}
+              </a>
+              <Navbar />
+              <div id="main-content">{children}</div>
+              <LandingAwareSiteFooter />
+            </GateHandoffLayer>
             {metaPixelId ? (
               <>
                 <MetaPixel pixelId={metaPixelId} nonce={nonce} />

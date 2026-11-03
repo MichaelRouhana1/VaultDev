@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "@/i18n/navigation";
 import { updateProduct } from "@/actions/updateProduct";
+import { isListingStore, type ListingStore } from "@/lib/store-scope";
 import type { ProductVariantFormInitial } from "@/actions/product-admin-detail";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -123,8 +124,6 @@ function buildInitialColors(
   ];
 }
 
-type ListingStore = "streetwear" | "formal";
-
 export function EditProductForm({
   product,
   colors = [],
@@ -146,7 +145,7 @@ export function EditProductForm({
 }) {
   const router = useRouter();
   const formRef = useRef<HTMLFormElement>(null);
-  const initialListing: ListingStore = product.storeType === "formal" ? "formal" : "streetwear";
+  const initialListing: ListingStore = isListingStore(product.storeType) ? product.storeType : "streetwear";
 
   const [init] = useState(() => buildEditVariantBootstrap(variantFormInitial));
   const [hasVariants, setHasVariants] = useState(init.hasVariants);

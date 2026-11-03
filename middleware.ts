@@ -52,6 +52,11 @@ function isLocaleOnlyHome(pathname: string): boolean {
   return /^\/(en|fr|ar)\/?$/.test(pathname);
 }
 
+/** `/{locale}/men` is the style picker, not a store, so it must not keep a Women preference. */
+function isMenGatePath(pathname: string): boolean {
+  return /^\/(en|fr|ar)\/men\/?$/.test(pathname);
+}
+
 function isSitePasswordRequired(): boolean {
   return process.env.REQUIRE_SITE_PASSWORD === "true";
 }
@@ -328,6 +333,13 @@ export default clerkMiddleware(async (auth, req) => {
     response.cookies.set(PREFERRED_STORE_COOKIE, storeFromPath, {
       path: "/",
       maxAge: 60 * 60 * 24 * 365,
+      sameSite: "lax",
+      secure: process.env.NODE_ENV === "production",
+    });
+  } else if (isMenGatePath(pathname)) {
+    response.cookies.set(PREFERRED_STORE_COOKIE, "", {
+      path: "/",
+      maxAge: 0,
       sameSite: "lax",
       secure: process.env.NODE_ENV === "production",
     });

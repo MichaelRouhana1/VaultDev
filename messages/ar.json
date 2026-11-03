@@ -14,6 +14,9 @@
     "dashboard": "لوحة التحكم",
     "streetwear": "ستريت وير",
     "formal": "كلاسيكي",
+    "women": "نساء",
+    "men": "رجال",
+    "genderSelectionAria": "نساء أو رجال",
     "search": "بحث",
     "bag": "الحقيبة",
     "bagWithCount": "الحقيبة ({count})",
@@ -106,7 +109,14 @@
     "formal": "كلاسيكي",
     "enterStore": "دخول المتجر",
     "altStreetwear": "فئة ستريت وير",
-    "altFormal": "فئة الملابس الكلاسيكية"
+    "altFormal": "فئة الملابس الكلاسيكية",
+    "selectGender": "تسوّق",
+    "men": "رجال",
+    "women": "نساء",
+    "altMen": "مجموعة الرجال",
+    "altWomen": "مجموعة النساء",
+    "back": "رجوع",
+    "backAria": "العودة إلى اختيار نساء أو رجال"
   },
   "LookbookSection": {
     "title": "استلهم الإطلالة"

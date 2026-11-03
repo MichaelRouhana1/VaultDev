@@ -15,6 +15,8 @@ import { toast } from "sonner";
 import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
 import type { LookbookItem } from "@/db/schema";
+import type { ListingStore, StoreScopeValue } from "@/lib/store-scope";
+import { storeTypeLabelEn } from "@/lib/store-type-display";
 
 /** Matches Get the Look card display (desktop grid). */
 const LOOK_DESKTOP_ASPECT = 3 / 4;
@@ -42,7 +44,7 @@ function MobileCropPreview({ url, label }: { url: string | null | undefined; lab
 interface LookAdminClientProps {
   items: LookbookItem[];
   sectionVisible: boolean;
-  initialStoreType: "streetwear" | "formal";
+  initialStoreType: ListingStore;
 }
 
 export function LookAdminClient({
@@ -57,7 +59,7 @@ export function LookAdminClient({
     objectUrl: string;
     label: string;
     href: string;
-    storeType: "streetwear" | "formal" | "both";
+    storeType: StoreScopeValue;
   } | null>(null);
   const [isAdding, setIsAdding] = useState(false);
   const [deletingId, setDeletingId] = useState<number | null>(null);
@@ -187,7 +189,7 @@ export function LookAdminClient({
         <div className="flex items-center gap-4">
           <h1 className="text-2xl font-bold">Get the Look</h1>
           <span className="rounded-full bg-muted px-2.5 py-1 text-xs font-medium capitalize text-muted-foreground">
-            Managing: {initialStoreType}
+            Managing: {storeTypeLabelEn(initialStoreType)}
           </span>
         </div>
         <div className="flex flex-wrap items-center gap-3">
@@ -207,7 +209,7 @@ export function LookAdminClient({
       {items.length === 0 ? (
         <div className="rounded-lg border border-dashed border-border p-12 text-center text-muted-foreground">
           <p className="mb-4">
-            No items found for this store. Add your first <span className="capitalize">{initialStoreType}</span> item.
+            No items found for this store. Add your first {storeTypeLabelEn(initialStoreType)} item.
           </p>
           <div {...getRootProps()}>
             <input {...getInputProps()} />

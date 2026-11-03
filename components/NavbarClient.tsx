@@ -17,8 +17,8 @@ import {
   mosaikClerkUserButtonVariablesLight,
 } from "@/lib/clerk-auth-appearance";
 import type { ProductCategory } from "@/actions/categories";
-import type { StoreTypeSlug } from "@/lib/preferred-store";
-import { isStrictStoreLanding, storeSectionFromPathname } from "@/lib/store-nav";
+import { isValidPreferredStore, type StoreTypeSlug } from "@/lib/preferred-store";
+import { isStoreGatePath, isStrictStoreLanding, storeSectionFromPathname } from "@/lib/store-nav";
 import { cn } from "@/lib/utils";
 import { isDashboardRole } from "@/lib/clerk-dashboard-role";
 import { useShopListingNav } from "@/components/storefront/ShopListingNavContext";
@@ -41,6 +41,7 @@ function getMaxLgServerSnapshot() {
 export interface NavbarClientProps {
   streetwearCategories: ProductCategory[];
   formalCategories: ProductCategory[];
+  womenCategories: ProductCategory[];
 }
 
 function activeStoreFromRoute(
@@ -48,13 +49,11 @@ function activeStoreFromRoute(
   pathname: string | null,
 ): StoreTypeSlug | null {
   const raw = Array.isArray(paramsStore) ? paramsStore[0] : paramsStore;
-  if (raw === "streetwear" || raw === "formal") return raw;
-  const seg = pathname?.split("/").filter(Boolean)[0];
-  if (seg === "streetwear" || seg === "formal") return seg;
-  return null;
+  if (isValidPreferredStore(raw)) return raw;
+  return storeSectionFromPathname(pathname);
 }
 
-export function NavbarClient({ streetwearCategories, formalCategories }: NavbarClientProps) {
+export function NavbarClient({ streetwearCategories, formalCategories, womenCategories }: NavbarClientProps) {
   const t = useTranslations("Navbar");
   const tCommon = useTranslations("Common");
   const pathname = usePathname();
@@ -88,18 +87,30 @@ export function NavbarClient({ streetwearCategories, formalCategories }: NavbarC
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const [drawerStoreType, setDrawerStoreType] = useState<StoreTypeSlug | null>(null);
   const [burgerOpen, setBurgerOpen] = useState(false);
-  /** Mobile nav sheet: which store’s categories to show (updates immediately on tab tap). */
-  const [mobileMenuStore, setMobileMenuStore] = useState<StoreTypeSlug>("streetwear");
+  /**
+   * Store pinned by a tab tap while the mobile sheet is open, before the route catches up.
+   * Null while closed so the sheet follows the current store instead of a stale default.
+   */
+  const [pinnedMobileMenuStore, setPinnedMobileMenuStore] = useState<StoreTypeSlug | null>(null);
   /** Mobile store landing: scrolled past hero into categories — solid bar + normal theme like other pages. */
   const [landingPastHero, setLandingPastHero] = useState(false);
 
   const activeStore = activeStoreFromRoute(params.storeType, pathname);
+  const inWomen = activeStore === "women";
 
-  const drawerCategories =
-    (drawerStoreType ?? "streetwear") === "formal" ? formalCategories : streetwearCategories;
-
-  const mobileMenuCategories =
-    mobileMenuStore === "formal" ? formalCategories : streetwearCategories;
+  const categoriesByStore: Record<StoreTypeSlug, ProductCategory[]> = {
+    streetwear: streetwearCategories,
+    formal: formalCategories,
+    women: womenCategories,
+  };
+  /** Closed drawer follows the route. Open drawer shows the section that was just chosen. */
+  const drawerStore: StoreTypeSlug =
+    (isDrawerOpen ? drawerStoreType : null) ?? activeStore ?? "streetwear";
+  const drawerCategories = categoriesByStore[drawerStore];
+  /** Closed sheet follows the route. An open sheet keeps a tab tap until navigation lands. */
+  const mobileMenuStore: StoreTypeSlug =
+    (burgerOpen ? pinnedMobileMenuStore : null) ?? activeStore ?? "streetwear";
+  const mobileMenuCategories = categoriesByStore[mobileMenuStore];
 
   const toggleTheme = () => {
     setTheme(theme === "dark" ? "light" : "dark");
@@ -112,6 +123,7 @@ export function NavbarClient({ streetwearCategories, formalCategories }: NavbarC
   useEffect(() => {
     router.prefetch("/streetwear");
     router.prefetch("/formal");
+    router.prefetch("/women");
   }, [router]);
 
   const isStoreLandingOverlay = pathname != null && isStrictStoreLanding(pathname);
@@ -142,13 +154,6 @@ export function NavbarClient({ streetwearCategories, formalCategories }: NavbarC
   }, [isStoreLandingOverlay, maxLg, pathname]);
 
   useEffect(() => {
-    if (!burgerOpen) return;
-    const initial: StoreTypeSlug =
-      activeStore === "streetwear" || activeStore === "formal" ? activeStore : "streetwear";
-    setMobileMenuStore(initial);
-  }, [burgerOpen, activeStore]);
-
-  useEffect(() => {
     const mq = window.matchMedia("(min-width: 1024px)");
     const onChange = () => {
       if (mq.matches) setBurgerOpen(false);
@@ -158,8 +163,18 @@ export function NavbarClient({ streetwearCategories, formalCategories }: NavbarC
   }, []);
 
   const handleMobileMenuStoreTab = (slug: StoreTypeSlug) => {
-    setMobileMenuStore(slug);
+    setPinnedMobileMenuStore(slug);
     router.push(`/${slug}`);
+  };
+
+  const toggleBurger = () => {
+    setPinnedMobileMenuStore(null);
+    setBurgerOpen((open) => !open);
+  };
+
+  const handleMobileMenuMen = () => {
+    setBurgerOpen(false);
+    router.push("/men");
   };
 
   const closeShopDrawer = () => {
@@ -186,10 +201,9 @@ export function NavbarClient({ streetwearCategories, formalCategories }: NavbarC
 
   if (pathname?.startsWith("/admin")) return null;
   if (pathname?.startsWith("/sign-in") || pathname?.startsWith("/sign-up")) return null;
-  if (pathname === "/") return null;
+  if (isStoreGatePath(pathname)) return null;
 
-  const vaultHref =
-    activeStore === "streetwear" ? "/streetwear" : activeStore === "formal" ? "/formal" : "/";
+  const vaultHref = activeStore ? `/${activeStore}` : "/";
 
   const storeLinkClass = (slug: StoreTypeSlug) =>
     cn(
@@ -215,6 +229,17 @@ export function NavbarClient({ streetwearCategories, formalCategories }: NavbarC
 
   const mobileShopBase = `/${mobileMenuStore}/shop`;
 
+  /** Women / Men switch: Women when inside the Women store, Men when inside Streetwear or Classic. */
+  const genderLinkClass = (active: boolean) =>
+    cn(
+      "text-[10px] tracking-[0.22em] uppercase transition-colors",
+      active
+        ? "font-semibold text-foreground underline decoration-1 underline-offset-4"
+        : "font-normal text-foreground/45 hover:text-foreground/80",
+    );
+  const menActive = activeStore === "streetwear" || activeStore === "formal";
+  const mobileMenuInWomen = mobileMenuStore === "women";
+
   /** Mobile/tablet store landing: transparent over hero; solid when sheets open or scrolled into categories. */
   const landingBarSolid =
     isStoreLandingOverlay && (burgerOpen || isDrawerOpen || cartOpen || landingPastHero);
@@ -237,7 +262,7 @@ export function NavbarClient({ streetwearCategories, formalCategories }: NavbarC
           <div className="flex items-center gap-4 sm:gap-6 lg:gap-8 shrink-0 min-w-0">
             <button
               type="button"
-              onClick={() => setBurgerOpen((o) => !o)}
+              onClick={toggleBurger}
               className="lg:hidden p-2 text-foreground hover:opacity-70 transition-opacity"
               aria-label={burgerOpen ? t("closeMenu") : t("openMenu")}
               aria-expanded={burgerOpen}
@@ -263,23 +288,35 @@ export function NavbarClient({ streetwearCategories, formalCategories }: NavbarC
               role="navigation"
               aria-label={t("storeSelectionAria")}
             >
-              <button
-                type="button"
-                onClick={() => handleHeaderSectionClick("streetwear")}
-                className={storeSectionButtonClass("streetwear")}
-              >
-                {t("streetwear")}
-              </button>
-              <span className="text-foreground/25 text-[10px] select-none" aria-hidden>
-                |
-              </span>
-              <button
-                type="button"
-                onClick={() => handleHeaderSectionClick("formal")}
-                className={storeSectionButtonClass("formal")}
-              >
-                {t("formal")}
-              </button>
+              {inWomen ? (
+                <button
+                  type="button"
+                  onClick={() => handleHeaderSectionClick("women")}
+                  className={storeSectionButtonClass("women")}
+                >
+                  {t("women")}
+                </button>
+              ) : (
+                <>
+                  <button
+                    type="button"
+                    onClick={() => handleHeaderSectionClick("streetwear")}
+                    className={storeSectionButtonClass("streetwear")}
+                  >
+                    {t("streetwear")}
+                  </button>
+                  <span className="text-foreground/25 text-[10px] select-none" aria-hidden>
+                    |
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => handleHeaderSectionClick("formal")}
+                    className={storeSectionButtonClass("formal")}
+                  >
+                    {t("formal")}
+                  </button>
+                </>
+              )}
             </div>
           </div>
 
@@ -291,6 +328,21 @@ export function NavbarClient({ streetwearCategories, formalCategories }: NavbarC
           </Link>
 
           <div className="flex items-center gap-3 lg:gap-6 shrink-0">
+            <div
+              className="hidden lg:flex items-center gap-2"
+              role="navigation"
+              aria-label={t("genderSelectionAria")}
+            >
+              <Link href="/women" className={genderLinkClass(inWomen)} aria-current={inWomen ? "page" : undefined}>
+                {t("women")}
+              </Link>
+              <span className="text-foreground/25 text-[10px] select-none" aria-hidden>
+                /
+              </span>
+              <Link href="/men" className={genderLinkClass(menActive)} aria-current={menActive ? "page" : undefined}>
+                {t("men")}
+              </Link>
+            </div>
             <Link
               href="/search"
               className="hidden lg:inline text-sm font-normal text-foreground hover:opacity-70 transition-opacity"
@@ -378,29 +430,30 @@ export function NavbarClient({ streetwearCategories, formalCategories }: NavbarC
         >
           <SheetTitle className="sr-only">{t("mobileNavTitle")}</SheetTitle>
 
-          <div className="flex shrink-0 items-center justify-between gap-3 border-b border-border px-5 py-4">
+          <div className="flex shrink-0 items-center justify-between gap-3 border-b border-border px-5 pb-2 pt-4">
             <div
-              className="flex flex-row items-baseline justify-start gap-6"
-              role="tablist"
-              aria-label={t("storeSelectionAria")}
+              className="flex flex-row items-baseline justify-start gap-3"
+              role="navigation"
+              aria-label={t("genderSelectionAria")}
             >
               <button
                 type="button"
-                role="tab"
-                aria-selected={mobileMenuStore === "streetwear"}
-                onClick={() => handleMobileMenuStoreTab("streetwear")}
-                className={mobileMenuTabClass("streetwear")}
+                aria-pressed={mobileMenuInWomen}
+                onClick={() => handleMobileMenuStoreTab("women")}
+                className={cn(genderLinkClass(mobileMenuInWomen), "cursor-pointer border-0 bg-transparent p-0")}
               >
-                {t("streetwear")}
+                {t("women")}
               </button>
+              <span className="text-foreground/25 text-[10px] select-none" aria-hidden>
+                /
+              </span>
               <button
                 type="button"
-                role="tab"
-                aria-selected={mobileMenuStore === "formal"}
-                onClick={() => handleMobileMenuStoreTab("formal")}
-                className={mobileMenuTabClass("formal")}
+                aria-pressed={!mobileMenuInWomen}
+                onClick={handleMobileMenuMen}
+                className={cn(genderLinkClass(!mobileMenuInWomen), "cursor-pointer border-0 bg-transparent p-0")}
               >
-                {t("formal")}
+                {t("men")}
               </button>
             </div>
             <button
@@ -415,12 +468,43 @@ export function NavbarClient({ streetwearCategories, formalCategories }: NavbarC
             </button>
           </div>
 
+          <div className="flex shrink-0 items-center border-b border-border px-5 py-3">
+            {mobileMenuInWomen ? (
+              <span className={mobileMenuTabClass("women")}>{t("women")}</span>
+            ) : (
+              <div
+                className="flex flex-row items-baseline justify-start gap-6"
+                role="tablist"
+                aria-label={t("storeSelectionAria")}
+              >
+                <button
+                  type="button"
+                  role="tab"
+                  aria-selected={mobileMenuStore === "streetwear"}
+                  onClick={() => handleMobileMenuStoreTab("streetwear")}
+                  className={mobileMenuTabClass("streetwear")}
+                >
+                  {t("streetwear")}
+                </button>
+                <button
+                  type="button"
+                  role="tab"
+                  aria-selected={mobileMenuStore === "formal"}
+                  onClick={() => handleMobileMenuStoreTab("formal")}
+                  className={mobileMenuTabClass("formal")}
+                >
+                  {t("formal")}
+                </button>
+              </div>
+            )}
+          </div>
+
           <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-5 pb-4 pt-1">
             <nav
               className="space-y-0.5"
               role="navigation"
               aria-label={t("categoryMenuAria", {
-                store: mobileMenuStore === "streetwear" ? t("streetwear") : t("formal"),
+                store: t(mobileMenuStore),
               })}
             >
               <Link
@@ -511,7 +595,7 @@ export function NavbarClient({ streetwearCategories, formalCategories }: NavbarC
         isOpen={isDrawerOpen}
         onClose={closeShopDrawer}
         categories={drawerCategories}
-        storeType={drawerStoreType ?? "streetwear"}
+        storeType={drawerStore}
       />
       <CartDrawer isOpen={cartOpen} onClose={() => setCartOpen(false)} />
     </nav>

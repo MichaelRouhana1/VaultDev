@@ -1,8 +1,8 @@
 "use server";
 
-import { z } from "zod";
-
 import { cookies } from "next/headers";
+import { productListingStoreTypeSchema } from "@/lib/schemas";
+import { isListingStore, type ListingStore } from "@/lib/store-scope";
 import { db } from "@/db";
 import { products } from "@/db/schema";
 import { isNull } from "drizzle-orm";
@@ -10,11 +10,11 @@ import { logger } from "@/lib/logger";
 import { checkAdminSession, requireAdminAction } from "@/lib/security";
 
 export async function setAdminStoreType(
-    storeType: "streetwear" | "formal",
+    storeType: ListingStore,
 ): Promise<{ success: true } | { success: false; error: string }> {
     const gate = await requireAdminAction({ auditTarget: "admin.store.set" });
     if (!gate.authorized) return gate.response;
-    const validatedType = z.enum(["streetwear", "formal"]).parse(storeType);
+    const validatedType = productListingStoreTypeSchema.parse(storeType);
     const cookieStore = await cookies();
     cookieStore.set("adminStore", validatedType, {
         path: "/",
@@ -26,15 +26,14 @@ export async function setAdminStoreType(
     return { success: true };
 }
 
-export async function getAdminStoreType(): Promise<"streetwear" | "formal"> {
+export async function getAdminStoreType(): Promise<ListingStore> {
     const s = await checkAdminSession();
     if (!s.ok) {
         return "streetwear"; // default if not admin (defense in depth; layout uses requireAdmin)
     }
     const cookieStore = await cookies();
     const val = cookieStore.get("adminStore")?.value;
-    if (val === "formal") return "formal";
-    return "streetwear"; // default
+    return isListingStore(val) ? val : "streetwear";
 }
 
 export async function migrateMissingStoreTypes(): Promise<{ success?: boolean; error?: string }> {

@@ -19,6 +19,8 @@ import {
 import type { Product, StorefrontProduct, StorefrontProductResolved } from "@/db/schema";
 import type { ProductVariant, ProductColor } from "@/db/schema";
 import { WishlistBookmarkIcon } from "@/components/WishlistBookmarkIcon";
+import { isListingStore, type ListingStore } from "@/lib/store-scope";
+import { storeSectionFromPathname } from "@/lib/store-nav";
 
 const DEFAULT_SIZES = ["XS", "S", "M", "L", "XL"];
 
@@ -33,9 +35,8 @@ function isDesktopViewport(): boolean {
 }
 
 /** PDP URL segment when not inferrable from pathname (e.g. /bag). */
-function storeTypeForProductUrl(product: Pick<Product, "storeType">): "streetwear" | "formal" {
-  if (product.storeType === "formal") return "formal";
-  return "streetwear";
+function storeTypeForProductUrl(product: Pick<Product, "storeType">): ListingStore {
+  return isListingStore(product.storeType) ? product.storeType : "streetwear";
 }
 
 interface ProductCardProps {
@@ -64,9 +65,7 @@ export function ProductCard({
   const { formatPrice } = useCurrency();
   const { isInWishlist, hasHydrated, toggleItem } = useWishlist();
 
-  const storeTypeMatch = pathname?.match(/^\/(streetwear|formal)/);
-  const pathStoreType = storeTypeMatch?.[1] as "streetwear" | "formal" | undefined;
-  const listStoreType = pathStoreType ?? storeTypeForProductUrl(product);
+  const listStoreType = storeSectionFromPathname(pathname) ?? storeTypeForProductUrl(product);
   const productUrl = `/${listStoreType}/product/${product.id}`;
   const wishlistState = hasHydrated ? isInWishlist(product.id) : inWishlist;
   const [currentImageIndex, setCurrentImageIndex] = useState(0);

@@ -17,6 +17,8 @@ import { getLowStockThreshold } from "@/actions/inventory-settings";
 import { LowStockThresholdForm } from "@/components/admin/LowStockThresholdForm";
 import { requireAdmin } from "@/lib/security";
 import { ProductPageCopyButton } from "@/components/admin/ProductPageCopyButton";
+import { storeRowMatches } from "@/lib/store-scope";
+import { storeTypeLabelEn } from "@/lib/store-type-display";
 
 type VariantAgg = {
   productId: number;
@@ -128,7 +130,7 @@ export default async function AdminProductsPage({
   ]);
 
   const categoryList = categoryRows
-    .filter((c) => (c.storeType === adminStore || c.storeType === "both") && c.level !== "root")
+    .filter((c) => storeRowMatches(c.storeType, adminStore) && c.level !== "root")
     .map((c) => ({ id: c.id, slug: c.slug, label: c.label }));
 
   const productIds = productList.map((p) => p.id);
@@ -243,7 +245,7 @@ export default async function AdminProductsPage({
         <div className="flex items-center gap-4">
           <h1 className="text-2xl font-bold">Products</h1>
           <span className="px-2.5 py-1 text-xs font-medium bg-muted text-muted-foreground rounded-full capitalize">
-            Managing: {adminStore}
+            Managing: {storeTypeLabelEn(adminStore)}
           </span>
         </div>
         <div className="flex items-center gap-3">

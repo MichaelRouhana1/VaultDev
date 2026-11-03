@@ -29,7 +29,7 @@ export interface CartItemDisplay {
   productImage?: string;
   productColor?: string;
   /** PDP path segment; omitted in old localStorage carts defaults to streetwear in UI */
-  storeTypeForUrl?: "streetwear" | "formal";
+  storeTypeForUrl?: "streetwear" | "formal" | "women";
   sku: string;
 }
 

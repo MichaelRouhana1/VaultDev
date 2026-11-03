@@ -20,6 +20,8 @@ import { toast } from "sonner";
 import { adminImageDropzoneAccept } from "@/lib/image-upload-accept";
 import { MAX_IMAGE_UPLOAD_BYTES } from "@/lib/image-upload-limits";
 import { adminListingStoreTypeLabel } from "@/lib/store-type-display";
+import { isStoreScopeValue, type ListingStore, type StoreScopeValue } from "@/lib/store-scope";
+import { StoreScopeOptions } from "@/components/admin/StoreScopeOptions";
 import { uploadImageFileViaPresign } from "@/lib/upload-image-presigned-client";
 
 /** Same as product card / ProductImageUpload preview. */
@@ -27,7 +29,7 @@ const CATEGORY_IMAGE_ASPECT = 2 / 3;
 
 interface CategoriesAdminClientProps {
   categories: ProductCategory[];
-  initialStoreType: "streetwear" | "formal";
+  initialStoreType: ListingStore;
 }
 
 export function CategoriesAdminClient({ categories: initialCategories, initialStoreType }: CategoriesAdminClientProps) {
@@ -49,7 +51,7 @@ export function CategoriesAdminClient({ categories: initialCategories, initialSt
   const [formShowOnHome, setFormShowOnHome] = useState(false);
   const [formImage, setFormImage] = useState<File | null>(null);
   const [cropObjectUrl, setCropObjectUrl] = useState<string | null>(null);
-  const [formStoreType, setFormStoreType] = useState<"streetwear" | "formal" | "both">(initialStoreType);
+  const [formStoreType, setFormStoreType] = useState<StoreScopeValue>(initialStoreType);
 
   const resetForm = useCallback(() => {
     setFormSlug("");
@@ -76,8 +78,7 @@ export function CategoriesAdminClient({ categories: initialCategories, initialSt
     setFormSlug(cat.slug);
     setFormLabel(cat.label);
     setFormShowOnHome(cat.showOnHome);
-    const catStoreType = (cat.storeType ?? "both") as "streetwear" | "formal" | "both";
-    setFormStoreType(catStoreType);
+    setFormStoreType(isStoreScopeValue(cat.storeType) ? cat.storeType : "both");
     setEditingId(cat.id);
   };
 
@@ -203,21 +204,26 @@ export function CategoriesAdminClient({ categories: initialCategories, initialSt
               id="slug"
               value={formSlug}
               onChange={(e) => setFormSlug(e.target.value)}
-              placeholder="trousers"
+              placeholder={formStoreType === "women" ? "women-trousers" : "trousers"}
               required
             />
+            {formStoreType === "women" && (
+              <p className="text-xs text-muted-foreground">
+                Slugs are unique across all stores, so give Women categories their own slug (e.g. women-tops).
+              </p>
+            )}
           </div>
           <div className="space-y-2">
             <Label htmlFor="storeType">Store</Label>
             <select
               id="storeType"
               value={formStoreType}
-              onChange={(e) => setFormStoreType(e.target.value as "streetwear" | "formal" | "both")}
+              onChange={(e) => {
+                if (isStoreScopeValue(e.target.value)) setFormStoreType(e.target.value);
+              }}
               className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background disabled:cursor-not-allowed disabled:opacity-50"
             >
-              <option value="streetwear">Streetwear</option>
-              <option value="formal">Classic</option>
-              <option value="both">Both</option>
+              <StoreScopeOptions />
             </select>
           </div>
           <div className="space-y-2">

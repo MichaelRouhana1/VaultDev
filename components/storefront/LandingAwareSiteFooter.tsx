@@ -8,10 +8,9 @@ import { SiteFooter } from "@/components/storefront/SiteFooter";
 export function LandingAwareSiteFooter() {
   const pathname = usePathname();
   const segments = pathname.split("/").filter(Boolean);
-  /** Default locale can be served at `/` (no segment) or `/en`; both are the shop-picker landing. */
-  const isShopPickerLanding =
-    segments.length === 0 ||
-    (segments.length === 1 && isMosaikLocale(segments[0]));
+  /** Entry screens: `/` (Men / Women) and `/men` (Streetwear / Classic), with or without a locale prefix. */
+  const rest = segments.length > 0 && isMosaikLocale(segments[0]) ? segments.slice(1) : segments;
+  const isShopPickerLanding = rest.length === 0 || (rest.length === 1 && rest[0] === "men");
   const isCheckoutSection =
     segments.length >= 2 &&
     isMosaikLocale(segments[0]) &&

@@ -3,6 +3,7 @@ import { db } from "@/db";
 import { collections } from "@/db/schema";
 import type { ProductListingStore } from "@/lib/product-category-assign";
 import { storeTypeLabelEn } from "@/lib/store-type-display";
+import { storeRowMatches } from "@/lib/store-scope";
 
 export function parseCollectionIdsFromFormData(formData: FormData): number[] {
   const raw = formData.getAll("collectionIds");
@@ -14,7 +15,7 @@ export function parseCollectionIdsFromFormData(formData: FormData): number[] {
   return [...ids];
 }
 
-/** Ensures every collection exists and applies to the product listing store (`both` or matching). */
+/** Ensures every collection exists and applies to the product listing store (matching, or `both` for Men). */
 export async function validateProductCollectionAssignments(
   productStore: ProductListingStore,
   collectionIds: number[],
@@ -24,7 +25,7 @@ export async function validateProductCollectionAssignments(
   const rows = await db.select().from(collections).where(inArray(collections.id, uniq));
   if (rows.length !== uniq.length) return "One or more collections were not found.";
   for (const c of rows) {
-    if (c.storeType !== "both" && c.storeType !== productStore) {
+    if (!storeRowMatches(c.storeType, productStore)) {
       const storeLabel = storeTypeLabelEn(productStore);
       return `Collection "${c.name}" is not available for ${storeLabel} products.`;
     }

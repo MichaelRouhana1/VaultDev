@@ -14,6 +14,9 @@
     "dashboard": "Dashboard",
     "streetwear": "Streetwear",
     "formal": "Classic",
+    "women": "Women",
+    "men": "Men",
+    "genderSelectionAria": "Women or men",
     "search": "Search",
     "bag": "Bag",
     "bagWithCount": "Bag ({count})",
@@ -106,7 +109,14 @@
     "formal": "Classic",
     "enterStore": "Enter Store",
     "altStreetwear": "Streetwear category",
-    "altFormal": "Classic wear category"
+    "altFormal": "Classic wear category",
+    "selectGender": "Shop",
+    "men": "Men",
+    "women": "Women",
+    "altMen": "Men's collection",
+    "altWomen": "Women's collection",
+    "back": "Back",
+    "backAria": "Back to Women or Men"
   },
   "LookbookSection": {
     "title": "Get the Look"

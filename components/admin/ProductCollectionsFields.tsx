@@ -1,6 +1,7 @@
 "use client";
 
 import { Label } from "@/components/ui/label";
+import type { ListingStore } from "@/lib/store-scope";
 
 export type CollectionOption = { id: number; name: string; slug: string };
 
@@ -10,8 +11,8 @@ export function ProductCollectionsFields({
   selectedIds,
   onChange,
 }: {
-  collectionsByStore: Record<"streetwear" | "formal", CollectionOption[]>;
-  listingStore: "streetwear" | "formal";
+  collectionsByStore: Record<ListingStore, CollectionOption[]>;
+  listingStore: ListingStore;
   selectedIds: number[];
   onChange: (ids: number[]) => void;
 }) {

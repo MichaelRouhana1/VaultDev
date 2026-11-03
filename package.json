@@ -22,7 +22,8 @@
     "db:migrate:exchange-rates": "npx tsx scripts/migrate-storefront-exchange-rates.ts",
     "db:migrate:inventory-settings": "npx tsx scripts/migrate-inventory-settings.ts",
     "db:migrate:promo-per-customer": "npx tsx scripts/migrate-promo-per-customer.ts",
-    "db:migrate:mobile-image-urls": "npx tsx scripts/migrate-mobile-image-url-columns.ts"
+    "db:migrate:mobile-image-urls": "npx tsx scripts/migrate-mobile-image-url-columns.ts",
+    "db:migrate:women": "npx tsx scripts/migrate-women.ts"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1010.0",

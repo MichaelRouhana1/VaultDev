@@ -9,11 +9,12 @@ import { isTrustedR2PublicUrl } from "@/lib/r2-public-url";
 import { auditLog } from "@/lib/audit";
 import { z } from "zod";
 import { requireAdmin, requireAdminAction } from "@/lib/security";
+import { storeTypeSchema, type StoreType } from "@/lib/schemas";
 
 export const getHeroImages = cache(async (storeType?: string) => {
   const conditions = [eq(heroImages.isActive, true)];
   if (storeType) {
-    const validatedStore = z.enum(["streetwear", "formal"]).parse(storeType);
+    const validatedStore = z.enum(["streetwear", "formal", "women"]).parse(storeType);
     conditions.push(eq(heroImages.storeType, validatedStore));
   }
   return db
@@ -35,11 +36,11 @@ export async function getAllHeroImages() {
 export async function addHeroImage(
   imageUrl: string,
   altText?: string,
-  storeType: "streetwear" | "formal" | "both" = "both",
+  storeType: StoreType = "both",
   mobileImageUrl?: string | null
 ) {
   const { userId } = await requireAdmin();
-  const validatedStore = z.enum(["streetwear", "formal", "both"]).parse(storeType);
+  const validatedStore = storeTypeSchema.parse(storeType);
   const validatedUrl = z.string().url().parse(imageUrl);
   if (!isTrustedR2PublicUrl(validatedUrl)) {
     throw new Error("Image URL must use configured R2 public storage.");
@@ -89,7 +90,7 @@ export async function addHeroImageFromFile(formData: FormData): Promise<{ error?
   const file = formData.get("image") as File | null;
   const mobileFile = formData.get("mobileImage") as File | null;
   const storeTypeRaw = formData.get("storeType")?.toString() || "both";
-  const storeType = z.enum(["streetwear", "formal", "both"]).parse(storeTypeRaw);
+  const storeType = storeTypeSchema.parse(storeTypeRaw);
   if (!file?.size) return { error: "No image provided" };
 
   const filename = `hero-${Date.now()}-${Math.random().toString(36).slice(2)}`;

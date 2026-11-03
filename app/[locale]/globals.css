@@ -277,6 +277,280 @@
   animation: hero-progress 5s linear forwards;
 }
 
+/*
+ * Store entry gate (components/storefront/StoreGate.tsx). Phase durations must match EXPAND_MS / REVEAL_MS there.
+ * Unlayered on purpose so phase rules win over Tailwind utilities on the same elements.
+ */
+.store-gate {
+  --gate-ease: cubic-bezier(0.76, 0, 0.24, 1);
+  --gate-expand: 700ms;
+  --gate-reveal: 900ms;
+}
+.store-gate .gate-panel {
+  flex: 1 1 0%;
+  min-width: 0;
+  min-height: 0;
+  /* Idle hover grow: same timing as the Streetwear / Classic panels (Tailwind `transition-all duration-[800ms]`). */
+  transition:
+    flex-grow 800ms cubic-bezier(0.4, 0, 0.2, 1),
+    opacity 800ms cubic-bezier(0.4, 0, 0.2, 1);
+}
+@media (min-width: 768px) {
+  .store-gate[data-phase="gender"] .gate-panel:hover {
+    flex-grow: 1.2;
+  }
+}
+/* Once a side is chosen, hand over to the gate choreography easing. */
+.store-gate[data-focus] .gate-panel {
+  transition:
+    flex-grow var(--gate-expand) var(--gate-ease),
+    opacity var(--gate-expand) ease;
+}
+.store-gate[data-focus="men"] .gate-panel[data-panel="women"],
+.store-gate[data-focus="women"] .gate-panel[data-panel="men"] {
+  flex-grow: 0;
+  opacity: 0;
+}
+.store-gate .gate-panel-art {
+  transition: transform 1400ms var(--gate-ease);
+}
+.store-gate[data-focus="men"] .gate-panel[data-panel="men"] .gate-panel-art,
+.store-gate[data-focus="women"] .gate-panel[data-panel="women"] .gate-panel-art {
+  transform: scale(1.04);
+}
+.store-gate .gate-panel-copy {
+  transition:
+    opacity 400ms ease,
+    transform 600ms var(--gate-ease);
+}
+.store-gate[data-focus] .gate-panel-copy {
+  opacity: 0;
+  transform: translateY(-0.75rem);
+}
+
+.store-gate .gate-seam {
+  left: 50%;
+  top: 0;
+  width: 1px;
+  height: 100%;
+  opacity: 0;
+  transform: translateX(-50%) scaleY(0);
+  transition:
+    transform 500ms var(--gate-ease),
+    opacity 300ms ease;
+}
+.store-gate[data-phase="men-expand"] .gate-seam {
+  opacity: 1;
+  transform: translateX(-50%) scaleY(1);
+  transition-delay: 200ms;
+}
+@media (max-width: 767px) {
+  .store-gate .gate-seam {
+    left: 0;
+    top: 50%;
+    width: 100%;
+    height: 1px;
+    transform: translateY(-50%) scaleX(0);
+  }
+  .store-gate[data-phase="men-expand"] .gate-seam {
+    transform: translateY(-50%) scaleX(1);
+  }
+}
+
+.store-gate .gate-style {
+  clip-path: inset(0 50% 0 50%);
+  visibility: hidden;
+  transition:
+    clip-path var(--gate-reveal) var(--gate-ease),
+    visibility 0s linear var(--gate-reveal);
+}
+@media (max-width: 767px) {
+  .store-gate .gate-style {
+    clip-path: inset(50% 0 50% 0);
+  }
+}
+.store-gate[data-style-open] .gate-style {
+  clip-path: inset(0 0 0 0);
+  visibility: visible;
+  transition:
+    clip-path var(--gate-reveal) var(--gate-ease),
+    visibility 0s;
+}
+.store-gate .gate-style-panel > picture {
+  transform: scale(1.08);
+  transition: transform 1400ms var(--gate-ease);
+}
+.store-gate[data-style-open] .gate-style-panel > picture {
+  transform: scale(1);
+}
+.store-gate .gate-style-copy {
+  opacity: 0;
+  transform: translateY(1.5rem);
+  transition:
+    opacity 500ms ease,
+    transform 800ms var(--gate-ease);
+}
+.store-gate[data-style-open] .gate-style-copy {
+  opacity: 1;
+  transform: none;
+  transition-delay: 350ms;
+}
+.store-gate[data-style-open] .gate-style-panel + .gate-style-panel .gate-style-copy {
+  transition-delay: 500ms;
+}
+
+.store-gate .gate-subtitle-gender,
+.store-gate .gate-subtitle-style {
+  transition: opacity 500ms ease;
+}
+.store-gate .gate-subtitle-style,
+.store-gate[data-style-open] .gate-subtitle-gender {
+  opacity: 0;
+}
+.store-gate[data-style-open] .gate-subtitle-style {
+  opacity: 1;
+  transition-delay: 300ms;
+}
+
+.store-gate .gate-back {
+  opacity: 0;
+  transition: opacity 400ms ease;
+}
+.store-gate[data-phase="style"] .gate-back {
+  opacity: 1;
+}
+.store-gate[data-phase="style"] .gate-back:hover {
+  opacity: 0.7;
+}
+
+/* Streetwear / Classic exit. Transition is declared before `data-leaving` so the collapse animates. */
+.gate-handoff {
+  position: fixed;
+  inset: 0;
+  z-index: 80;
+}
+.gate-handoff .gate-style-panel {
+  flex: 1 1 0%;
+  width: auto;
+  height: auto;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+  transition:
+    flex-grow var(--gate-expand) var(--gate-ease),
+    opacity var(--gate-expand) ease;
+}
+.gate-handoff .gate-brand {
+  transition: opacity 400ms ease;
+}
+.gate-handoff[data-style-open] .gate-style-panel .gate-style-copy {
+  transition:
+    opacity 400ms ease,
+    transform 600ms var(--gate-ease);
+  transition-delay: 0ms;
+}
+.gate-handoff[data-leaving="streetwear"] .gate-style-panel[data-panel="formal"],
+.gate-handoff[data-leaving="formal"] .gate-style-panel[data-panel="streetwear"] {
+  flex-grow: 0;
+  opacity: 0;
+}
+.gate-handoff[data-leaving="streetwear"] .gate-style-panel[data-panel="streetwear"] > picture,
+.gate-handoff[data-leaving="formal"] .gate-style-panel[data-panel="formal"] > picture {
+  transform: scale(1.04);
+}
+.gate-handoff[data-leaving] .gate-style-panel .gate-style-copy {
+  opacity: 0;
+  transform: translateY(-0.75rem);
+  transition-delay: 0ms;
+}
+.gate-handoff[data-leaving] .gate-brand,
+.gate-handoff[data-leaving] .gate-back {
+  opacity: 0;
+}
+
+.gate-page-reveal {
+  --gate-ease: cubic-bezier(0.76, 0, 0.24, 1);
+  --gate-reveal: 900ms;
+  position: fixed;
+  inset: 0;
+  z-index: 90;
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  background: var(--background);
+  animation: gate-page-reveal var(--gate-reveal) var(--gate-ease) both;
+}
+@keyframes gate-page-reveal {
+  from { clip-path: inset(0 50% 0 50%); }
+  to { clip-path: inset(0 0 0 0); }
+}
+@keyframes gate-page-reveal-y {
+  from { clip-path: inset(50% 0 50% 0); }
+  to { clip-path: inset(0 0 0 0); }
+}
+@keyframes gate-page-fade {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+@media (max-width: 767px) {
+  .gate-page-reveal {
+    animation-name: gate-page-reveal-y;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .store-gate {
+    --gate-expand: 150ms;
+    --gate-reveal: 150ms;
+  }
+  .store-gate .gate-panel,
+  .store-gate[data-focus] .gate-panel {
+    transition: opacity 150ms ease;
+  }
+  .store-gate .gate-panel-art,
+  .store-gate[data-focus] .gate-panel .gate-panel-art,
+  .store-gate .gate-style-panel > picture {
+    transform: none;
+    transition: none;
+  }
+  .store-gate .gate-panel-copy,
+  .store-gate[data-focus] .gate-panel-copy,
+  .store-gate .gate-style-copy,
+  .store-gate[data-style-open] .gate-style-copy,
+  .store-gate[data-style-open] .gate-style-panel + .gate-style-panel .gate-style-copy {
+    transform: none;
+    transition: opacity 150ms ease;
+    transition-delay: 0ms;
+  }
+  .store-gate .gate-seam {
+    display: none;
+  }
+  .store-gate .gate-style,
+  .store-gate[data-style-open] .gate-style {
+    clip-path: none;
+  }
+  .store-gate .gate-style {
+    opacity: 0;
+    transition:
+      opacity 150ms ease,
+      visibility 0s linear 150ms;
+  }
+  .store-gate[data-style-open] .gate-style {
+    opacity: 1;
+    transition:
+      opacity 150ms ease,
+      visibility 0s;
+  }
+  .gate-page-reveal {
+    --gate-reveal: 150ms;
+    animation-name: gate-page-fade;
+  }
+  .gate-handoff[data-leaving="streetwear"] .gate-style-panel[data-panel="streetwear"] > picture,
+  .gate-handoff[data-leaving="formal"] .gate-style-panel[data-panel="formal"] > picture {
+    transform: none;
+  }
+}
+
 @layer components {
   /**
    * Clerk prebuilt `<SignIn />` / `<SignUp />`: hide the “Secured by Clerk” row in `.cl-footer`

@@ -61,7 +61,7 @@ export function ShopDrawer({
       >
         <div className="flex items-center justify-between gap-3 border-b border-border p-4 sm:p-6">
           <span className="min-w-0 truncate text-sm font-semibold uppercase tracking-wider text-foreground">
-            {storeType === "streetwear" ? t("streetwear") : t("formal")}
+            {t(storeType)}
           </span>
           <button
             type="button"
@@ -90,7 +90,7 @@ export function ShopDrawer({
             className="space-y-1"
             role="navigation"
             aria-label={t("categoryMenuAria", {
-              store: storeType === "streetwear" ? t("streetwear") : t("formal"),
+              store: t(storeType),
             })}
           >
             <button

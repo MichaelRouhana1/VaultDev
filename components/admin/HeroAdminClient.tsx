@@ -12,7 +12,8 @@ import { adminImageDropzoneAccept } from "@/lib/image-upload-accept";
 import { MAX_IMAGE_UPLOAD_BYTES } from "@/lib/image-upload-limits";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
-import { storeTypeLabelEn } from "@/lib/store-type-display";
+import { adminListingStoreTypeLabel, storeTypeLabelEn } from "@/lib/store-type-display";
+import type { ListingStore } from "@/lib/store-scope";
 import type { HeroImage } from "@/db/schema";
 
 /** Base ratio from ~1567×544 art; scaled for storefront `md:h-[86vh]` (75vh reference). */
@@ -45,7 +46,7 @@ function MobileCropPreview({ url, alt }: { url: string | null | undefined; alt: 
 
 interface HeroAdminClientProps {
   images: HeroImage[];
-  initialStoreType: "streetwear" | "formal";
+  initialStoreType: ListingStore;
 }
 
 export function HeroAdminClient({ images: initialImages, initialStoreType }: HeroAdminClientProps) {
@@ -148,7 +149,7 @@ export function HeroAdminClient({ images: initialImages, initialStoreType }: Her
         <div className="flex items-center gap-4">
           <h1 className="text-2xl font-bold">Hero Slideshow</h1>
           <span className="rounded-full bg-muted px-2.5 py-1 text-xs font-medium capitalize text-muted-foreground">
-            Managing: {initialStoreType}
+            Managing: {storeTypeLabelEn(initialStoreType)}
           </span>
         </div>
         <div className="flex items-center gap-4">
@@ -164,7 +165,7 @@ export function HeroAdminClient({ images: initialImages, initialStoreType }: Her
       {images.length === 0 ? (
         <div className="rounded-lg border border-dashed border-border p-12 text-center text-muted-foreground">
           <p className="mb-4">
-            No items found for this store. Add your first <span className="capitalize">{initialStoreType}</span> item.
+            No items found for this store. Add your first {storeTypeLabelEn(initialStoreType)} item.
           </p>
           <div {...getRootProps()}>
             <input {...getInputProps()} />
@@ -192,7 +193,7 @@ export function HeroAdminClient({ images: initialImages, initialStoreType }: Her
               <div className="flex justify-between p-3 text-sm font-normal text-foreground">
                 <span>Slide #{img.id}</span>
                 <span className="rounded bg-muted-foreground/10 px-2 opacity-60">
-                  {storeTypeLabelEn(img.storeType as "streetwear" | "formal")}
+                  {adminListingStoreTypeLabel(img.storeType)}
                 </span>
               </div>
               <div className="absolute inset-0 flex items-center justify-center gap-2 bg-black/50 opacity-0 transition-opacity group-hover:opacity-100">

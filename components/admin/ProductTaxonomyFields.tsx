@@ -1,10 +1,19 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import type { ProductFormCategoryTree } from "@/actions/categories";
+import { LISTING_STORES, type ListingStore } from "@/lib/store-scope";
+import { storeTypeLabelEn } from "@/lib/store-type-display";
 
-type Store = "streetwear" | "formal";
+type Store = ListingStore;
 
 export function ProductTaxonomyFields({
   categoryTrees,
@@ -27,6 +36,23 @@ export function ProductTaxonomyFields({
   const [mainId, setMainId] = useState(
     initialMainCategoryId != null ? String(initialMainCategoryId) : "",
   );
+  const [categoryError, setCategoryError] = useState(false);
+  const rootRef = useRef<HTMLDivElement>(null);
+  const triggerRef = useRef<HTMLButtonElement>(null);
+
+  useEffect(() => {
+    const form = rootRef.current?.closest("form");
+    if (!form) return;
+    const onSubmit = (event: Event) => {
+      if (mainId) return;
+      event.preventDefault();
+      event.stopPropagation();
+      setCategoryError(true);
+      triggerRef.current?.focus();
+    };
+    form.addEventListener("submit", onSubmit, true);
+    return () => form.removeEventListener("submit", onSubmit, true);
+  }, [mainId]);
 
   function switchStore(next: Store) {
     if (isControlled) {
@@ -35,55 +61,67 @@ export function ProductTaxonomyFields({
       setInternalStore(next);
     }
     setMainId("");
+    setCategoryError(false);
+  }
+
+  function selectCategory(next: string) {
+    setMainId(next);
+    setCategoryError(false);
   }
 
   return (
-    <div className="space-y-4 sm:col-span-2">
+    <div ref={rootRef} className="space-y-4 sm:col-span-2">
       <div className="space-y-2">
         <Label>Store</Label>
         <div className="flex flex-wrap gap-6">
-          <label className="flex items-center gap-2 text-sm cursor-pointer">
-            <input
-              type="radio"
-              name="storeType"
-              value="streetwear"
-              checked={storeType === "streetwear"}
-              onChange={() => switchStore("streetwear")}
-              required
-            />
-            Streetwear
-          </label>
-          <label className="flex items-center gap-2 text-sm cursor-pointer">
-            <input
-              type="radio"
-              name="storeType"
-              value="formal"
-              checked={storeType === "formal"}
-              onChange={() => switchStore("formal")}
-              required
-            />
-            Classic
-          </label>
+          {LISTING_STORES.map((store) => (
+            <label key={store} className="flex items-center gap-2 text-sm cursor-pointer">
+              <input
+                type="radio"
+                name="storeType"
+                value={store}
+                checked={storeType === store}
+                onChange={() => switchStore(store)}
+                required
+              />
+              {storeTypeLabelEn(store)}
+            </label>
+          ))}
         </div>
       </div>
 
       <div className="space-y-2">
         <Label htmlFor="mainCategoryId">Category</Label>
-        <select
-          id="mainCategoryId"
-          name="mainCategoryId"
-          value={mainId}
-          onChange={(e) => setMainId(e.target.value)}
-          required
-          className="border-input h-9 w-full rounded-md border bg-transparent px-3 py-1 text-sm shadow-xs focus:outline-none focus:ring-2 focus:ring-ring"
-        >
-          <option value="">Select category</option>
-          {tree.mains.map((m) => (
-            <option key={m.id} value={m.id}>
-              {m.label}
-            </option>
-          ))}
-        </select>
+        <input type="hidden" name="mainCategoryId" value={mainId} />
+        <Select value={mainId} onValueChange={selectCategory}>
+          <SelectTrigger
+            ref={triggerRef}
+            id="mainCategoryId"
+            aria-invalid={categoryError || undefined}
+            aria-describedby={categoryError ? "mainCategoryId-error" : undefined}
+            className="w-full"
+          >
+            <SelectValue placeholder="Select category" />
+          </SelectTrigger>
+          <SelectContent position="popper" align="start" sideOffset={4} className="!max-h-72">
+            {tree.mains.length === 0 ? (
+              <SelectItem value="__empty" disabled>
+                No categories for this store
+              </SelectItem>
+            ) : (
+              tree.mains.map((m) => (
+                <SelectItem key={m.id} value={String(m.id)}>
+                  {m.label}
+                </SelectItem>
+              ))
+            )}
+          </SelectContent>
+        </Select>
+        {categoryError ? (
+          <p id="mainCategoryId-error" className="text-sm text-destructive">
+            Select a category
+          </p>
+        ) : null}
       </div>
     </div>
   );

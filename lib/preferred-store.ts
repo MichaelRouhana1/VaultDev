@@ -3,10 +3,10 @@ import { isMosaikLocale, type MosaikLocale } from "@/lib/i18n-locales";
 /** Cookie set by middleware when the user browses a store route; used to redirect locale home on return visits. */
 export const PREFERRED_STORE_COOKIE = "preferred_store";
 
-export type StoreTypeSlug = "streetwear" | "formal";
+export type StoreTypeSlug = "streetwear" | "formal" | "women";
 
 export function isValidPreferredStore(value: string | undefined): value is StoreTypeSlug {
-  return value === "streetwear" || value === "formal";
+  return value === "streetwear" || value === "formal" || value === "women";
 }
 
 const DEFAULT_LOCALE: MosaikLocale = "en";
@@ -33,13 +33,8 @@ export function stripLocaleFromPathname(pathname: string): {
 /** Derive store slug from request path, or null if not under a store route. */
 export function storeSlugFromPathname(pathname: string): StoreTypeSlug | null {
   const { pathnameSansLocale } = stripLocaleFromPathname(pathname);
-  if (pathnameSansLocale === "/streetwear" || pathnameSansLocale.startsWith("/streetwear/")) {
-    return "streetwear";
-  }
-  if (pathnameSansLocale === "/formal" || pathnameSansLocale.startsWith("/formal/")) {
-    return "formal";
-  }
-  return null;
+  const first = pathnameSansLocale.split("/").filter(Boolean)[0];
+  return isValidPreferredStore(first) ? first : null;
 }
 
 /** Switch first store segment to the other store; preserve subpath when already on a store route. */

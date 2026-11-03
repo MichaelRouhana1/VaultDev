@@ -7,10 +7,12 @@ import { setAdminStoreType } from "@/actions/admin-store";
 import { useRouter } from "@/i18n/navigation";
 import { useState, useTransition } from "react";
 import { toast } from "sonner";
+import { LISTING_STORES, type ListingStore } from "@/lib/store-scope";
+import { storeTypeLabelEn } from "@/lib/store-type-display";
 
 interface AdminHeaderProps {
   onMenuClick?: () => void;
-  initialStore: "streetwear" | "formal";
+  initialStore: ListingStore;
 }
 
 export function AdminHeader({ onMenuClick, initialStore }: AdminHeaderProps) {
@@ -22,7 +24,7 @@ export function AdminHeader({ onMenuClick, initialStore }: AdminHeaderProps) {
 
   const email = user?.primaryEmailAddress?.emailAddress ?? "admin@vault.com";
 
-  const toggleStore = async (newStore: "streetwear" | "formal") => {
+  const toggleStore = async (newStore: ListingStore) => {
     if (newStore === currentStore) return;
     const previous = currentStore;
     setCurrentStore(newStore);
@@ -66,32 +68,23 @@ export function AdminHeader({ onMenuClick, initialStore }: AdminHeaderProps) {
       </div>
       <div className="flex w-full min-w-0 flex-wrap items-center justify-end gap-2 sm:flex-1 sm:gap-3 md:w-auto md:justify-end md:gap-4">
         <div className="flex w-full min-w-0 flex-col gap-1 rounded-md bg-muted p-1 sm:w-auto sm:flex-row sm:items-center">
-          <button
-            type="button"
-            onClick={() => toggleStore("streetwear")}
-            disabled={isPending}
-            aria-label="Switch to streetwear store"
-            className={`rounded-sm px-2 py-1.5 text-[10px] font-semibold uppercase tracking-wider transition-all sm:px-3 sm:text-xs ${
-              currentStore === "streetwear"
-                ? "bg-background text-foreground shadow-sm"
-                : "text-muted-foreground hover:text-foreground"
-            }`}
-          >
-            Streetwear
-          </button>
-          <button
-            type="button"
-            onClick={() => toggleStore("formal")}
-            disabled={isPending}
-            aria-label="Switch to classic store"
-            className={`rounded-sm px-2 py-1.5 text-[10px] font-semibold uppercase tracking-wider transition-all sm:px-3 sm:text-xs ${
-              currentStore === "formal"
-                ? "bg-background text-foreground shadow-sm"
-                : "text-muted-foreground hover:text-foreground"
-            }`}
-          >
-            Classic
-          </button>
+          {LISTING_STORES.map((store) => (
+            <button
+              key={store}
+              type="button"
+              onClick={() => toggleStore(store)}
+              disabled={isPending}
+              aria-label={`Switch to ${storeTypeLabelEn(store).toLowerCase()} store`}
+              aria-pressed={currentStore === store}
+              className={`cursor-pointer rounded-sm px-2 py-1.5 text-[10px] font-semibold uppercase tracking-wider transition-all sm:px-3 sm:text-xs ${
+                currentStore === store
+                  ? "bg-background text-foreground shadow-sm"
+                  : "text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              {storeTypeLabelEn(store)}
+            </button>
+          ))}
         </div>
 
         <button

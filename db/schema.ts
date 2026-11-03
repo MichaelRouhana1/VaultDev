@@ -24,17 +24,23 @@ export const categoryLevelEnum = pgEnum("category_level", [
   "sub",
 ]);
 
+/** `both` = Men's streetwear + formal only; Women content is always tagged `women`. */
 export const storeTypeEnum = pgEnum("store_type", [
   "streetwear",
   "formal",
   "both",
+  "women",
 ]);
 
-/** Products belong to exactly one storefront: streetwear OR formal (not `both`). */
+/** Products belong to exactly one storefront: streetwear, formal, or women (not `both`). */
 export const productListingStoreTypeEnum = pgEnum("product_listing_store_type", [
   "streetwear",
   "formal",
+  "women",
 ]);
+
+/** Entry screen (Men / Women) split images. */
+export const landingGenderEnum = pgEnum("landing_gender", ["men", "women"]);
 
 export const orderStatusEnum = pgEnum("order_status", [
   "PENDING",
@@ -512,6 +518,15 @@ export const heroImages = pgTable("hero_images", {
 export const landingImages = pgTable("landing_images", {
   id: serial("id").primaryKey(),
   storeType: storeTypeEnum("store_type").notNull().unique(),
+  imageUrl: text("image_url").notNull(),
+  mobileImageUrl: text("mobile_image_url"),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+// Entry screen gender selection images (Men / Women)
+export const genderLandingImages = pgTable("gender_landing_images", {
+  id: serial("id").primaryKey(),
+  gender: landingGenderEnum("gender").notNull().unique(),
   imageUrl: text("image_url").notNull(),
   mobileImageUrl: text("mobile_image_url"),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),

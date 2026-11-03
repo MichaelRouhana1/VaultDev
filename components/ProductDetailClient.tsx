@@ -43,7 +43,7 @@ interface ProductDetailClientProps {
   variantsByProductId: Record<number, ProductVariant[]>;
   wishlistProductIds: number[];
   /** From URL — used for bag / product links */
-  listStoreType: "streetwear" | "formal";
+  listStoreType: "streetwear" | "formal" | "women";
   productPageAccordionCopy: ProductPageAccordionResolved;
 }
 

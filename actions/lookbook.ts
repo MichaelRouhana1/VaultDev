@@ -9,6 +9,7 @@ import { validateHref, requireAdmin, requireAdminAction } from "@/lib/security";
 import { isTrustedR2PublicUrl } from "@/lib/r2-public-url";
 import { auditLog } from "@/lib/audit";
 import { z } from "zod";
+import { storeTypeSchema, type StoreType } from "@/lib/schemas";
 
 const LOOKBOOK_SECTION_KEY = "lookbook";
 
@@ -49,7 +50,7 @@ export async function setLookbookSectionVisible(visible: boolean) {
 export const getLookbookItems = cache(async (storeType?: string) => {
   const conditions = [eq(lookbookItems.isActive, true)];
   if (storeType) {
-    const validatedStore = z.enum(["streetwear", "formal"]).parse(storeType);
+    const validatedStore = z.enum(["streetwear", "formal", "women"]).parse(storeType);
     conditions.push(eq(lookbookItems.storeType, validatedStore));
   }
   return db
@@ -88,7 +89,7 @@ export async function updateLookbookItem(
     label?: string;
     href?: string;
     order?: number;
-    storeType?: "streetwear" | "formal" | "both";
+    storeType?: StoreType;
     /** Set a public URL for the mobile crop; omit to leave unchanged. Pass null to clear. */
     mobileImageUrl?: string | null;
   }
@@ -99,7 +100,7 @@ export async function updateLookbookItem(
     label: z.string().optional(),
     href: z.string().optional(),
     order: z.number().int().optional(),
-    storeType: z.enum(["streetwear", "formal", "both"]).optional(),
+    storeType: storeTypeSchema.optional(),
     mobileImageUrl: z.union([z.string().url(), z.null()]).optional(),
   });
   const parsedData = updateSchema.parse(data);
@@ -208,7 +209,7 @@ export async function addLookbookItemFromFile(formData: FormData): Promise<{ err
 
   const addSchema = z.object({
     label: z.string().min(1),
-    storeType: z.enum(["streetwear", "formal", "both"]).default("both"),
+    storeType: storeTypeSchema.default("both"),
   });
 
   const parsedData = addSchema.safeParse({
@@ -270,7 +271,7 @@ export async function addLookbookItemFromFile(formData: FormData): Promise<{ err
 export async function addLookbookItemFromPayload(input: {
   label: string;
   href: string;
-  storeType: "streetwear" | "formal" | "both";
+  storeType: StoreType;
   imageUrl: string;
   mobileImageUrl: string | null;
 }): Promise<{ error?: string }> {
@@ -281,7 +282,7 @@ export async function addLookbookItemFromPayload(input: {
   const schema = z.object({
     label: z.string().min(1),
     href: z.string(),
-    storeType: z.enum(["streetwear", "formal", "both"]),
+    storeType: storeTypeSchema,
     imageUrl: z.string().url(),
     mobileImageUrl: z.union([z.string().url(), z.null()]),
   });

@@ -19,6 +19,8 @@ import { toast } from "sonner";
 import { adminImageDropzoneAccept } from "@/lib/image-upload-accept";
 import { MAX_IMAGE_UPLOAD_BYTES } from "@/lib/image-upload-limits";
 import { adminListingStoreTypeLabel } from "@/lib/store-type-display";
+import { isStoreScopeValue, type ListingStore, type StoreScopeValue } from "@/lib/store-scope";
+import { StoreScopeOptions } from "@/components/admin/StoreScopeOptions";
 import { uploadImageFileViaPresign } from "@/lib/upload-image-presigned-client";
 
 /** Same as product card / ProductImageUpload. */
@@ -26,7 +28,7 @@ const COLLECTION_COVER_ASPECT = 2 / 3;
 
 interface CollectionsAdminClientProps {
   collections: CollectionRow[];
-  initialStoreType: "streetwear" | "formal";
+  initialStoreType: ListingStore;
 }
 
 export function CollectionsAdminClient({
@@ -47,7 +49,7 @@ export function CollectionsAdminClient({
   const [formName, setFormName] = useState("");
   const [formSlug, setFormSlug] = useState("");
   const [formDescription, setFormDescription] = useState("");
-  const [formStoreType, setFormStoreType] = useState<"streetwear" | "formal" | "both">("streetwear");
+  const [formStoreType, setFormStoreType] = useState<StoreScopeValue>(initialStoreType);
   const [formImage, setFormImage] = useState<File | null>(null);
   const [cropObjectUrl, setCropObjectUrl] = useState<string | null>(null);
 
@@ -55,7 +57,7 @@ export function CollectionsAdminClient({
     setFormName("");
     setFormSlug("");
     setFormDescription("");
-    setFormStoreType(initialStoreType === "formal" ? "formal" : "streetwear");
+    setFormStoreType(initialStoreType);
     setFormImage(null);
     setCropObjectUrl((prev) => {
       if (prev) URL.revokeObjectURL(prev);
@@ -68,7 +70,7 @@ export function CollectionsAdminClient({
 
   const startAdd = () => {
     resetForm();
-    setFormStoreType(initialStoreType === "formal" ? "formal" : "streetwear");
+    setFormStoreType(initialStoreType);
     setAdding(true);
   };
 
@@ -77,7 +79,7 @@ export function CollectionsAdminClient({
     setFormName(c.name);
     setFormSlug(c.slug);
     setFormDescription(c.description ?? "");
-    setFormStoreType((c.storeType ?? "streetwear") as "streetwear" | "formal" | "both");
+    setFormStoreType(isStoreScopeValue(c.storeType) ? c.storeType : "streetwear");
     setEditingId(c.id);
   };
 
@@ -214,12 +216,12 @@ export function CollectionsAdminClient({
             <select
               id="c-store"
               value={formStoreType}
-              onChange={(e) => setFormStoreType(e.target.value as "streetwear" | "formal" | "both")}
+              onChange={(e) => {
+                if (isStoreScopeValue(e.target.value)) setFormStoreType(e.target.value);
+              }}
               className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
             >
-              <option value="streetwear">Streetwear</option>
-              <option value="formal">Classic</option>
-              <option value="both">Both</option>
+              <StoreScopeOptions />
             </select>
           </div>
           <div className="space-y-2">

@@ -19,6 +19,7 @@ import {
 import { storefrontLocaleFromParam } from "@/lib/storefront-product-locale";
 import { shopListingNavKeyFromState } from "@/lib/shop-listing-nav-key";
 import { notFound } from "next/navigation";
+import { isListingStore, type ListingStore } from "@/lib/store-scope";
 
 interface ShopPageProps {
   params: Promise<{ locale: string; storeType: string }>;
@@ -27,15 +28,27 @@ interface ShopPageProps {
 
 import type { Metadata } from "next";
 
+const SHOP_META: Record<ListingStore, { title: string; description: string }> = {
+  streetwear: {
+    title: "Shop Streetwear",
+    description: "Browse our streetwear catalog. Modern hoodies, tees, and statement pieces for urban culture.",
+  },
+  formal: {
+    title: "Shop Classic",
+    description:
+      "Explore our classic wear catalog. Bespoke trousers, blazers, and shirts for an elegant, confident look.",
+  },
+  women: {
+    title: "Shop Women",
+    description: "Browse the VAULT women's catalog. Everyday essentials, statement pieces, and new arrivals.",
+  },
+};
+
 export async function generateMetadata({ params }: ShopPageProps): Promise<Metadata> {
   const { storeType } = await params;
-  const isStreetwear = storeType === "streetwear";
-  const title = isStreetwear ? "Shop Streetwear" : storeType === "formal" ? "Shop Classic" : "Shop";
-  const description = isStreetwear
-    ? "Browse our streetwear catalog. Modern hoodies, tees, and statement pieces for urban culture."
-    : storeType === "formal"
-      ? "Explore our classic wear catalog. Bespoke trousers, blazers, and shirts for an elegant, confident look."
-      : "Browse the complete VAULT catalog.";
+  const { title, description } = isListingStore(storeType)
+    ? SHOP_META[storeType]
+    : { title: "Shop", description: "Browse the complete VAULT catalog." };
 
   return {
     title: `VAULT | ${title}`,
@@ -56,6 +69,7 @@ export async function generateMetadata({ params }: ShopPageProps): Promise<Metad
 
 export default async function ShopPage({ params, searchParams }: ShopPageProps) {
   const { storeType, locale: localeParam } = await params;
+  if (!isListingStore(storeType)) notFound();
   const locale = storefrontLocaleFromParam(localeParam);
   const search = await searchParams;
   const cat = search.cat;
@@ -68,15 +82,9 @@ export default async function ShopPage({ params, searchParams }: ShopPageProps) 
     getStoreCategories(storeType),
   ]);
 
-  if (storeSlugs.length === 0 && (storeType === "streetwear" || storeType === "formal")) {
-    // Allow page load when categories are not seeded yet.
-  } else if (storeType !== "streetwear" && storeType !== "formal") {
-    notFound();
-  }
-
   const catFilter = cat && validSlugs.includes(cat) && storeSlugs.includes(cat);
 
-  const st = storeType as "streetwear" | "formal";
+  const st = storeType;
   const listingContext = {
     categorySlug: catFilter && cat ? cat : undefined,
     searchQuery: q ?? "",

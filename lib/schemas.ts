@@ -2,12 +2,12 @@ import { z } from "zod";
 import { formatProductNameTitleCase } from "@/lib/format-product-label";
 
 /** Store type values matching db schema storeTypeEnum */
-export const STORE_TYPE_VALUES = ["streetwear", "formal", "both"] as const;
+export const STORE_TYPE_VALUES = ["streetwear", "formal", "both", "women"] as const;
 export type StoreType = (typeof STORE_TYPE_VALUES)[number];
 export const storeTypeSchema = z.enum(STORE_TYPE_VALUES);
 
-/** Products may only list under streetwear or formal (see `product_listing_store_type`). */
-export const PRODUCT_LISTING_STORE_VALUES = ["streetwear", "formal"] as const;
+/** Products list under exactly one store (see `product_listing_store_type`). */
+export const PRODUCT_LISTING_STORE_VALUES = ["streetwear", "formal", "women"] as const;
 export const productListingStoreTypeSchema = z.enum(PRODUCT_LISTING_STORE_VALUES);
 
 export const collectionFormSchema = z.object({

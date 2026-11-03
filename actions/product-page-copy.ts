@@ -14,7 +14,7 @@ export type ProductPageAccordionResolved = {
   returnsText: string;
 };
 
-const storeSchema = z.enum(["streetwear", "formal"]);
+const storeSchema = z.enum(["streetwear", "formal", "women"]);
 
 const copySchema = z.object({
   shippingDelivery: z.string().max(12_000),
@@ -35,7 +35,7 @@ function resolveRow(row: {
 
 /** Resolved copy for storefront PDP accordion (per listing store). */
 export const getProductPageAccordionCopy = cache(
-  async (storeType: "streetwear" | "formal"): Promise<ProductPageAccordionResolved> => {
+  async (storeType: "streetwear" | "formal" | "women"): Promise<ProductPageAccordionResolved> => {
     const st = storeSchema.parse(storeType);
     const [row] = await db
       .select()

@@ -28,6 +28,7 @@ import {
 import { buildOptionCombos, comboKey } from "@/lib/product-variant-matrix";
 import { uploadImageFileViaPresign } from "@/lib/upload-image-presigned-client";
 import type { ProductFormCategoryTree } from "@/actions/categories";
+import type { ListingStore } from "@/lib/store-scope";
 import type { AttributeWithValues } from "@/actions/attributes";
 
 const SIZES = ["XS", "S", "M", "L", "XL"] as const;
@@ -58,13 +59,13 @@ export function CreateProductForm({
   attributesWithValues,
   initialStoreType = "streetwear",
 }: {
-  categoryTrees: Record<"streetwear" | "formal", ProductFormCategoryTree>;
-  collectionsByStore: Record<"streetwear" | "formal", CollectionOption[]>;
+  categoryTrees: Record<ListingStore, ProductFormCategoryTree>;
+  collectionsByStore: Record<ListingStore, CollectionOption[]>;
   attributesWithValues: AttributeWithValues[];
-  initialStoreType?: "streetwear" | "formal";
+  initialStoreType?: ListingStore;
 }) {
   const router = useRouter();
-  const [listingStore, setListingStore] = useState<"streetwear" | "formal">(initialStoreType);
+  const [listingStore, setListingStore] = useState<ListingStore>(initialStoreType);
   const [collectionIds, setCollectionIds] = useState<number[]>([]);
   const skipClearCollectionsRef = useRef(true);
   useEffect(() => {

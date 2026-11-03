@@ -13,15 +13,16 @@ import { z } from "zod";
 import { collectionFormSchema } from "@/lib/schemas";
 import { logger } from "@/lib/logger";
 import { requireAdmin } from "@/lib/security";
+import { storeScopeFor, type ListingStore } from "@/lib/store-scope";
 
 export type CollectionRow = typeof collections.$inferSelect;
 
 export const getCollectionsForProductForm = cache(
-  async (storeType: "streetwear" | "formal"): Promise<CollectionRow[]> => {
+  async (storeType: ListingStore): Promise<CollectionRow[]> => {
     return db
       .select()
       .from(collections)
-      .where(inArray(collections.storeType, [storeType, "both"]))
+      .where(inArray(collections.storeType, storeScopeFor(storeType)))
       .orderBy(asc(collections.name));
   },
 );

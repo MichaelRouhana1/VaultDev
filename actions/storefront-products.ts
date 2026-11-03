@@ -27,7 +27,7 @@ import { buildProductSearchWhere } from "@/lib/product-search";
 import { listingProductColumns } from "@/lib/storefront-listing-columns";
 import { conditionProductsMatchCategorySlug } from "@/lib/shop-category-filter";
 import { withDbRetry } from "@/lib/utils";
-export type StoreTypeFilter = "streetwear" | "formal";
+export type StoreTypeFilter = "streetwear" | "formal" | "women";
 
 /** Coerce DB text for UI (same idea as `actions/attributes`). */
 function toUiString(value: unknown): string {

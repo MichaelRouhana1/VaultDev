@@ -18,12 +18,13 @@ import {
   saveProductPageAccordionCopy,
 } from "@/actions/product-page-copy";
 import { storeTypeLabelEn } from "@/lib/store-type-display";
+import type { ListingStore } from "@/lib/store-scope";
 
 const textareaClass =
   "border-input mt-1.5 min-h-[100px] w-full rounded-md border bg-transparent px-3 py-2 text-sm shadow-xs focus:outline-none focus:ring-2 focus:ring-ring";
 
 type Props = {
-  storeType: "streetwear" | "formal";
+  storeType: ListingStore;
 };
 
 export function ProductPageCopyButton({ storeType }: Props) {

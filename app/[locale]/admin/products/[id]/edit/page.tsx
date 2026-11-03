@@ -32,12 +32,24 @@ export default async function EditProductPage({
   ]);
 
   const firstColorImages = colors[0]?.imageUrls ?? [];
-  const [streetwear, formal, colSw, colFo, existingCollRows, attributesWithValues, initialAttributeValueIds] =
+  const [
+    streetwear,
+    formal,
+    women,
+    colSw,
+    colFo,
+    colWo,
+    existingCollRows,
+    attributesWithValues,
+    initialAttributeValueIds,
+  ] =
     await Promise.all([
       getProductFormCategoryTree("streetwear"),
       getProductFormCategoryTree("formal"),
+      getProductFormCategoryTree("women"),
       getCollectionsForProductForm("streetwear"),
       getCollectionsForProductForm("formal"),
+      getCollectionsForProductForm("women"),
       db
         .select({ collectionId: productCollections.collectionId })
         .from(productCollections)
@@ -45,10 +57,11 @@ export default async function EditProductPage({
       getAttributesWithValues(),
       getProductAttributeValueIds(productId),
     ]);
-  const categoryTrees = { streetwear, formal } as const;
+  const categoryTrees = { streetwear, formal, women } as const;
   const collectionsByStore = {
     streetwear: colSw.map((c) => ({ id: c.id, name: c.name, slug: c.slug })),
     formal: colFo.map((c) => ({ id: c.id, name: c.name, slug: c.slug })),
+    women: colWo.map((c) => ({ id: c.id, name: c.name, slug: c.slug })),
   } as const;
   const initialCollectionIds = existingCollRows.map((r) => r.collectionId);
   const productWithImages = {

@@ -17,6 +17,7 @@ import {
 import { storefrontLocaleFromParam } from "@/lib/storefront-product-locale";
 import { getProductPageAccordionCopy } from "@/actions/product-page-copy";
 import { getTranslations } from "next-intl/server";
+import { isListingStore } from "@/lib/store-scope";
 
 export async function generateMetadata({
   params,
@@ -45,7 +46,8 @@ export default async function ProductPage({
   const productId = parseInt(id, 10);
   if (isNaN(productId)) notFound();
 
-  const st = storeType as "streetwear" | "formal";
+  if (!isListingStore(storeType)) notFound();
+  const st = storeType;
   const [product] = await getPublicProductDetailForStore(productId, st, locale);
 
   if (!product || !product.isVisible || product.isArchived) notFound();

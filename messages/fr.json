@@ -14,6 +14,9 @@
     "dashboard": "Tableau de bord",
     "streetwear": "Streetwear",
     "formal": "Classique",
+    "women": "Femme",
+    "men": "Homme",
+    "genderSelectionAria": "Femme ou homme",
     "search": "Recherche",
     "bag": "Sac",
     "bagWithCount": "Sac ({count})",
@@ -106,7 +109,14 @@
     "formal": "Classique",
     "enterStore": "Entrer",
     "altStreetwear": "Catégorie streetwear",
-    "altFormal": "Catégorie tenue classique"
+    "altFormal": "Catégorie tenue classique",
+    "selectGender": "Boutique",
+    "men": "Homme",
+    "women": "Femme",
+    "altMen": "Collection homme",
+    "altWomen": "Collection femme",
+    "back": "Retour",
+    "backAria": "Retour au choix Femme ou Homme"
   },
   "LookbookSection": {
     "title": "Adoptez le look"

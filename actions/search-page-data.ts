@@ -21,6 +21,7 @@ import { categories, productColors, products } from "@/db/schema";
 import type { ProductColor, ProductVariant } from "@/db/schema";
 import { buildProductSearchWhere, getFormattedPrefixTsquery } from "@/lib/product-search";
 import { localizedProductName } from "@/lib/storefront-product-locale";
+import type { ListingStore } from "@/lib/store-scope";
 
 /** First paint: 10 rows × 4 cols on `md`. Subsequent pages: 6 rows × 4 cols. */
 const SEARCH_INITIAL_LIMIT = 40;
@@ -46,7 +47,7 @@ export type SearchProductCardRow = {
   isSaleActive: boolean;
   saleStartsAt: Date | null;
   saleEndsAt: Date | null;
-  storeType: "streetwear" | "formal";
+  storeType: ListingStore;
   mainCategoryId: number;
   images: string[];
 };
@@ -95,7 +96,7 @@ function toCardRows(
     saleStartsAt: Date | null;
     saleEndsAt: Date | null;
     isSaleActive: boolean;
-    storeType: "streetwear" | "formal";
+    storeType: ListingStore;
     mainCategoryId: number;
     categorySlug: string;
   }[],
@@ -350,10 +351,13 @@ export async function loadSearchRecommendations(locale: MosaikLocale): Promise<S
 export type SearchFilterWave1 = {
   facetsSt: AttributeFilterSection[];
   facetsFo: AttributeFilterSection[];
+  facetsWo: AttributeFilterSection[];
   idsSt: number[];
   idsFo: number[];
+  idsWo: number[];
   catsSt: ProductCategory[];
   catsFo: ProductCategory[];
+  catsWo: ProductCategory[];
 };
 
 export async function loadSearchFilterWave1(query: string): Promise<SearchFilterWave1> {
@@ -362,21 +366,27 @@ export async function loadSearchFilterWave1(query: string): Promise<SearchFilter
     return {
       facetsSt: [],
       facetsFo: [],
+      facetsWo: [],
       idsSt: [],
       idsFo: [],
+      idsWo: [],
       catsSt: [],
       catsFo: [],
+      catsWo: [],
     };
   }
-  const [facetsSt, facetsFo, idsSt, idsFo, catsSt, catsFo] = await Promise.all([
+  const [facetsSt, facetsFo, facetsWo, idsSt, idsFo, idsWo, catsSt, catsFo, catsWo] = await Promise.all([
     getShopAttributeFacetsForListingContext("streetwear", { searchQuery: q }),
     getShopAttributeFacetsForListingContext("formal", { searchQuery: q }),
+    getShopAttributeFacetsForListingContext("women", { searchQuery: q }),
     getShopProductIdsForListingContext("streetwear", { searchQuery: q }),
     getShopProductIdsForListingContext("formal", { searchQuery: q }),
+    getShopProductIdsForListingContext("women", { searchQuery: q }),
     getStoreCategories("streetwear"),
     getStoreCategories("formal"),
+    getStoreCategories("women"),
   ]);
-  return { facetsSt, facetsFo, idsSt, idsFo, catsSt, catsFo };
+  return { facetsSt, facetsFo, facetsWo, idsSt, idsFo, idsWo, catsSt, catsFo, catsWo };
 }
 
 const EMPTY_SEARCH_PAGE_FILTER_CONTEXT: SearchPageFilterContext = {
@@ -397,9 +407,9 @@ export async function buildSearchPageFilterContext(
   const q = query.trim();
   if (!q) return { ...EMPTY_SEARCH_PAGE_FILTER_CONTEXT };
 
-  const { facetsSt, facetsFo, idsSt, idsFo, catsSt, catsFo } = wave1;
+  const { facetsSt, facetsFo, facetsWo, idsSt, idsFo, idsWo, catsSt, catsFo, catsWo } = wave1;
   const loadedIds = [...new Set(loadedProductIds.filter((id) => Number.isFinite(id)))];
-  const facetIds = [...new Set([...idsSt, ...idsFo])];
+  const facetIds = [...new Set([...idsSt, ...idsFo, ...idsWo])];
 
   const [facetVariants, facetColors, tags, attrSlugs] = await Promise.all([
     facetIds.length > 0 ? getProductVariantsByProductIds(facetIds) : Promise.resolve([] as ProductVariant[]),
@@ -412,8 +422,8 @@ export async function buildSearchPageFilterContext(
       : Promise.resolve({} as Record<number, string[]>),
   ]);
 
-  const mergedFacets = mergeAttributeSections(facetsSt, facetsFo);
-  const mergedCats = mergeStoreCategories(catsSt, catsFo);
+  const mergedFacets = mergeAttributeSections(mergeAttributeSections(facetsSt, facetsFo), facetsWo);
+  const mergedCats = mergeStoreCategories(mergeStoreCategories(catsSt, catsFo), catsWo);
 
   const sizes = new Set<string>();
   for (const v of facetVariants) {
