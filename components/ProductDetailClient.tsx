@@ -181,14 +181,14 @@ export function ProductDetailClient({
   useEffect(() => {
     if (viewContentSentFor.current === product.id) return;
     viewContentSentFor.current = product.id;
-    trackMetaEvent("ViewContent", {
+    trackMetaEvent(listStoreType, "ViewContent", {
       content_ids: [String(product.id)],
       content_type: "product",
       content_name: product.name,
       value: metaMoney(parseFloat(displayPrice)),
       currency: META_PIXEL_CURRENCY,
     });
-  }, [product.id, product.name, displayPrice]);
+  }, [listStoreType, product.id, product.name, displayPrice]);
 
   const variantsForColor =
     selectedColor?.id != null

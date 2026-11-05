@@ -2,45 +2,41 @@
 
 import { usePathname, useSearchParams } from "next/navigation";
 import { useEffect } from "react";
-
-declare global {
-  interface Window {
-    fbq?: (...args: unknown[]) => void;
-  }
-}
+import { useCart } from "@/context/CartContext";
+import { shopsForPageView } from "@/lib/analytics/meta-pageview";
+import { trackMetaEvent } from "@/lib/analytics/meta-pixel-client";
+import { isMetaShop, metaShopsInOrder } from "@/lib/analytics/meta-pixels";
 
 /**
- * Fires `fbq('track','PageView')` on route changes (Next.js client-side navigations).
- * Initial loads are covered once `fbevents.js` has initialized `fbq`.
+ * Fires `fbq('trackSingle', pixelId, 'PageView')` for the shop that owns this URL.
+ * Bag and checkout notify only the shops with items in the bag.
  * Staff routes are skipped so admin browsing is not counted as shopper traffic.
  */
 export function MetaPixelRouteTracker() {
   const pathname = usePathname();
   const searchParams = useSearchParams();
+  const { items, cartHydrated } = useCart();
+  const search = searchParams.toString();
+  const shops = shopsForPageView({
+    pathname,
+    cartHydrated,
+    cartShops: metaShopsInOrder(
+      items.flatMap((item) => (isMetaShop(item.storeTypeForUrl) ? [item.storeTypeForUrl] : [])),
+    ),
+  });
+  const shopKey = shops == null ? "wait" : shops.join(",");
 
   useEffect(() => {
-    if (pathname.includes("/admin")) return;
+    if (pathname.includes("/admin") || shopKey === "wait" || shopKey === "") return;
 
-    let cancelled = false;
-    let attempts = 0;
-    const maxAttempts = 80;
-
-    const t = window.setInterval(() => {
-      if (cancelled) return;
-      attempts++;
-      if (typeof window.fbq === "function") {
-        window.fbq("track", "PageView");
-        window.clearInterval(t);
-      } else if (attempts >= maxAttempts) {
-        window.clearInterval(t);
-      }
-    }, 50);
-
+    const cancels = shopKey
+      .split(",")
+      .filter(isMetaShop)
+      .map((shop) => trackMetaEvent(shop, "PageView"));
     return () => {
-      cancelled = true;
-      window.clearInterval(t);
+      for (const cancel of cancels) cancel();
     };
-  }, [pathname, searchParams]);
+  }, [pathname, search, shopKey]);
 
   return null;
 }

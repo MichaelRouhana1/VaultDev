@@ -14,8 +14,9 @@ import {
 } from "@/components/ui/card";
 import { MetaPurchaseTracker } from "@/components/analytics/MetaPurchaseTracker";
 import { db } from "@/db";
-import { orderItems, orders } from "@/db/schema";
-import { metaMoney, type MetaContent } from "@/lib/analytics/meta-commerce";
+import { orderItems, orders, products } from "@/db/schema";
+import { splitMetaPurchase, type MetaShopPurchase } from "@/lib/analytics/meta-commerce";
+import { isMetaShop } from "@/lib/analytics/meta-pixels";
 import { clerkClient } from "@clerk/nextjs/server";
 import { clerkUserExistsForEmail } from "@/lib/clerk-user-lookup";
 import { linkGuestOrdersToUser } from "@/lib/link-guest-orders";
@@ -86,15 +87,7 @@ export default async function CheckoutSuccessPage() {
   }
 
   let displayOrderNumber: string | null = null;
-  let purchase:
-    | {
-        orderId: number;
-        value: number;
-        contentIds: string[];
-        contents: MetaContent[];
-        numItems: number;
-      }
-    | null = null;
+  let purchases: MetaShopPurchase[] = [];
   if (displayOrderId != null) {
     const [[row], lines] = await Promise.all([
       db
@@ -107,24 +100,28 @@ export default async function CheckoutSuccessPage() {
           productId: orderItems.productId,
           quantity: orderItems.quantity,
           priceAtPurchase: orderItems.priceAtPurchase,
+          storeType: products.storeType,
         })
         .from(orderItems)
+        .leftJoin(products, eq(orderItems.productId, products.id))
         .where(eq(orderItems.orderId, displayOrderId)),
     ]);
     displayOrderNumber = orderNumberOrFallback(row?.orderNumber, displayOrderId);
     if (row) {
-      const contents: MetaContent[] = lines.map((line) => ({
-        id: String(line.productId),
-        quantity: line.quantity,
-        item_price: metaMoney(parseFloat(String(line.priceAtPurchase))),
-      }));
-      purchase = {
-        orderId: displayOrderId,
-        value: metaMoney(parseFloat(String(row.totalAmount))),
-        contentIds: contents.map((line) => line.id),
-        contents,
-        numItems: contents.reduce((sum, line) => sum + line.quantity, 0),
-      };
+      purchases = splitMetaPurchase({
+        totalAmountUsd: parseFloat(String(row.totalAmount)),
+        lines: lines.flatMap((line) => {
+          if (!isMetaShop(line.storeType)) return [];
+          return [
+            {
+              shop: line.storeType,
+              id: String(line.productId),
+              quantity: line.quantity,
+              unitPrice: parseFloat(String(line.priceAtPurchase)),
+            },
+          ];
+        }),
+      });
     }
   }
 
@@ -146,15 +143,19 @@ export default async function CheckoutSuccessPage() {
 
   return (
     <div className="pt-14">
-      {purchase ? (
-        <MetaPurchaseTracker
-          orderId={purchase.orderId}
-          value={purchase.value}
-          contentIds={purchase.contentIds}
-          contents={purchase.contents}
-          numItems={purchase.numItems}
-        />
-      ) : null}
+      {displayOrderId != null
+        ? purchases.map((purchase) => (
+            <MetaPurchaseTracker
+              key={purchase.shop}
+              shop={purchase.shop}
+              orderId={displayOrderId}
+              value={purchase.value}
+              contentIds={purchase.contentIds}
+              contents={purchase.contents}
+              numItems={purchase.numItems}
+            />
+          ))
+        : null}
       <div className="container mx-auto flex max-w-lg flex-col items-center gap-8 px-4 py-16 text-center">
         <div className="space-y-4">
           <h1 className="text-2xl font-bold">{t("title")}</h1>

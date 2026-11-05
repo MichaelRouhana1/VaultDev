@@ -2,6 +2,7 @@
  * Single source of truth for third-party hosts used in CSP and Next/Image allowlists.
  * Prefer env-driven values (Supabase, R2) so staging/prod stay aligned.
  */
+import { hasAnyMetaPixel } from "../analytics/meta-pixels";
 
 /** Matches `images.remotePatterns` entries in next.config. */
 export type ImageRemotePattern = {
@@ -129,9 +130,9 @@ export function getUpstashRestOrigin(): string | null {
   return parseHttpsHostname(process.env.UPSTASH_REDIS_REST_URL);
 }
 
-/** Meta Pixel (see `components/analytics/MetaPixel.tsx`). CSP widened only when configured. */
+/** Meta Pixel (see `components/analytics/MetaPixel.tsx`). CSP widened only when a shop pixel is configured. */
 export function isMetaPixelEnabled(): boolean {
-  return Boolean(process.env.NEXT_PUBLIC_META_PIXEL_ID?.trim());
+  return hasAnyMetaPixel();
 }
 
 /** https:// + host for CSP (exact project) or wildcard fallback when env missing. */
@@ -212,7 +213,7 @@ function joinCspSources(parts: string[]): string {
  *
  * **Frames:** Stripe (`js.stripe.com`, `hooks.stripe.com`, Checkout), Clerk hosted flows, Cloudflare Turnstile.
  *
- * **Analytics:** When `NEXT_PUBLIC_META_PIXEL_ID` is set, `isMetaPixelEnabled()` adds Meta Pixel
+ * **Analytics:** When any `NEXT_PUBLIC_META_PIXEL_ID_*` shop id is set, `isMetaPixelEnabled()` adds Meta Pixel
  * origins: `script-src https://connect.facebook.net`; `img-src https://www.facebook.com` (the `/tr`
  * beacon); `connect-src https://www.facebook.com`, `https://connect.facebook.net`, and
  * `https://graph.facebook.com`. For other vendors (GTM, Plausible, etc.), extend CSP here (avoid `*`).

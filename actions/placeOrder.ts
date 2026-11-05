@@ -28,8 +28,9 @@ import {
 import { getLowStockThreshold } from "@/actions/inventory-settings";
 import { saveCheckoutAsDefaultAddress } from "@/actions/updateVaultProfile";
 import { TERMS_PRIVACY_CONSENT_ERROR_MESSAGE } from "@/lib/checkout-consent";
-import { metaMoney } from "@/lib/analytics/meta-commerce";
+import { splitMetaPurchase } from "@/lib/analytics/meta-commerce";
 import { sendMetaPurchase } from "@/lib/analytics/meta-capi";
+import { isMetaShop } from "@/lib/analytics/meta-pixels";
 
 const DEFAULT_SHIPPING_FEE = 5;
 
@@ -323,11 +324,21 @@ export async function placeOrder(
       quantity: v.quantity,
     }));
 
-    const purchaseContents = Array.from(variantQuantities.values()).map((line) => ({
-      id: String(line.productId),
-      quantity: line.quantity,
-      item_price: metaMoney(parseFloat(line.priceAtPurchase)),
-    }));
+    const metaPurchases = splitMetaPurchase({
+      totalAmountUsd: totalAmount,
+      lines: Array.from(variantQuantities.values()).flatMap((line) => {
+        const shop = productById[line.productId]?.storeType;
+        if (!isMetaShop(shop)) return [];
+        return [
+          {
+            shop,
+            id: String(line.productId),
+            quantity: line.quantity,
+            unitPrice: parseFloat(line.priceAtPurchase),
+          },
+        ];
+      }),
+    });
 
     return {
       orderId: order.id,
@@ -336,7 +347,7 @@ export async function placeOrder(
       guestEmail,
       activationToken,
       lineItems,
-      purchaseContents,
+      metaPurchases,
     };
   });
 
@@ -368,21 +379,24 @@ export async function placeOrder(
     });
   }
 
-  void sendMetaPurchase({
-    orderId: orderResult.orderId,
-    totalAmountUsd: orderResult.totalAmount,
-    contents: orderResult.purchaseContents,
-    email: orderResult.guestEmail,
-    phone: phoneNumber,
-    customerName,
-    city,
-    externalId: userId ?? null,
-    clientIpAddress: ip,
-    clientUserAgent: headersList.get("user-agent"),
-    eventSourceUrl: headersList.get("referer"),
-    fbp: cookieStore.get("_fbp")?.value ?? null,
-    fbc: cookieStore.get("_fbc")?.value ?? null,
-  });
+  for (const share of orderResult.metaPurchases) {
+    void sendMetaPurchase({
+      orderId: orderResult.orderId,
+      shop: share.shop,
+      totalAmountUsd: share.value.toFixed(2),
+      contents: share.contents,
+      email: orderResult.guestEmail,
+      phone: phoneNumber,
+      customerName,
+      city,
+      externalId: userId ?? null,
+      clientIpAddress: ip,
+      clientUserAgent: headersList.get("user-agent"),
+      eventSourceUrl: headersList.get("referer"),
+      fbp: cookieStore.get("_fbp")?.value ?? null,
+      fbc: cookieStore.get("_fbc")?.value ?? null,
+    });
+  }
 
   void sendNewOrderStaffEmail({
     orderId: orderResult.orderId,

@@ -11,6 +11,7 @@ import { LandingAwareSiteFooter } from "@/components/storefront/LandingAwareSite
 import { ShopListingNavProvider } from "@/components/storefront/ShopListingNavContext";
 import { MetaPixel } from "@/components/analytics/MetaPixel";
 import { MetaPixelRouteTracker } from "@/components/analytics/MetaPixelRouteTracker";
+import { configuredMetaPixelIds } from "@/lib/analytics/meta-pixels";
 
 /** Middleware sets `x-nonce`; Next may expose it as `x-middleware-request-x-nonce` to `headers()`. */
 function resolveCspNonce(headersList: Headers): string | undefined {
@@ -38,7 +39,7 @@ export default async function StorefrontLayout({
   const tLayout = await getTranslations("Layout");
   const headersList = await headers();
   const nonce = resolveCspNonce(headersList);
-  const metaPixelId = process.env.NEXT_PUBLIC_META_PIXEL_ID?.trim();
+  const metaPixelIds = configuredMetaPixelIds();
 
   return (
     <WishlistProvider>
@@ -57,9 +58,9 @@ export default async function StorefrontLayout({
               <div id="main-content">{children}</div>
               <LandingAwareSiteFooter />
             </GateHandoffLayer>
-            {metaPixelId ? (
+            {metaPixelIds.length > 0 ? (
               <>
-                <MetaPixel pixelId={metaPixelId} nonce={nonce} />
+                <MetaPixel pixelIds={metaPixelIds} nonce={nonce} />
                 <Suspense fallback={null}>
                   <MetaPixelRouteTracker />
                 </Suspense>

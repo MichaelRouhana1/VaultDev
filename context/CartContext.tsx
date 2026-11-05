@@ -11,6 +11,7 @@ import {
 import { useAuth } from "@clerk/nextjs";
 import { META_PIXEL_CURRENCY, metaLineValue, metaMoney } from "@/lib/analytics/meta-commerce";
 import { trackMetaEvent } from "@/lib/analytics/meta-pixel-client";
+import { isMetaShop } from "@/lib/analytics/meta-pixels";
 
 function getCartKey(userId: string | null | undefined): string {
   return `vault_cart_${userId ?? "guest"}`;
@@ -103,21 +104,23 @@ export function CartProvider({ children }: { children: ReactNode }) {
     (item: Omit<CartItemDisplay, "sku"> & { sku?: string }) => {
       const sku = item.sku ?? getCartItemSku(item.productId, item.size);
       const unit = parseFloat(item.priceAtPurchase);
-      trackMetaEvent("AddToCart", {
-        content_ids: [String(item.productId)],
-        content_type: "product",
-        content_name: item.productName,
-        value: metaLineValue(item.priceAtPurchase, item.quantity),
-        currency: META_PIXEL_CURRENCY,
-        contents: [
-          {
-            id: String(item.productId),
-            quantity: item.quantity,
-            item_price: metaMoney(unit),
-          },
-        ],
-        num_items: item.quantity,
-      });
+      if (isMetaShop(item.storeTypeForUrl)) {
+        trackMetaEvent(item.storeTypeForUrl, "AddToCart", {
+          content_ids: [String(item.productId)],
+          content_type: "product",
+          content_name: item.productName,
+          value: metaLineValue(item.priceAtPurchase, item.quantity),
+          currency: META_PIXEL_CURRENCY,
+          contents: [
+            {
+              id: String(item.productId),
+              quantity: item.quantity,
+              item_price: metaMoney(unit),
+            },
+          ],
+          num_items: item.quantity,
+        });
+      }
       setItems((prev) => {
         const existing = prev.find((i) => i.sku === sku);
         const next = existing

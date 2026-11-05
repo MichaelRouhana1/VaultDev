@@ -32,6 +32,7 @@ import {
 import { toast } from "sonner";
 import { META_PIXEL_CURRENCY, metaLineValue, metaMoney } from "@/lib/analytics/meta-commerce";
 import { trackMetaEvent } from "@/lib/analytics/meta-pixel-client";
+import { isMetaShop, metaShopsInOrder, type MetaShop } from "@/lib/analytics/meta-pixels";
 
 const DEFAULT_SHIPPING_FEE = 5;
 
@@ -194,23 +195,33 @@ export function CheckoutForm() {
     if (!cartHydrated || items.length === 0 || state?.orderId) return;
     if (checkoutTracked.current) return;
     checkoutTracked.current = true;
-    const contents = items.map((item) => ({
-      id: String(item.productId),
-      quantity: item.quantity,
-      item_price: metaMoney(parseFloat(item.priceAtPurchase)),
-    }));
-    const value = items.reduce(
-      (sum, item) => sum + metaLineValue(item.priceAtPurchase, item.quantity),
-      0,
-    );
-    trackMetaEvent("InitiateCheckout", {
-      content_ids: contents.map((line) => line.id),
-      content_type: "product",
-      contents,
-      num_items: items.reduce((sum, item) => sum + item.quantity, 0),
-      value: metaMoney(value),
-      currency: META_PIXEL_CURRENCY,
-    });
+    const byShop = new Map<MetaShop, typeof items>();
+    for (const item of items) {
+      if (!isMetaShop(item.storeTypeForUrl)) continue;
+      const list = byShop.get(item.storeTypeForUrl) ?? [];
+      list.push(item);
+      byShop.set(item.storeTypeForUrl, list);
+    }
+    for (const shop of metaShopsInOrder(byShop.keys())) {
+      const lines = byShop.get(shop) ?? [];
+      const contents = lines.map((item) => ({
+        id: String(item.productId),
+        quantity: item.quantity,
+        item_price: metaMoney(parseFloat(item.priceAtPurchase)),
+      }));
+      const value = lines.reduce(
+        (sum, item) => sum + metaLineValue(item.priceAtPurchase, item.quantity),
+        0,
+      );
+      trackMetaEvent(shop, "InitiateCheckout", {
+        content_ids: contents.map((line) => line.id),
+        content_type: "product",
+        contents,
+        num_items: lines.reduce((sum, item) => sum + item.quantity, 0),
+        value: metaMoney(value),
+        currency: META_PIXEL_CURRENCY,
+      });
+    }
   }, [cartHydrated, items, state?.orderId]);
 
   if (state?.orderId) {

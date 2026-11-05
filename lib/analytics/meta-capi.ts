@@ -6,12 +6,14 @@ import {
   metaPurchaseEventId,
   type MetaContent,
 } from "@/lib/analytics/meta-commerce";
+import { metaPixelIdForShop, type MetaShop } from "@/lib/analytics/meta-pixels";
 
 const GRAPH_VERSION = "v21.0";
 
 export type MetaPurchaseInput = {
   orderId: number;
-  /** Order total in USD, after discount and shipping. */
+  shop: MetaShop;
+  /** This shop's share of the charged total, in USD. */
   totalAmountUsd: string;
   contents: MetaContent[];
   email?: string | null;
@@ -78,14 +80,30 @@ function absoluteHttpUrl(value: string | null | undefined): string | undefined {
   }
 }
 
+function capiTokenForShop(shop: MetaShop): string | null {
+  const value = (() => {
+    switch (shop) {
+      case "women":
+        return process.env.META_CAPI_ACCESS_TOKEN_WOMEN;
+      case "streetwear":
+        return process.env.META_CAPI_ACCESS_TOKEN_STREETWEAR;
+      case "formal":
+        return process.env.META_CAPI_ACCESS_TOKEN_FORMAL;
+    }
+  })();
+  const token = value?.trim();
+  return token ? token : null;
+}
+
 /**
- * Server Purchase for the Conversions API. Same `event_id` as the browser pixel
- * so Meta counts the order once. Never throws; skips when the token or pixel id is unset.
+ * Server Purchase for one shop's Conversions API pixel. Same `event_id` as that
+ * shop's browser Purchase so Meta counts the sale once. Never throws; skips when
+ * that shop's token or pixel id is unset.
  */
 export async function sendMetaPurchase(input: MetaPurchaseInput): Promise<void> {
-  const pixelId = process.env.NEXT_PUBLIC_META_PIXEL_ID?.trim();
-  const accessToken = process.env.META_CAPI_ACCESS_TOKEN?.trim();
-  if (!pixelId || !/^\d+$/.test(pixelId) || !accessToken) return;
+  const pixelId = metaPixelIdForShop(input.shop);
+  const accessToken = capiTokenForShop(input.shop);
+  if (!pixelId || !accessToken) return;
 
   const name = splitName(input.customerName);
   const userData: Record<string, string | string[]> = {};
@@ -114,7 +132,7 @@ export async function sendMetaPurchase(input: MetaPurchaseInput): Promise<void> 
   const event: Record<string, unknown> = {
     event_name: "Purchase",
     event_time: Math.floor(Date.now() / 1000),
-    event_id: metaPurchaseEventId(input.orderId),
+    event_id: metaPurchaseEventId(input.orderId, input.shop),
     action_source: "website",
     user_data: userData,
     custom_data: {
