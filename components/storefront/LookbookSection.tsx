@@ -29,6 +29,8 @@ export async function LookbookSection({ items }: { items: LookbookItemData[] }) 
                 className="absolute inset-0 block h-full w-full"
                 imgClassName="h-full w-full object-cover transition-transform duration-200 ease-out group-hover:scale-[1.02]"
                 loading="lazy"
+                sizes="(min-width: 1448px) 264px, (min-width: 1024px) calc((100vw - 128px) / 5), (min-width: 640px) calc((100vw - 88px) / 3), calc((100vw - 68px) / 2)"
+                widths={[400, 800]}
               />
             </div>
             <p className="text-sm font-normal text-foreground">{item.label}</p>

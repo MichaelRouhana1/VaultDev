@@ -3,6 +3,7 @@
  * Prefer env-driven values (Supabase, R2) so staging/prod stay aligned.
  */
 import { hasAnyMetaPixel } from "../analytics/meta-pixels";
+import { IMAGE_TRANSFORM_BASE, PRODUCT_IMAGE_ORIGIN } from "../cf-image";
 
 /** Matches `images.remotePatterns` entries in next.config. */
 export type ImageRemotePattern = {
@@ -261,6 +262,8 @@ export function buildContentSecurityPolicy(nonce: string): string {
   const imgSrc = joinCspSources([
     "'self'",
     "blob:",
+    IMAGE_TRANSFORM_BASE,
+    PRODUCT_IMAGE_ORIGIN,
     ...getSupabaseCspImgSources(),
     `https://${PEXELS_HOST}`,
     `https://${CLERK_IMG_HOST}`,

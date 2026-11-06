@@ -259,6 +259,11 @@ export function HeroCarousel({ images }: HeroCarouselProps) {
                   className="pointer-events-none block h-full w-full"
                   imgClassName="h-full w-full object-cover pointer-events-none"
                   fetchPriority={i === 0 ? "high" : undefined}
+                  loading={i === 0 ? "eager" : "lazy"}
+                  sizes="100vw"
+                  widths={[1200, 1920, 2400]}
+                  mobileWidths={[800, 1200]}
+                  quality={85}
                 />
               </div>
             ))}

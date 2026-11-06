@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import Image from "next/image";
 import { useTranslations } from "next-intl";
 import { Link, usePathname } from "@/i18n/navigation";
 import { useCart } from "@/context/CartContext";
@@ -9,6 +8,7 @@ import { useCurrency } from "@/context/CurrencyContext";
 import { useWishlist } from "@/context/WishlistContext";
 import { ShoppingBag } from "lucide-react";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
+import { ProductImage } from "@/components/storefront/ProductImage";
 import {
   cn,
   getProductDisplayPrice,
@@ -69,6 +69,7 @@ export function ProductCard({
   const productUrl = `/${listStoreType}/product/${product.id}`;
   const wishlistState = hasHydrated ? isInWishlist(product.id) : inWishlist;
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
+  const [failedImage, setFailedImage] = useState<string | null>(null);
   const [selectedColorIndex, setSelectedColorIndex] = useState(0);
   const [mobileSizeSheetOpen, setMobileSizeSheetOpen] = useState(false);
   const [mobileAddedToast, setMobileAddedToast] = useState<{
@@ -244,8 +245,9 @@ export function ProductCard({
               {t("saveBadge", { amount: formatPrice(saveAmountUsd) })}
             </span>
           )}
-          {currentImage ? (
-            <Image
+          {currentImage && currentImage !== failedImage ? (
+            <ProductImage
+              key={currentImage}
               src={currentImage}
               alt={product.description ? `${product.name} - ${product.description}` : product.name}
               fill
@@ -259,7 +261,7 @@ export function ProductCard({
                   ? "(max-width: 768px) 34vw, (max-width: 1200px) 20vw, 17vw"
                   : "(max-width: 768px) 50vw, (max-width: 1200px) 33vw, 25vw"
               }
-
+              onError={() => setFailedImage(currentImage)}
             />
           ) : (
             <div className="flex h-full w-full items-center justify-center text-muted-foreground">
@@ -413,22 +415,9 @@ export function ProductCard({
                           isSelected &&
                             "ring-1 ring-foreground ring-offset-0.5 ring-offset-background",
                         )}
-                        style={
-                          thumb
-                            ? {
-                                backgroundImage: `url(${thumb})`,
-                                backgroundSize: "cover",
-                                backgroundPosition: "center",
-                              }
-                            : {
-                                backgroundColor:
-                                  color.hexCode ?? "var(--muted)",
-                              }
-                        }
+                        style={{ backgroundColor: color.hexCode ?? "var(--muted)" }}
                       >
-                        {!thumb && !color.hexCode ? (
-                          <span className="absolute inset-0 block bg-muted" />
-                        ) : null}
+                        {thumb && <ProductImage variant="thumbnail" src={thumb} alt="" fill className="object-cover" />}
                       </span>
                     </button>
                   );
@@ -491,7 +480,8 @@ export function ProductCard({
                   }
                 >
                   {!activeColor?.hexCode && activeColor?.imageUrls?.[0] && (
-                    <Image
+                    <ProductImage
+                      variant="thumbnail"
                       src={activeColor.imageUrls[0]}
                       alt=""
                       fill
@@ -568,7 +558,8 @@ export function ProductCard({
             <div className="flex min-w-0 flex-1 items-center gap-2">
               <div className="relative h-10 w-8 shrink-0 overflow-hidden bg-muted">
                 {mobileAddedToast.thumb ? (
-                  <Image
+                  <ProductImage
+                    variant="thumbnail"
                     src={mobileAddedToast.thumb}
                     alt=""
                     fill

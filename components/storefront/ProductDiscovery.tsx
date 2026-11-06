@@ -1,7 +1,8 @@
 "use client";
 
 import { Link } from "@/i18n/navigation";
-import Image from "next/image";
+import { StorefrontImage } from "@/components/storefront/StorefrontImage";
+import { ProductImage } from "@/components/storefront/ProductImage";
 import { useTranslations } from "next-intl";
 import { useCurrency } from "@/context/CurrencyContext";
 import { Carousel, CarouselContent, CarouselItem } from "@/components/ui/carousel";
@@ -50,6 +51,7 @@ export function ProductDiscovery({ products, currentStoreType, fallbackImage }: 
                     <CarouselContent className="gap-8">
                         {products.map((product) => {
                             const imageUrl = product.images?.[0] ?? fallbackImage;
+                            const TileImage = product.images?.[0] ? ProductImage : StorefrontImage;
                             const itemStoreType = product.storeType || currentStoreType;
                             return (
                                 <CarouselItem key={product.id} className="basis-[220px] shrink-0 grow-0 pl-0">
@@ -64,7 +66,7 @@ export function ProductDiscovery({ products, currentStoreType, fallbackImage }: 
                                                     {t("saveBadge", { amount: formatPrice(product.saveAmountUsd) })}
                                                 </span>
                                             )}
-                                            <Image
+                                            <TileImage
                                                 src={imageUrl}
                                                 alt={
                                                     product.description
@@ -72,6 +74,7 @@ export function ProductDiscovery({ products, currentStoreType, fallbackImage }: 
                                                         : product.name
                                                 }
                                                 fill
+                                                sizes="220px"
                                                 className="object-cover transition-transform duration-200 ease-out group-hover:scale-[1.02]"
                                             />
                                         </div>
