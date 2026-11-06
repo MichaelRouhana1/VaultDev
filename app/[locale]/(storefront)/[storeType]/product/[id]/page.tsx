@@ -1,10 +1,12 @@
 import { notFound } from "next/navigation";
-import { Link } from "@/i18n/navigation";
 import { eq } from "drizzle-orm";
 import { auth } from "@clerk/nextjs/server";
 import { db } from "@/db";
 import { productVariants, wishlists } from "@/db/schema";
 import { ProductDetailClient } from "@/components/ProductDetailClient";
+import { OldProductDetailClient } from "@/components/storefront/OldProductDetailClient";
+import { Link } from "@/i18n/navigation";
+import { getTranslations } from "next-intl/server";
 import type { Metadata } from "next";
 import {
   getPublicProductTitleForMetadata,
@@ -16,7 +18,7 @@ import {
 } from "@/actions/storefront-products";
 import { storefrontLocaleFromParam } from "@/lib/storefront-product-locale";
 import { getProductPageAccordionCopy } from "@/actions/product-page-copy";
-import { getTranslations } from "next-intl/server";
+import { getProductPageLayout } from "@/actions/product-page-layout";
 import { isListingStore } from "@/lib/store-scope";
 
 export async function generateMetadata({
@@ -52,17 +54,17 @@ export default async function ProductPage({
 
   if (!product || !product.isVisible || product.isArchived) notFound();
 
-  const tNav = await getTranslations({ locale: localeParam, namespace: "Navbar" });
 
-  const [variants, colors] = await Promise.all([
+  const [variants, colors, layout, productPageAccordionCopy] = await Promise.all([
     getProductVariantsByProductIds([product.id]),
     getProductColorsByProductIds([product.id]),
+    getProductPageLayout(),
+    getProductPageAccordionCopy(st),
   ]);
 
   const firstColorImages = colors[0]?.imageUrls ?? [];
   const productWithImages = { ...product, images: firstColorImages };
 
-  const primaryCategorySlug = await getPrimaryCategorySlugForProduct(productId);
   const similarProducts = await getSimilarVisibleProductsExcept(productId, st, locale, 30);
 
   const similarProductIds = similarProducts.map((p) => p.id);
@@ -105,24 +107,31 @@ export default async function ProductPage({
 
   const inWishlist = wishlistProductIds.includes(product.id);
 
-  const productPageAccordionCopy = await getProductPageAccordionCopy(st);
+  const isOld = layout === "old";
+  const [categorySlug, tNav] = isOld
+    ? await Promise.all([
+        getPrimaryCategorySlugForProduct(productId),
+        getTranslations({ locale, namespace: "Navbar" }),
+      ])
+    : [null, null];
+  const ProductDetails = isOld ? OldProductDetailClient : ProductDetailClient;
 
   return (
-    <div className="pt-14">
-      <div className="mb-6 flex items-center gap-2 px-6 pt-4 text-sm text-muted-foreground md:pt-5">
-        <Link href="/" className="hover:text-foreground">Home</Link>
-        <span>/</span>
-        <Link href={`/${storeType}/shop`} className="hover:text-foreground">
-          {tNav(st)}
-        </Link>
-        {primaryCategorySlug && (
-          <>
-            <span>/</span>
-            <span className="text-foreground capitalize">{primaryCategorySlug.replace(/-/g, " ")}</span>
-          </>
-        )}
-      </div>
-      <ProductDetailClient
+    <div className={isOld ? "pt-14" : "md:pt-14"} data-product-page-layout={layout}>
+      {isOld && tNav && (
+        <nav aria-label={tNav(st)} className="mb-6 flex items-center gap-2 px-6 pt-4 text-sm text-muted-foreground md:pt-5">
+          <Link href="/" className="hover:text-foreground">{tNav("home")}</Link>
+          <span aria-hidden>/</span>
+          <Link href={`/${st}/shop`} className="hover:text-foreground">{tNav(st)}</Link>
+          {categorySlug && (
+            <>
+              <span aria-hidden>/</span>
+              <span className="capitalize text-foreground">{categorySlug.replace(/-/g, " ")}</span>
+            </>
+          )}
+        </nav>
+      )}
+      <ProductDetails
         product={productWithImages}
         variants={variants}
         colors={colors}

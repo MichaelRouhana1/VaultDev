@@ -5,6 +5,8 @@ import { sql, desc, gte, eq } from "drizzle-orm";
 import { getAdminStoreType } from "@/actions/admin-store";
 import { getStorefrontExchangeRatesFromDb } from "@/lib/storefront-exchange-rates-db";
 import { AdminExchangeRatesForm } from "@/components/admin/AdminExchangeRatesForm";
+import { AdminProductPageLayoutForm } from "@/components/admin/AdminProductPageLayoutForm";
+import { getProductPageLayout } from "@/actions/product-page-layout";
 
 export default async function AdminDashboardPage() {
   const storeType = await getAdminStoreType();
@@ -14,7 +16,7 @@ export default async function AdminDashboardPage() {
   const sevenDaysAgo = new Date(now);
   sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
 
-  const [exchangeRates, totalProducts, totalOrders, revenue30d, orders7d, recentOrders] =
+  const [exchangeRates, totalProducts, totalOrders, revenue30d, orders7d, recentOrders, productPageLayout] =
     await Promise.all([
       getStorefrontExchangeRatesFromDb(),
       db.select({ count: sql<number>`count(*)::int` }).from(products).where(eq(products.storeType, storeType)),
@@ -41,6 +43,7 @@ export default async function AdminDashboardPage() {
         .from(orders)
         .orderBy(desc(orders.createdAt))
         .limit(5),
+      getProductPageLayout(),
     ]);
 
   const totalProductsCount = totalProducts[0]?.count ?? 0;
@@ -83,6 +86,13 @@ export default async function AdminDashboardPage() {
           initialEurPerUsd={exchangeRates.eurPerUsd}
           initialLbpPerUsd={exchangeRates.lbpPerUsd}
         />
+      </section>
+
+      <section aria-label="Storefront layout" className="mb-12 rounded-md border border-border bg-background p-6">
+        <p className="mb-4 text-sm text-muted-foreground">
+          Choose which product page all shoppers see across your stores.
+        </p>
+        <AdminProductPageLayoutForm initialLayout={productPageLayout} />
       </section>
 
       <section>

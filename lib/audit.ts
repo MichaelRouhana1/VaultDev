@@ -54,7 +54,8 @@ export type AuditAction =
   /** Bulk guest email/phone export from orders (admin Security Logs UI). */
   | "contact.export"
   /** PDP accordion copy (description extra, shipping, returns) per store. */
-  | "product_page_copy.save";
+  | "product_page_copy.save"
+  | "product_page.layout.update";
 
 export interface AuditEntry {
   timestamp: string;

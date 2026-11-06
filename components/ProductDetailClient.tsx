@@ -1,13 +1,7 @@
 "use client";
 
-import { useState, useCallback, useRef, useEffect, useLayoutEffect, useMemo } from "react";
-import Image from "next/image";
-import { useTranslations } from "next-intl";
-import { Link, useRouter } from "@/i18n/navigation";
-import { useSearchParams } from "next/navigation";
-import { useCart } from "@/context/CartContext";
-import { useCurrency } from "@/context/CurrencyContext";
-import { useWishlist } from "@/context/WishlistContext";
+import { useState, useRef, useEffect, useLayoutEffect, useMemo } from "react";
+import { Link } from "@/i18n/navigation";
 import { ProductCard } from "@/components/ProductCard";
 import {
   Carousel,
@@ -16,105 +10,73 @@ import {
   CarouselDots,
   type CarouselApi,
 } from "@/components/ui/carousel";
-import { cn, getProductDisplayPrice, isProductOnSale, sortSizes } from "@/lib/utils";
-import { META_PIXEL_CURRENCY, metaMoney } from "@/lib/analytics/meta-commerce";
-import { trackMetaEvent } from "@/lib/analytics/meta-pixel-client";
+import { cn } from "@/lib/utils";
 import { ProductDetailAccordion } from "@/components/ProductDetailAccordion";
-import type { ProductPageAccordionResolved } from "@/actions/product-page-copy";
-import type { ProductVariant, ProductColor, StorefrontProductResolved } from "@/db/schema";
+import { ProductPhotoStrip, ProductPhotoViewer, type ProductPhoto } from "@/components/storefront/ProductPhotoGallery";
+import { useOpenProductZoom, type ProductZoomSession } from "@/components/storefront/ProgressiveZoomPhoto";
+import { ProductImage } from "@/components/storefront/ProductImage";
+import type { ProductColor } from "@/db/schema";
+import { useProductDetail, type ProductDetailProps } from "@/components/storefront/useProductDetail";
 import { WishlistBookmarkIcon } from "@/components/WishlistBookmarkIcon";
 import { PRODUCT_STICKY_BUYBAR_CSS_VAR } from "@/lib/product-sticky-buybar";
 import type { EmblaOptionsType } from "embla-carousel";
-import { ChevronLeft, Search, ShoppingBag, User } from "lucide-react";
-
-const DEFAULT_SIZES = ["XS", "S", "M", "L", "XL"];
-
-function usableImageUrls(urls: string[] | null | undefined): string[] {
-  if (!Array.isArray(urls)) return [];
-  return urls.filter((url) => typeof url === "string" && url.trim().length > 0);
-}
-
-interface ProductDetailClientProps {
-  product: StorefrontProductResolved & { images?: string[] };
-  variants: ProductVariant[];
-  colors?: ProductColor[];
-  inWishlist: boolean;
-  similarProducts: StorefrontProductResolved[];
-  variantsByProductId: Record<number, ProductVariant[]>;
-  wishlistProductIds: number[];
-  /** From URL — used for bag / product links */
-  listStoreType: "streetwear" | "formal" | "women";
-  productPageAccordionCopy: ProductPageAccordionResolved;
-}
+import { ChevronLeft, Maximize, RotateCcw, Search, ShoppingBag, Truck, User } from "lucide-react";
+import styles from "@/components/storefront/product-detail.module.css";
 
 export function ProductDetailClient({
   product,
   variants,
   colors = [],
-  inWishlist: initialInWishlist,
+  inWishlist,
   similarProducts,
   variantsByProductId,
   wishlistProductIds,
   listStoreType,
   productPageAccordionCopy,
-}: ProductDetailClientProps) {
-  const router = useRouter();
-  const t = useTranslations("ProductDetail");
-  const tCommon = useTranslations("Common");
-  const tNav = useTranslations("Navbar");
-  const searchParams = useSearchParams();
-  const { addToCart, openCart } = useCart();
-  const { formatPrice } = useCurrency();
-  const { isInWishlist, hasHydrated, toggleItem } = useWishlist();
-  const wishlistState = hasHydrated ? isInWishlist(product.id) : initialInWishlist;
-  const [selectedSize, setSelectedSize] = useState<string | null>(null);
-  const [displayOrder, setDisplayOrder] = useState<number[]>([]);
-  const [displayOrderKey, setDisplayOrderKey] = useState<string>("");
+}: ProductDetailProps) {
+  const {
+    t, tNav, openCart, formatPrice, wishlistState, selectedSize, setSelectedSize,
+    selectedColor, imageUrls, handleColorSelect: selectProductColor, price, displayPrice, onSale,
+    sizes, getStockForSize, isSizeInStock, hasAnyInStock, handleBack,
+    handleWishlistClick, addLineForSize: addCartLine,
+  } = useProductDetail({ product, variants, colors, inWishlist, listStoreType });
+  const [imageErrorsKey, setImageErrorsKey] = useState("");
   const [imageErrors, setImageErrors] = useState<Record<number, boolean>>({});
-  const [lightboxOpen, setLightboxOpen] = useState(false);
-  const [lightboxIndex, setLightboxIndex] = useState(0);
-  const [lightboxZoomed, setLightboxZoomed] = useState(false);
+  const [photoViewer, setPhotoViewer] = useState<{ photos: ProductPhoto[]; index: number; session: ProductZoomSession } | null>(null);
   const [carouselApi, setCarouselApi] = useState<CarouselApi | undefined>(undefined);
-  const lightboxScrollRef = useRef<HTMLDivElement>(null);
-  const dragRef = useRef<{ x: number; y: number; scrollLeft: number; scrollTop: number } | null>(null);
+  const photoTriggerRef = useRef<HTMLButtonElement>(null);
   const similarSectionRef = useRef<HTMLElement | null>(null);
   const similarSectionMobileRef = useRef<HTMLElement | null>(null);
   const stickyBuyBarRef = useRef<HTMLDivElement | null>(null);
   const [similarSectionInView, setSimilarSectionInView] = useState(false);
   const [stickyBuyPhase, setStickyBuyPhase] = useState<"summary" | "pickSize">("summary");
-  const [isColorMenuOpen, setIsColorMenuOpen] = useState(false);
+  const [sizeRequested, setSizeRequested] = useState(false);
 
-  const firstColor = colors[0];
-  const colorFromUrl = searchParams.get("color");
-  const initialColor =
-    colorFromUrl && colors.find((c) => c.name.toLowerCase() === colorFromUrl.toLowerCase())
-      ? colors.find((c) => c.name.toLowerCase() === colorFromUrl.toLowerCase())!
-      : firstColor;
-  const [selectedColor, setSelectedColorState] = useState<ProductColor | null>(initialColor ?? null);
-
-  const imageUrls = useMemo(
-    () => usableImageUrls(selectedColor?.imageUrls ?? product.images),
-    [selectedColor?.imageUrls, product.images]
-  );
   const galleryKey = `${product.id}:${selectedColor?.id ?? "none"}:${imageUrls.join("\0")}`;
-  if (displayOrderKey !== galleryKey) {
-    setDisplayOrderKey(galleryKey);
-    setDisplayOrder(imageUrls.map((_, i) => i));
+  const prepareProductZoom = useOpenProductZoom(galleryKey);
+  if (imageErrorsKey !== galleryKey) {
+    setImageErrorsKey(galleryKey);
     setImageErrors({});
+    setPhotoViewer(null);
   }
+  const photos = useMemo(
+    () => imageUrls.flatMap((src, index) => imageErrors[index] ? [] : [{ src, index }]),
+    [imageUrls, imageErrors],
+  );
 
   const mobileCarouselOpts = useMemo<EmblaOptionsType>(
     () => ({
       align: "start",
       containScroll: "trimSnaps",
-      loop: imageUrls.length > 1,
+      loop: photos.length > 1,
+      breakpoints: { "(prefers-reduced-motion: reduce)": { duration: 0 } },
     }),
-    [imageUrls.length]
+    [photos.length]
   );
 
   useEffect(() => {
-    carouselApi?.scrollTo(0);
-  }, [selectedColor?.id, imageUrls.length, carouselApi]);
+    carouselApi?.scrollTo(0, true);
+  }, [galleryKey, carouselApi]);
 
   useEffect(() => {
     setStickyBuyPhase("summary");
@@ -162,186 +124,37 @@ export function ProductDetailClient({
     if (!similarSectionInView) setStickyBuyPhase("summary");
   }, [similarSectionInView]);
 
-  const hasMultipleImages = imageUrls.length >= 2;
-
-  const handleColorSelect = useCallback((color: ProductColor) => {
-    setSelectedColorState(color);
-    setSelectedSize(null);
-    setIsColorMenuOpen(false);
-    // Shallow URL update — router.replace() would remount loading.tsx and jump scroll to top.
-    const url = new URL(window.location.href);
-    url.searchParams.set("color", color.name);
-    window.history.replaceState(window.history.state, "", `${url.pathname}${url.search}${url.hash}`);
-  }, []);
-  const price = typeof product.price === "string" ? product.price : String(product.price);
-  const displayPrice = getProductDisplayPrice(product);
-  const onSale = isProductOnSale(product);
-  const viewContentSentFor = useRef<number | null>(null);
-
-  useEffect(() => {
-    if (viewContentSentFor.current === product.id) return;
-    viewContentSentFor.current = product.id;
-    trackMetaEvent(listStoreType, "ViewContent", {
-      content_ids: [String(product.id)],
-      content_type: "product",
-      content_name: product.name,
-      value: metaMoney(parseFloat(displayPrice)),
-      currency: META_PIXEL_CURRENCY,
-    });
-  }, [listStoreType, product.id, product.name, displayPrice]);
-
-  const variantsForColor =
-    selectedColor?.id != null
-      ? variants.filter((v) => v.colorId === selectedColor.id)
-      : variants;
-  const variantMap = new Map(variantsForColor.map((v) => [v.size, v]));
-  const sizes =
-    variantsForColor.length > 0
-      ? sortSizes([...new Set(variantsForColor.map((v) => v.size))])
-      : sortSizes([...DEFAULT_SIZES]);
-
-  const getStockForSize = (size: string) => variantMap.get(size)?.stock ?? 0;
-  const isSizeInStock = (size: string) => getStockForSize(size) > 0;
-  const hasAnyInStock = sizes.some(isSizeInStock);
-  const canAddToCart = selectedSize != null && isSizeInStock(selectedSize);
+  const handleColorSelect = (color: ProductColor) => {
+    selectProductColor(color);
+    setSizeRequested(false);
+  };
 
   const handleImageError = (index: number) => {
-    setImageErrors((prev) => ({ ...prev, [index]: true }));
+    setImageErrors((previous) => previous[index] ? previous : { ...previous, [index]: true });
   };
 
-  const mainImageIndex = displayOrder[0] ?? 0;
-
-  const goToPrevImage = () => {
-    setDisplayOrder((order) => {
-      if (order.length <= 1) return order;
-      return [...order.slice(1), order[0]];
+  const openPhotoViewer = (index: number, trigger: HTMLButtonElement) => {
+    const photo = photos.find((photo) => photo.index === index);
+    if (!photo) return;
+    prepareProductZoom(photo.src, (session) => {
+      photoTriggerRef.current = trigger;
+      setPhotoViewer({ photos, index, session });
     });
   };
 
-  const goToNextImage = () => {
-    setDisplayOrder((order) => {
-      if (order.length <= 1) return order;
-      return [order[order.length - 1], ...order.slice(0, -1)];
-    });
+  const addLineForSize = (size: string) => {
+    if (addCartLine(size)) setStickyBuyPhase("summary");
   };
 
-  const handleThumbnailClick = (position: number) => {
-    setDisplayOrder((order) => {
-      if (position <= 0 || position >= order.length) return order;
-      const next = [...order];
-      [next[0], next[position]] = [next[position], next[0]];
-      return next;
-    });
-  };
-
-  const openLightbox = () => {
-    setLightboxIndex(mainImageIndex);
-    setLightboxZoomed(false);
-    setLightboxOpen(true);
-  };
-
-  const closeLightbox = useCallback(() => {
-    setDisplayOrder((order) => {
-      const idx = order.indexOf(lightboxIndex);
-      if (idx <= 0) return order;
-      const next = [...order];
-      [next[0], next[idx]] = [next[idx], next[0]];
-      return next;
-    });
-    setLightboxOpen(false);
-    setLightboxZoomed(false);
-  }, [lightboxIndex]);
-
-  const lightboxPrev = useCallback(() => {
-    setLightboxIndex((i) => (i - 1 + imageUrls.length) % imageUrls.length);
-    setLightboxZoomed(false);
-    lightboxScrollRef.current?.scrollTo(0, 0);
-  }, [imageUrls.length]);
-
-  const lightboxNext = useCallback(() => {
-    setLightboxIndex((i) => (i + 1) % imageUrls.length);
-    setLightboxZoomed(false);
-    lightboxScrollRef.current?.scrollTo(0, 0);
-  }, [imageUrls.length]);
-
-  const handleLightboxDragStart = useCallback((clientX: number, clientY: number) => {
-    const el = lightboxScrollRef.current;
-    if (!el || !lightboxZoomed) return;
-    dragRef.current = { x: clientX, y: clientY, scrollLeft: el.scrollLeft, scrollTop: el.scrollTop };
-  }, [lightboxZoomed]);
-
-  const handleLightboxDragMove = useCallback((clientX: number, clientY: number) => {
-    const d = dragRef.current;
-    const el = lightboxScrollRef.current;
-    if (!d || !el) return;
-    el.scrollLeft = d.scrollLeft + d.x - clientX;
-    el.scrollTop = d.scrollTop + d.y - clientY;
-  }, []);
-
-  const handleLightboxDragEnd = useCallback(() => {
-    dragRef.current = null;
-  }, []);
-
-  useEffect(() => {
-    if (!lightboxOpen) return;
-    const onKeyDown = (e: KeyboardEvent) => {
-      if (e.key === "Escape") closeLightbox();
-      if (e.key === "ArrowLeft") lightboxPrev();
-      if (e.key === "ArrowRight") lightboxNext();
-    };
-    window.addEventListener("keydown", onKeyDown);
-    document.body.style.overflow = "hidden";
-    return () => {
-      window.removeEventListener("keydown", onKeyDown);
-      document.body.style.overflow = "";
-    };
-  }, [lightboxOpen, closeLightbox, lightboxPrev, lightboxNext]);
-
-  const handleBack = useCallback(() => {
-    if (typeof window === "undefined") return;
-
-    // Client navigations in Next.js do not refresh document.referrer; stack depth is the reliable signal.
-    // Use length > 1 (not > 2) so routes like home → PDP still get a real back().
-    // With length === 1, router.back() is a no-op or wrong even if referrer is same-origin (e.g. new tab).
-    if (window.history.length > 1) {
-      router.back();
+  const handleAddToBag = (event: React.MouseEvent<HTMLButtonElement>) => {
+    if (selectedSize && isSizeInStock(selectedSize)) {
+      addLineForSize(selectedSize);
       return;
     }
 
-    router.push(`/${listStoreType}/shop`, { scroll: true });
-  }, [router, listStoreType]);
-
-  const handleWishlistClick = async (e: React.MouseEvent) => {
-    e.stopPropagation();
-    await toggleItem(product.id);
-  };
-
-  const addLineForSize = (size: string, options?: { openBag?: boolean }) => {
-    if (!isSizeInStock(size)) return;
-    const productImage = imageUrls[0];
-    const colorName = selectedColor?.name ?? product.color ?? undefined;
-    addToCart({
-      productId: product.id,
-      size,
-      quantity: 1,
-      priceAtPurchase: displayPrice,
-      productName: product.name,
-      productImage,
-      productColor: colorName,
-      storeTypeForUrl: listStoreType,
-      sku:
-        colors.length > 1 && selectedColor
-          ? `${product.id}-${selectedColor.id}-${size}`
-          : undefined,
-    });
-    if (options?.openBag !== false) openCart();
-    setSelectedSize(size);
-    setStickyBuyPhase("summary");
-  };
-
-  const handleAddToBag = () => {
-    if (!selectedSize || !isSizeInStock(selectedSize)) return;
-    addLineForSize(selectedSize);
+    setSizeRequested(true);
+    event.currentTarget.closest("section")
+      ?.querySelector<HTMLButtonElement>("[data-product-size]:not(:disabled)")?.focus();
   };
 
   const handleStickyBarAddClick = () => {
@@ -359,13 +172,10 @@ export function ProductDetailClient({
     addLineForSize(size);
   };
 
-  const mainSrc =
-    imageUrls[mainImageIndex] && !imageErrors[mainImageIndex]
-      ? imageUrls[mainImageIndex]
-      : null;
-
+  const mainPhoto = photos[0];
+  const colorName = selectedColor?.name ?? product.color;
   const stickyThumbSrc = imageUrls[0] && !imageErrors[0] ? imageUrls[0] : null;
-  const showStickyBuyBar = similarProducts.length > 0 && similarSectionInView && !lightboxOpen;
+  const showStickyBuyBar = similarProducts.length > 0 && similarSectionInView && !photoViewer;
 
   useLayoutEffect(() => {
     const root = document.documentElement;
@@ -389,10 +199,137 @@ export function ProductDetailClient({
   const priceBlock = onSale ? (
     <span className="inline-flex flex-wrap items-baseline gap-2">
       <span className="text-destructive font-semibold">{formatPrice(displayPrice)}</span>
-      <span className="line-through text-muted-foreground text-sm">{formatPrice(price)}</span>
+      <span className="text-sm text-foreground/65 line-through">{formatPrice(price)}</span>
     </span>
   ) : (
     <span className="text-sm font-semibold">{formatPrice(displayPrice)}</span>
+  );
+
+  const renderPurchasePanel = (layout: "mobile" | "desktop") => (
+    <section
+      className={cn(
+        "text-foreground",
+        layout === "desktop" && cn(styles.purchase, "relative shrink-0 bg-background/85 backdrop-blur-xl"),
+      )}
+      aria-labelledby={`product-title-${layout}`}
+    >
+      <div className="px-5 pb-5 pt-5 md:p-6">
+        {layout === "desktop" && (
+          <div className="mb-3 flex justify-end">
+            <button
+              type="button"
+              onClick={handleWishlistClick}
+              className="inline-grid size-8 place-items-center transition-opacity hover:opacity-65 focus-visible:outline-2 focus-visible:outline-ring"
+              aria-label={wishlistState ? t("wishlistRemove") : t("wishlistAdd")}
+            >
+              <WishlistBookmarkIcon active={wishlistState} className="size-4" />
+            </button>
+          </div>
+        )}
+        <div className="flex items-start justify-between gap-3">
+          <h1 id={`product-title-${layout}`} className="min-w-0 text-sm font-bold uppercase leading-5">
+            {product.name}
+          </h1>
+          <div className="max-w-[45%] shrink-0 text-end text-sm font-bold">{priceBlock}</div>
+        </div>
+
+        {(colors.length > 0 || colorName) && (
+          <div className="mt-5">
+            {colors.length > 0 && (
+              <div className="flex flex-wrap gap-2" role="group" aria-label={t("colorHeading", { name: colorName ?? "" })}>
+                {colors.map((color) => (
+                  <button
+                    key={color.id}
+                    type="button"
+                    onClick={() => handleColorSelect(color)}
+                    className={cn(
+                      "relative grid size-8 place-items-center border p-1 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring",
+                      selectedColor?.id === color.id ? "border-foreground" : "border-foreground/35 hover:border-foreground",
+                    )}
+                    title={color.name}
+                    aria-label={t("selectColorAria", { name: color.name })}
+                    aria-pressed={selectedColor?.id === color.id}
+                  >
+                    <span className="relative block size-full overflow-hidden" style={{ backgroundColor: color.hexCode ?? "var(--muted)" }}>
+                      {!color.hexCode && color.imageUrls?.[0] && (
+                        <ProductImage variant="thumbnail" src={color.imageUrls[0]} alt="" fill sizes="24px" className="object-cover" />
+                      )}
+                    </span>
+                  </button>
+                ))}
+              </div>
+            )}
+            {colorName && <p className="mt-2 text-[11px] font-semibold uppercase">{colorName}</p>}
+          </div>
+        )}
+      </div>
+
+      <div className="border-t border-foreground/10 px-5 pb-5 pt-5 md:p-6">
+        <p id={`product-size-${layout}`} className="text-xs font-bold uppercase">{t("size")}</p>
+        <div role="group" aria-labelledby={`product-size-${layout}`} className="-ms-1.5 mt-1.5 flex flex-wrap gap-x-1 gap-y-0.5">
+          {sizes.map((size) => {
+            const inStock = isSizeInStock(size);
+            return (
+              <button
+                key={size}
+                type="button"
+                data-product-size
+                disabled={!inStock}
+                aria-pressed={selectedSize === size}
+                title={inStock ? t("inStockTitle", { count: getStockForSize(size) }) : t("outOfStockTitle")}
+                onClick={() => {
+                  setSelectedSize(size);
+                  setSizeRequested(false);
+                }}
+                className={cn(
+                  "min-h-10 min-w-9 border border-transparent px-1.5 text-xs font-semibold uppercase focus-visible:outline-2 focus-visible:outline-ring md:min-w-10",
+                  !inStock ? "text-muted-foreground line-through opacity-65" : "hover:border-foreground/40",
+                  selectedSize === size && "border-foreground hover:border-foreground",
+                )}
+              >
+                {size}
+              </button>
+            );
+          })}
+        </div>
+
+        {sizeRequested && !selectedSize && hasAnyInStock && (
+          <p role="alert" className="mt-1 text-xs text-destructive">{t("selectSizeHint")}</p>
+        )}
+        {!hasAnyInStock && <p className="mt-1 text-xs text-destructive">{t("allOutOfStock")}</p>}
+        <button
+          type="button"
+          onClick={handleAddToBag}
+          disabled={!hasAnyInStock}
+          className="mt-4 min-h-10 w-full bg-foreground px-3 py-2 text-sm font-bold uppercase text-background transition-opacity hover:opacity-85 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring disabled:opacity-45"
+        >
+          {t("addToBag")}
+        </button>
+
+        <div className="mt-3 flex flex-col items-start gap-1 text-xs">
+          {([
+            ["shipping", Truck, t("detailsShipping")],
+            ["returns", RotateCcw, t("detailsReturns")],
+          ] as const).map(([key, Icon, label]) => (
+            <a
+              key={key}
+              href={`#product-details-${layout}-${key}`}
+              onClick={(event) => {
+                const trigger = document.getElementById(`product-details-${layout}-${key}`);
+                if (!trigger) return;
+                event.preventDefault();
+                if (trigger.getAttribute("aria-expanded") === "false") trigger.click();
+                trigger.focus();
+              }}
+              className="inline-flex items-center gap-2 py-0.5 hover:underline"
+            >
+              <Icon className="size-3.5" aria-hidden />
+              {label}
+            </a>
+          ))}
+        </div>
+      </div>
+    </section>
   );
 
   const navIconPill =
@@ -401,7 +338,8 @@ export function ProductDetailClient({
   return (
     <main
       className={cn(
-        "relative mx-auto w-full max-md:max-w-none md:max-w-[min(100%,1680px)] md:px-5 lg:px-6 xl:px-8 md:py-12",
+        styles.layout,
+        "relative w-full md:pb-12",
         showStickyBuyBar && "pb-20 md:pb-[4.75rem]",
       )}
     >
@@ -434,36 +372,56 @@ export function ProductDetailClient({
               </button>
             </div>
           </div>
-          <Carousel setApi={setCarouselApi} opts={mobileCarouselOpts} className="relative z-0 w-full min-w-0">
-            <CarouselContent>
-              {imageUrls.map((url, idx) => {
-                if (imageErrors[idx]) return null;
-                return (
-                  <CarouselItem key={idx} className="min-w-0 max-w-full shrink-0 grow-0 basis-full">
-                    <div
-                      className="relative aspect-[2/3] w-full cursor-pointer overflow-hidden bg-muted"
-                      onClick={() => {
-                        setLightboxIndex(idx);
-                        openLightbox();
-                      }}
-                      role="button"
-                      tabIndex={0}
-                      onKeyDown={(e) => e.key === "Enter" && (setLightboxIndex(idx), openLightbox())}
-                      aria-label={t("viewFullImage")}
-                    >
-                      <Image
-                        src={url}
-                        alt={product.description ? `${product.name} - ${product.description}` : product.name}
-                        fill
-                        className="object-cover"
-                        onError={() => handleImageError(idx)}
-                        sizes="100vw"
-                      />
-                    </div>
-                  </CarouselItem>
-                );
-              })}
+          <Carousel
+            setApi={setCarouselApi}
+            opts={mobileCarouselOpts}
+            role="region"
+            aria-label={t("galleryAria")}
+            className="relative z-0 w-full min-w-0"
+          >
+            <CarouselContent className="touch-pan-y">
+              {photos.length === 0 && (
+                <CarouselItem className="grid aspect-[2/3] basis-full place-items-center bg-muted text-muted-foreground">
+                  {t("noImage")}
+                </CarouselItem>
+              )}
+              {photos.map(({ src, index }) => (
+                <CarouselItem key={`${index}:${src}`} className="basis-full">
+                  <button
+                    type="button"
+                    className="relative block aspect-[2/3] w-full cursor-zoom-in overflow-hidden bg-muted focus-visible:outline-2 focus-visible:outline-inset focus-visible:outline-ring"
+                    onClick={(event) => openPhotoViewer(index, event.currentTarget)}
+                    aria-label={t("viewFullImage")}
+                  >
+                    <ProductImage
+                      variant="pdp"
+                      fetchPriority={index === photos[0]?.index ? "high" : undefined}
+                      src={src}
+                      data-gallery-photo={src}
+                      alt={t("thumbAlt", { index: index + 1, name: product.name })}
+                      fill
+                      draggable={false}
+                      className="object-cover"
+                      onError={() => handleImageError(index)}
+                      sizes="100vw"
+                    />
+                  </button>
+                </CarouselItem>
+              ))}
             </CarouselContent>
+            {mainPhoto && (
+              <button
+                type="button"
+                onClick={(event) => {
+                  const photo = photos[carouselApi?.selectedScrollSnap() ?? 0] ?? mainPhoto;
+                  openPhotoViewer(photo.index, event.currentTarget);
+                }}
+                className="absolute bottom-12 left-1/2 z-20 grid size-9 -translate-x-1/2 place-items-center bg-background/90 text-foreground backdrop-blur-sm focus-visible:outline-2 focus-visible:outline-ring"
+                aria-label={t("zoomIn")}
+              >
+                <Maximize className="size-4" aria-hidden />
+              </button>
+            )}
             <div className="pointer-events-none absolute inset-x-0 bottom-0 z-[15] flex items-end justify-between gap-2 bg-gradient-to-t from-black/55 via-black/15 to-transparent px-4 pb-[max(0.75rem,env(safe-area-inset-bottom,0px))] pt-14">
               <span className="h-10 w-10 shrink-0" aria-hidden />
               <div className="pointer-events-auto flex min-w-0 flex-1 justify-center">
@@ -483,146 +441,13 @@ export function ProductDetailClient({
               </button>
             </div>
           </Carousel>
-          {colors.length > 1 ? (
-            <div
-              id="mobile-color-menu"
-              className={cn(
-                "absolute inset-x-0 bottom-0 z-[30] border-t border-border bg-background/95 shadow-[0_-4px_16px_rgba(0,0,0,0.12)] backdrop-blur-sm transition-transform duration-300 ease-in-out dark:bg-background/95 dark:shadow-[0_-4px_16px_rgba(0,0,0,0.4)]",
-                isColorMenuOpen
-                  ? "translate-y-0 opacity-100 pointer-events-auto"
-                  : "translate-y-full opacity-0 pointer-events-none",
-              )}
-              aria-hidden={!isColorMenuOpen}
-            >
-              <div className="scrollbar-hide flex gap-3 overflow-x-auto px-4 py-3">
-                {colors.map((c) => {
-                  const isSelected = selectedColor?.id === c.id;
-                  const thumb = c.imageUrls?.[0] ?? null;
-                  return (
-                    <button
-                      key={c.id}
-                      type="button"
-                      onClick={() => handleColorSelect(c)}
-                      className="shrink-0 rounded-none border-0 bg-transparent p-0 transition-transform hover:scale-105 focus:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
-                      title={c.name}
-                      aria-label={t("selectColorAria", { name: c.name })}
-                      aria-pressed={isSelected}
-                    >
-                      <span
-                        className={cn(
-                          "relative block h-10 w-10 overflow-hidden border border-border bg-muted bg-cover bg-center",
-                          isSelected &&
-                            "ring-1 ring-foreground ring-offset-1 ring-offset-background",
-                        )}
-                        style={
-                          thumb
-                            ? { backgroundImage: `url(${thumb})` }
-                            : { backgroundColor: c.hexCode ?? "var(--muted)" }
-                        }
-                      />
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-          ) : null}
         </div>
 
-        <div className="flex flex-1 flex-col px-4 pb-10 pt-5">
-          <div className="flex items-start justify-between gap-3">
-            <h1 className="min-w-0 flex-1 text-lg font-normal uppercase tracking-widest text-foreground">
-              {product.name.toUpperCase()}
-            </h1>
-            {colors.length > 1 ? (
-              <button
-                type="button"
-                onClick={() => setIsColorMenuOpen((o) => !o)}
-                className="flex shrink-0 items-center gap-1.5 border-0 bg-transparent p-0 text-left outline-none transition-opacity hover:opacity-90 focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
-                aria-expanded={isColorMenuOpen}
-                aria-controls="mobile-color-menu"
-                aria-label={t("colorHeading", { name: selectedColor?.name ?? "" })}
-              >
-                <span className="text-sm font-semibold tabular-nums leading-none text-foreground">
-                  {t("colorToggleMore", { count: colors.length - 1 })}
-                </span>
-                <span
-                  className={cn(
-                    "relative block h-7 w-7 shrink-0 overflow-hidden border border-border bg-muted bg-cover bg-center",
-                    isColorMenuOpen &&
-                      "ring-1 ring-foreground ring-offset-1 ring-offset-background",
-                  )}
-                  style={
-                    selectedColor?.imageUrls?.[0]
-                      ? { backgroundImage: `url(${selectedColor.imageUrls[0]})` }
-                      : { backgroundColor: selectedColor?.hexCode ?? "var(--muted)" }
-                  }
-                  aria-hidden
-                />
-              </button>
-            ) : null}
-          </div>
+        {renderPurchasePanel("mobile")}
 
-          {colors.length === 0 && product.color ? (
-            <p className="mt-4 text-sm text-muted-foreground">{product.color}</p>
-          ) : null}
-
-          <p className="mt-5 text-lg font-normal text-foreground">
-            {onSale ? (
-              <>
-                <span className="font-medium text-destructive">{formatPrice(displayPrice)}</span>{" "}
-                <span className="text-muted-foreground line-through">{formatPrice(price)}</span>
-              </>
-            ) : (
-              formatPrice(displayPrice)
-            )}
-          </p>
-
-          <div className="mt-6">
-            <p className="mb-2 text-xs font-medium uppercase tracking-widest text-foreground">{t("size")}</p>
-            <div className="flex flex-wrap gap-2">
-              {sizes.map((size) => {
-                const inStock = isSizeInStock(size);
-                const stock = getStockForSize(size);
-                return (
-                  <button
-                    key={size}
-                    type="button"
-                    onClick={() => inStock && setSelectedSize(size)}
-                    disabled={!inStock}
-                    className={cn(
-                      "flex h-8 min-w-[2rem] items-center justify-center rounded-sm border px-2 text-sm font-medium uppercase tracking-wide transition-colors",
-                      !inStock
-                        ? "cursor-not-allowed border-border bg-muted/30 text-muted-foreground opacity-50"
-                        : selectedSize === size
-                          ? "border-foreground bg-foreground text-background"
-                          : "border-border text-foreground hover:border-foreground",
-                    )}
-                    title={
-                      !inStock ? t("outOfStockTitle") : stock > 0 ? t("inStockTitle", { count: stock }) : undefined
-                    }
-                  >
-                    {size}
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-
-          {!hasAnyInStock && <p className="mt-4 text-sm text-destructive">{t("allOutOfStock")}</p>}
-
-          <button
-            type="button"
-            onClick={handleAddToBag}
-            disabled={!canAddToCart}
-            className="mt-8 w-full bg-foreground py-4 text-sm font-bold uppercase tracking-widest text-background transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
-          >
-            {t("addToBag")}
-          </button>
-          {!selectedSize && hasAnyInStock && (
-            <p className="mt-2 text-xs text-muted-foreground">{t("selectSizeHint")}</p>
-          )}
-
+        <div className="flex flex-1 flex-col px-5 pb-10 pt-6">
           <ProductDetailAccordion
+            id="product-details-mobile"
             productDescription={product.description}
             accordionCopy={productPageAccordionCopy}
           />
@@ -651,406 +476,65 @@ export function ProductDetailClient({
         </div>
       </div>
 
-      <div className="hidden md:grid md:grid-cols-1 md:gap-12 lg:grid-cols-2 lg:gap-20 xl:gap-28 lg:items-start">
-        {/* Image gallery — desktop */}
-        <div className="flex flex-col gap-4 lg:min-w-0 lg:pe-3 xl:pe-6 2xl:pe-8">
-          <div>
-            <div
-              className="relative aspect-[2/3] overflow-hidden bg-muted group cursor-pointer"
-              onClick={openLightbox}
-              role="button"
-              tabIndex={0}
-              onKeyDown={(e) => e.key === "Enter" && openLightbox()}
-              aria-label={t("viewFullImage")}
-            >
-              {mainSrc ? (
-                <Image
-                  src={mainSrc}
-                  alt={product.description ? `${product.name} - ${product.description}` : product.name}
-                  fill
-                  className="object-cover"
-                  onError={() => handleImageError(mainImageIndex)}
-
-                  sizes="(max-width: 1024px) 100vw, 50vw"
-                />
-              ) : (
-                <div className="flex h-full w-full items-center justify-center text-muted-foreground">
-                  {t("noImage")}
-                </div>
-              )}
-
-              {/* Wishlist bookmark */}
-              <button
-                type="button"
-                onClick={handleWishlistClick}
-                className="absolute end-4 top-4 z-10 flex h-10 w-10 items-center justify-center bg-white/90 text-foreground transition-colors hover:bg-white dark:bg-black/60 dark:hover:bg-black/80"
-                aria-label={wishlistState ? t("wishlistRemove") : t("wishlistAdd")}
-              >
-                <WishlistBookmarkIcon active={wishlistState} className="w-5 h-5" />
-              </button>
-
-              {hasMultipleImages && (
-                <>
-                  <button
-                    type="button"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      goToPrevImage();
-                    }}
-                    className="absolute start-0 top-1/2 flex h-10 w-10 -translate-y-1/2 items-center justify-center bg-white/80 text-foreground opacity-0 transition-opacity duration-200 hover:bg-white group-hover:opacity-100 dark:bg-black/60 dark:hover:bg-black/80"
-                    aria-label={t("prevImage")}
-                  >
-                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-                    </svg>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      goToNextImage();
-                    }}
-                    className="absolute end-0 top-1/2 flex h-10 w-10 -translate-y-1/2 items-center justify-center bg-white/80 text-foreground opacity-0 transition-opacity duration-200 hover:bg-white group-hover:opacity-100 dark:bg-black/60 dark:hover:bg-black/80"
-                    aria-label={t("nextImage")}
-                  >
-                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                    </svg>
-                  </button>
-                </>
-              )}
-            </div>
-
-            {/* Thumbnail grid - desktop only, swaps with main on click */}
-            {hasMultipleImages && displayOrder.length > 1 && (
-              <div className="grid grid-cols-2 gap-4 mt-4">
-                {displayOrder.slice(1).map((urlIndex, i) => {
-                  const position = i + 1;
-                  const url = imageUrls[urlIndex];
-                  if (!url || imageErrors[urlIndex]) return null;
-                  return (
-                    <button
-                      key={urlIndex}
-                      type="button"
-                      onClick={() => handleThumbnailClick(position)}
-                      className="relative aspect-[2/3] overflow-hidden bg-muted border-2 border-transparent transition-colors hover:border-muted-foreground/30"
-                    >
-                      <Image
-                        src={url}
-                        alt={t("thumbAlt", { index: position, name: product.name })}
-                        fill
-                        className="object-cover"
-                        onError={() => handleImageError(urlIndex)}
-                        sizes="(max-width: 1024px) 45vw, (max-width: 1536px) 32vw, 480px"
-                      />
-                    </button>
-                  );
-                })}
-              </div>
-            )}
-          </div>
+      <div className={cn(styles.hero, "relative isolate hidden overflow-hidden bg-muted md:flex md:items-end md:justify-end")}>
+        <div className="absolute inset-0">
+          <ProductPhotoStrip
+            key={galleryKey}
+            photos={photos}
+            name={product.name}
+            onExpand={openPhotoViewer}
+            onImageError={handleImageError}
+          />
         </div>
+        {renderPurchasePanel("desktop")}
+      </div>
 
-        {/* Product info — desktop only */}
-        <div className="hidden md:flex flex-col lg:min-w-0 lg:ps-2 xl:ps-6 2xl:ps-8">
-          <div className="flex items-start justify-between gap-4">
-            <h1 className="text-xl font-normal text-foreground uppercase tracking-widest">
-              {product.name.toUpperCase()}
-            </h1>
-            <button
-              type="button"
-              onClick={handleWishlistClick}
-              className="text-muted-foreground hover:text-foreground transition-colors"
-              aria-label={wishlistState ? t("wishlistRemove") : t("wishlistAdd")}
-            >
-              <WishlistBookmarkIcon active={wishlistState} className="w-5 h-5" />
-            </button>
-          </div>
-
-          {colors.length > 1 ? (
-            <div className="mt-4">
-              <p className="mb-3 text-xs font-medium uppercase tracking-widest text-muted-foreground">
-                {t("colorHeading", { name: selectedColor?.name ?? "" })}
-              </p>
-              <div className="flex flex-wrap gap-3">
-                {colors.map((c) => {
-                  const isSelected = selectedColor?.id === c.id;
-                  const thumb = c.imageUrls?.[0] ?? null;
-                  return (
-                    <button
-                      key={c.id}
-                      type="button"
-                      onClick={() => handleColorSelect(c)}
-                      className={cn(
-                        "box-border bg-background p-1.5 transition-colors rounded-none focus:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background",
-                        isSelected ? "border-2 border-foreground" : "border border-border hover:border-foreground/35",
-                      )}
-                      title={c.name}
-                      aria-label={t("selectColorAria", { name: c.name })}
-                      aria-pressed={isSelected}
-                    >
-                      <span
-                        className="block h-8 w-8 bg-muted bg-cover bg-center"
-                        style={
-                          thumb
-                            ? { backgroundImage: `url(${thumb})` }
-                            : { backgroundColor: c.hexCode ?? "var(--muted)" }
-                        }
-                      />
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-          ) : colors.length === 0 && product.color ? (
-            <p className="mt-4 text-sm text-muted-foreground">{product.color}</p>
-          ) : null}
-
-          {colors.length > 1 && imageUrls[0] ? (
-            <div className="mt-4 aspect-square w-16 h-16 overflow-hidden border border-border">
-              <Image
-                src={imageUrls[0]}
-                alt={t("selectedColorAlt", { name: selectedColor?.name ?? "" })}
-                width={64}
-                height={64}
-                className="w-full h-full object-cover"
-              />
-            </div>
-          ) : null}
-
-          <p className="mt-6 text-lg font-normal text-foreground">
-            {onSale ? (
-              <>
-                <span className="text-destructive font-medium">{formatPrice(displayPrice)}</span>{" "}
-                <span className="line-through text-muted-foreground">{formatPrice(price)}</span>
-              </>
-            ) : (
-              formatPrice(displayPrice)
-            )}
-          </p>
-
-          <div className="mt-8">
-            <p className="mb-3 text-xs font-medium uppercase tracking-widest text-foreground">{t("size")}</p>
-            <div className="flex flex-wrap gap-2">
-              {sizes.map((size) => {
-                const inStock = isSizeInStock(size);
-                const stock = getStockForSize(size);
-                return (
-                  <button
-                    key={size}
-                    type="button"
-                    onClick={() => inStock && setSelectedSize(size)}
-                    disabled={!inStock}
-                    className={`inline-flex h-12 w-12 shrink-0 items-center justify-center rounded-none text-xs font-medium uppercase tracking-widest transition-colors ${!inStock
-                      ? "border border-border text-muted-foreground opacity-50 cursor-not-allowed bg-muted/30"
-                      : selectedSize === size
-                        ? "bg-foreground text-background"
-                        : "border border-border text-foreground hover:border-foreground"
-                      }`}
-                    title={
-                      !inStock ? t("outOfStockTitle") : stock > 0 ? t("inStockTitle", { count: stock }) : undefined
-                    }
-                  >
-                    {size}
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-
-          {!hasAnyInStock && (
-            <p className="mt-4 text-sm text-destructive">{t("allOutOfStock")}</p>
-          )}
-
+      <section className={cn("hidden items-center md:grid", mainPhoto ? styles.details : "grid-cols-1")}>
+        {mainPhoto && (
           <button
             type="button"
-            onClick={handleAddToBag}
-            disabled={!canAddToCart}
-            className="mt-10 w-full py-5 text-sm font-bold uppercase tracking-widest text-background bg-foreground hover:opacity-90 transition-opacity disabled:opacity-50 disabled:cursor-not-allowed"
+            onClick={(event) => openPhotoViewer(mainPhoto.index, event.currentTarget)}
+            aria-label={t("viewFullImage")}
+            className="relative block aspect-[.78] w-full cursor-zoom-in overflow-hidden bg-muted focus-visible:outline-2 focus-visible:outline-inset focus-visible:outline-ring"
           >
-            {t("addToBag")}
+            <ProductImage
+              variant="pdp"
+              key={mainPhoto.src}
+              src={mainPhoto.src}
+              data-gallery-photo={mainPhoto.src}
+              alt={product.name}
+              fill
+              sizes="min(max(350px, calc((100svh - 56px) * .78), 20vw), 46vw)"
+              className="object-cover"
+              onError={() => handleImageError(mainPhoto.index)}
+            />
           </button>
-          {!selectedSize && hasAnyInStock && (
-            <p className="mt-2 text-xs text-muted-foreground">{t("selectSizeHint")}</p>
-          )}
-
+        )}
+        <div className="px-[clamp(1.5rem,10.5vw,14rem)] py-12">
           <ProductDetailAccordion
+            id="product-details-desktop"
             productDescription={product.description}
             accordionCopy={productPageAccordionCopy}
           />
         </div>
-      </div>
+      </section>
 
-      {lightboxOpen && (
-        <div
-          className="fixed inset-0 z-[200] flex items-center justify-center bg-black/90"
-          aria-modal="true"
-          role="dialog"
-          aria-label={t("galleryAria")}
-        >
-          <button
-            type="button"
-            onClick={closeLightbox}
-            className="absolute end-4 top-4 z-10 flex h-10 w-10 items-center justify-center text-white/80 transition-colors hover:text-white"
-            aria-label={tCommon("close")}
-          >
-            <svg className="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-            </svg>
-          </button>
-
-          <div className="flex h-full max-h-[90vh] w-full max-w-[95vw] items-center gap-4 px-4">
-            <div className="scrollbar-hide hidden max-h-[90vh] w-16 shrink-0 flex-col gap-2 overflow-y-auto py-2 md:flex">
-              {imageUrls.map((url, idx) => {
-                if (imageErrors[idx]) return null;
-                const isSelected = lightboxIndex === idx;
-                return (
-                  <button
-                    key={idx}
-                    type="button"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setLightboxIndex(idx);
-                      setLightboxZoomed(false);
-                      lightboxScrollRef.current?.scrollTo(0, 0);
-                    }}
-                    className={`w-16 flex-shrink-0 overflow-hidden transition-all duration-200 ${isSelected
-                      ? "opacity-100 ring-2 ring-white ring-offset-2 ring-offset-black"
-                      : "border border-white/20 opacity-60 hover:border-white/40 hover:opacity-80"
-                      }`}
-                  >
-                    <Image
-                      src={url}
-                      alt={t("thumbAlt", { index: idx + 1, name: product.name })}
-                      width={64}
-                      height={80}
-                      className="h-full w-full object-cover"
-                    />
-                  </button>
-                );
-              })}
-            </div>
-
-            <div className="relative flex min-h-0 min-w-0 flex-1 items-center justify-center overflow-hidden">
-              <div
-                ref={lightboxScrollRef}
-                className={cn(
-                  "scrollbar-hide h-[85vh] w-full overflow-auto overscroll-contain px-8 select-none md:px-16",
-                  lightboxZoomed
-                    ? "touch-none flex cursor-grab items-start justify-start active:cursor-grabbing"
-                    : "flex items-center justify-center",
-                )}
-                onClick={(e) => e.stopPropagation()}
-                onMouseDown={(e) => {
-                  e.stopPropagation();
-                  if (lightboxZoomed) handleLightboxDragStart(e.clientX, e.clientY);
-                }}
-                onMouseMove={(e) => {
-                  if (dragRef.current) {
-                    e.preventDefault();
-                    handleLightboxDragMove(e.clientX, e.clientY);
-                  }
-                }}
-                onMouseUp={() => handleLightboxDragEnd()}
-                onMouseLeave={() => handleLightboxDragEnd()}
-                onTouchStart={(e) => {
-                  if (lightboxZoomed && e.touches.length === 1) {
-                    handleLightboxDragStart(e.touches[0].clientX, e.touches[0].clientY);
-                  }
-                }}
-                onTouchMove={(e) => {
-                  if (dragRef.current && e.touches.length === 1) {
-                    e.preventDefault();
-                    handleLightboxDragMove(e.touches[0].clientX, e.touches[0].clientY);
-                  }
-                }}
-                onTouchEnd={() => handleLightboxDragEnd()}
-              >
-                <div
-                  className={cn(
-                    "flex items-center justify-center",
-                    lightboxZoomed && "min-h-[110%] min-w-[110%] shrink-0",
-                  )}
-                >
-                  {imageUrls[lightboxIndex] && !imageErrors[lightboxIndex] ? (
-                    <Image
-                      src={imageUrls[lightboxIndex]}
-                      alt={t("zoomedAlt", { index: lightboxIndex + 1, name: product.name })}
-                      width={1200}
-                      height={1600}
-                      className={cn(
-                        "pointer-events-none select-none object-contain",
-                        lightboxZoomed ? "h-[110%] w-[110%]" : "max-h-[85vh] max-w-full",
-                      )}
-                    />
-                  ) : (
-                    <div className="flex h-96 w-96 items-center justify-center bg-muted text-muted-foreground">
-                      {t("noImage")}
-                    </div>
-                  )}
-                </div>
-              </div>
-
-              {imageUrls.length > 1 && (
-                <>
-                  <button
-                    type="button"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      lightboxPrev();
-                    }}
-                    className="absolute start-0 top-1/2 z-10 flex h-12 w-12 -translate-y-1/2 items-center justify-center text-white/80 transition-colors hover:text-white"
-                    aria-label={t("prevImage")}
-                  >
-                    <svg className="h-8 w-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-                    </svg>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      lightboxNext();
-                    }}
-                    className="absolute end-0 top-1/2 z-10 flex h-12 w-12 -translate-y-1/2 items-center justify-center text-white/80 transition-colors hover:text-white"
-                    aria-label={t("nextImage")}
-                  >
-                    <svg className="h-8 w-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                    </svg>
-                  </button>
-                </>
-              )}
-              <button
-                type="button"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setLightboxZoomed((z) => !z);
-                  requestAnimationFrame(() => lightboxScrollRef.current?.scrollTo(0, 0));
-                }}
-                className="absolute bottom-0 end-0 z-10 flex h-12 w-12 items-center justify-center rounded-none bg-white/20 text-white transition-colors hover:bg-white/30"
-                aria-label={lightboxZoomed ? t("zoomOut") : t("zoomIn")}
-              >
-                {lightboxZoomed ? (
-                  <svg className="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 12H4" />
-                  </svg>
-                ) : (
-                  <svg className="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-                  </svg>
-                )}
-              </button>
-            </div>
-          </div>
-        </div>
+      {photoViewer && (
+        <ProductPhotoViewer
+          photos={photoViewer.photos}
+          name={product.name}
+          startIndex={photoViewer.index}
+          session={photoViewer.session}
+          onClose={() => setPhotoViewer(null)}
+          restoreFocus={() => photoTriggerRef.current?.focus({ preventScroll: true })}
+        />
       )}
 
       {similarProducts.length > 0 && (
         <section
           ref={similarSectionRef}
           id="similar-items"
-          className="mt-24 hidden scroll-mt-8 border-t border-border pt-16 md:block"
+          className="mx-auto mt-16 hidden max-w-[1680px] scroll-mt-8 border-t border-border px-5 pt-16 md:block lg:px-8"
         >
           <h2 className="mb-8 text-sm font-medium uppercase tracking-[0.2em] text-foreground">
             {t("similarItems")}
@@ -1087,7 +571,8 @@ export function ProductDetailClient({
           <div className="flex flex-wrap items-center gap-x-2.5 gap-y-1.5 min-w-0">
             <div className="relative h-11 w-11 shrink-0 overflow-hidden bg-muted border border-border">
               {stickyThumbSrc ? (
-                <Image
+                <ProductImage
+                  variant="thumbnail"
                   src={stickyThumbSrc}
                   alt={product.name}
                   fill

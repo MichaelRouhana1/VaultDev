@@ -1,0 +1,17 @@
+.layout {
+  --pdp-hero-height: max(28rem, calc(100svh - 3.5rem));
+  --pdp-photo-width: max(calc(var(--pdp-hero-height) * .78), 20vw);
+}
+
+.hero {
+  min-height: var(--pdp-hero-height);
+  padding: clamp(1.5rem, 2.6vw, 2.5rem);
+}
+
+.purchase {
+  width: clamp(17rem, 25vw, 24.5rem);
+}
+
+.details {
+  grid-template-columns: min(var(--pdp-photo-width), 46%) minmax(0, 1fr);
+}
