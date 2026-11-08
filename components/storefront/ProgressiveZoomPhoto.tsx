@@ -171,8 +171,17 @@ export function ProgressiveZoomPhoto({
         // The image element's width already includes the current zoom scale.
         const pixels = image.getBoundingClientRect().width * window.devicePixelRatio;
         if (!pixels) return;
-        const tier = slow ? zoomTiers[0] : zoomTiers.find((candidate) => candidate >= pixels) ?? zoomTiers[2];
-        if (!sourceLimited && pixels > width && tier > width) {
+        const desktop = window.matchMedia("(min-width: 768px)").matches;
+        // Height-fitted portraits can remain narrower than the gallery candidate even
+        // at 2x zoom. Give desktop fullscreen a 2400px floor and budget for the
+        // viewport at the current scale rather than treating that fit as sufficient.
+        const requiredPixels = desktop
+          ? Math.max(zoomTiers[0], pixels, window.innerWidth * window.devicePixelRatio * scale)
+          : pixels;
+        const tier = slow && !desktop
+          ? zoomTiers[0]
+          : zoomTiers.find((candidate) => candidate >= requiredPixels) ?? zoomTiers[2];
+        if (!sourceLimited && tier > width && (desktop || pixels > width)) {
           const photo = await loadTier(session, src, tier, "high");
           if (current !== revision || !photo) return;
           if (photo.width > width) setUpgrade(photo);
