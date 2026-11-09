@@ -7,7 +7,7 @@ import { cn } from "@/lib/utils";
 export function ShimmerBlock({ className }: { className?: string }) {
   return (
     <div className={cn("relative overflow-hidden rounded-none bg-gray-200 dark:bg-gray-800", className)}>
-      <div className="absolute inset-0 animate-shimmer bg-gradient-to-r from-transparent via-white/60 to-transparent dark:via-white/10" />
+      <div className="absolute inset-0 animate-shimmer bg-gradient-to-r from-transparent via-white/60 to-transparent motion-reduce:animate-none dark:via-white/10" />
     </div>
   );
 }
