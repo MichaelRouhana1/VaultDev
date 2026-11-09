@@ -55,13 +55,35 @@ function PurchasePanelSkeleton({ desktop = false }: { desktop?: boolean }) {
   );
 }
 
-function DetailRowsSkeleton() {
+function MobilePurchasePanelSkeleton() {
   return (
-    <div className="w-full">
+    <div>
+      <div className="flex items-start justify-between gap-3">
+        <ShimmerBlock className="h-7 w-4/5" />
+        <ShimmerBlock className="size-7 shrink-0" />
+      </div>
+      <ShimmerBlock className="mt-5 h-7 w-20" />
+      <div className="mt-6">
+        <ShimmerBlock className="mb-2 h-4 w-10" />
+        <div className="flex flex-wrap gap-2">
+          {Array.from({ length: 5 }, (_, index) => (
+            <ShimmerBlock key={index} className="h-8 w-8 rounded-sm" />
+          ))}
+        </div>
+      </div>
+      <ShimmerBlock className="mt-8 h-13 w-full" />
+      <ShimmerBlock className="mt-2 h-4 w-36" />
+    </div>
+  );
+}
+
+function DetailRowsSkeleton({ old = false }: { old?: boolean }) {
+  return (
+    <div className={cn("w-full", old && "mt-10 border-t border-border")}>
       {["w-28", "w-36", "w-24"].map((width) => (
-        <div key={width} className="flex min-h-14 items-center justify-between gap-4 border-b border-border py-3">
+        <div key={width} className={cn("flex min-h-14 items-center justify-between gap-4 border-b border-border py-3", old && "min-h-16 py-4 last:border-b-0")}>
           <ShimmerBlock className={cn("h-3", width)} />
-          <ShimmerBlock className="size-5 shrink-0" />
+          <ShimmerBlock className={cn("size-5 shrink-0", old && "size-8")} />
         </div>
       ))}
     </div>
@@ -85,14 +107,62 @@ function SimilarItemsSkeleton() {
   );
 }
 
-/** Mirrors the new PDP using the same desktop hero, photo, and purchase dimensions. */
+function OldDesktopSkeleton() {
+  return (
+    <>
+      <div className="mb-6 flex items-center gap-2 px-6 pt-5">
+        <ShimmerBlock className="h-5 w-12" />
+        <ShimmerBlock className="h-5 w-20" />
+        <ShimmerBlock className="h-5 w-24" />
+      </div>
+      <div className="mx-auto w-full max-w-[min(100%,1680px)] px-5 py-12 lg:px-6 xl:px-8">
+        <div className="grid grid-cols-1 gap-12 lg:grid-cols-2 lg:items-start lg:gap-20 xl:gap-28">
+          <div className="min-w-0 lg:pe-3 xl:pe-6 2xl:pe-8">
+            <ShimmerBlock className="aspect-[2/3] w-full" />
+            <div className="mt-4 grid grid-cols-2 gap-4">
+              <ShimmerBlock className="aspect-[2/3] w-full" />
+              <ShimmerBlock className="aspect-[2/3] w-full" />
+            </div>
+          </div>
+          <div className="min-w-0 lg:ps-2 xl:ps-6 2xl:ps-8">
+            <div className="flex items-start justify-between gap-4">
+              <ShimmerBlock className="h-7 w-4/5" />
+              <ShimmerBlock className="size-5 shrink-0" />
+            </div>
+            <ShimmerBlock className="mt-4 h-4 w-28" />
+            <div className="mt-3 flex gap-3">
+              {Array.from({ length: 3 }, (_, index) => (
+                <ShimmerBlock key={index} className="size-12" />
+              ))}
+            </div>
+            <ShimmerBlock className="mt-6 h-7 w-20" />
+            <div className="mt-8">
+              <ShimmerBlock className="mb-3 h-4 w-10" />
+              <div className="flex flex-wrap gap-2">
+                {Array.from({ length: 5 }, (_, index) => (
+                  <ShimmerBlock key={index} className="size-12" />
+                ))}
+              </div>
+            </div>
+            <ShimmerBlock className="mt-10 h-15 w-full" />
+            <ShimmerBlock className="mt-2 h-4 w-36" />
+            <DetailRowsSkeleton old />
+          </div>
+        </div>
+        <div className="mt-24 border-t border-border pt-16">
+          <SimilarItemsSkeleton />
+        </div>
+      </div>
+    </>
+  );
+}
+
+/** Both desktop layouts have full placeholders and share the same mobile skeleton. */
 export default function ProductDetailSkeleton({ layout = "new" }: { layout?: ProductPageLayout }) {
   const t = useTranslations("Common");
 
   useLayoutEffect(() => {
     window.scrollTo({ top: 0, left: 0, behavior: "instant" });
-    if (layout !== "new") return;
-
     const mobile = window.matchMedia("(max-width: 767px)");
     const previousOverflow = document.body.style.overflow;
     const syncOverflow = () => {
@@ -104,18 +174,7 @@ export default function ProductDetailSkeleton({ layout = "new" }: { layout?: Pro
       mobile.removeEventListener("change", syncOverflow);
       document.body.style.overflow = previousOverflow;
     };
-  }, [layout]);
-
-  if (layout === "old") {
-    return (
-      <div className="min-h-[calc(100svh-3.5rem)] bg-background px-6 py-12" aria-busy="true">
-        <span role="status" className="sr-only">{t("loading")}</span>
-        <div aria-hidden>
-          <ShimmerBlock className="mx-auto h-2 w-24 rounded-full" />
-        </div>
-      </div>
-    );
-  }
+  }, []);
 
   return (
     <main className={cn(styles.layout, "relative w-full bg-background md:pb-12")} aria-busy="true">
@@ -132,7 +191,6 @@ export default function ProductDetailSkeleton({ layout = "new" }: { layout?: Pro
               ))}
             </div>
           </div>
-          <ShimmerBlock className="absolute bottom-12 left-1/2 size-9 -translate-x-1/2 bg-background/70 dark:bg-background/70" />
           <div className="absolute inset-x-0 bottom-0 flex items-center justify-between gap-2 px-4 pb-[max(0.75rem,env(safe-area-inset-bottom,0px))] pt-14">
             <div className="size-10 shrink-0" />
             <div className="flex flex-1 justify-center gap-1.5">
@@ -143,9 +201,9 @@ export default function ProductDetailSkeleton({ layout = "new" }: { layout?: Pro
             <ShimmerBlock className={cn(photoControlSkeleton, "shrink-0")} />
           </div>
         </div>
-        <PurchasePanelSkeleton />
-        <div className="flex flex-1 flex-col px-5 pb-10 pt-6">
-          <DetailRowsSkeleton />
+        <div className="flex flex-1 flex-col px-4 pb-10 pt-5">
+          <MobilePurchasePanelSkeleton />
+          <DetailRowsSkeleton old />
           <div className="mt-12 border-t border-border pt-12">
             <SimilarItemsSkeleton />
           </div>
@@ -153,23 +211,27 @@ export default function ProductDetailSkeleton({ layout = "new" }: { layout?: Pro
       </div>
 
       <div aria-hidden className="hidden md:block">
-        <div className={cn(styles.hero, "relative isolate flex items-end justify-end overflow-hidden bg-muted")}>
-          <div className="absolute inset-0 flex">
-            {Array.from({ length: 5 }, (_, index) => (
-              <ShimmerBlock key={index} className={cn("h-full basis-[var(--pdp-photo-width)] shrink-0", index % 2 === 1 && "bg-muted")} />
-            ))}
-          </div>
-          <PurchasePanelSkeleton desktop />
-        </div>
-        <div className={cn(styles.details, "grid items-center")}>
-          <ShimmerBlock className="aspect-[.78] w-full" />
-          <div className="px-[clamp(1.5rem,10.5vw,14rem)] py-12">
-            <DetailRowsSkeleton />
-          </div>
-        </div>
-        <div className="mx-auto mt-16 max-w-[1680px] border-t border-border px-5 pt-16 lg:px-8">
-          <SimilarItemsSkeleton />
-        </div>
+        {layout === "old" ? <OldDesktopSkeleton /> : (
+          <>
+            <div className={cn(styles.hero, "relative isolate flex items-end justify-end overflow-hidden bg-muted")}>
+              <div className="absolute inset-0 flex">
+                {Array.from({ length: 5 }, (_, index) => (
+                  <ShimmerBlock key={index} className={cn("h-full basis-[var(--pdp-photo-width)] shrink-0", index % 2 === 1 && "bg-muted")} />
+                ))}
+              </div>
+              <PurchasePanelSkeleton desktop />
+            </div>
+            <div className={cn(styles.details, "grid items-center")}>
+              <ShimmerBlock className="aspect-[.78] w-full" />
+              <div className="px-[clamp(1.5rem,10.5vw,14rem)] py-12">
+                <DetailRowsSkeleton />
+              </div>
+            </div>
+            <div className="mx-auto mt-16 max-w-[1680px] border-t border-border px-5 pt-16 lg:px-8">
+              <SimilarItemsSkeleton />
+            </div>
+          </>
+        )}
       </div>
     </main>
   );

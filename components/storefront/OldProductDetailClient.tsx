@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, useRef, useEffect, useLayoutEffect, useMemo } from "react";
+import { useState, useCallback, useRef, useEffect, useLayoutEffect, useMemo, type ReactNode } from "react";
 import { ProductImage } from "@/components/storefront/ProductImage";
 import {
   ProgressiveZoomPhoto, useOpenProductZoom, useProductZoomGesture, type ProductZoomSession,
@@ -21,11 +21,11 @@ import { ProductDetailAccordion } from "@/components/ProductDetailAccordion";
 import type { ProductColor } from "@/db/schema";
 import { useProductDetail, type ProductDetailProps } from "@/components/storefront/useProductDetail";
 import { WishlistBookmarkIcon } from "@/components/WishlistBookmarkIcon";
-import { PRODUCT_STICKY_BUYBAR_CSS_VAR } from "@/lib/product-sticky-buybar";
+import { useProductStickyBuybar } from "@/components/storefront/useProductStickyBuybar";
 import type { EmblaOptionsType } from "embla-carousel";
 import { ChevronLeft, Search, ShoppingBag, User } from "lucide-react";
 
-// Layout and gallery UI retained from f4982a5.
+// The mobile layout and gallery are shared by both desktop layout settings.
 export function OldProductDetailClient({
   product,
   variants,
@@ -36,13 +36,17 @@ export function OldProductDetailClient({
   wishlistProductIds,
   listStoreType,
   productPageAccordionCopy,
-}: ProductDetailProps) {
+  renderDesktop,
+}: ProductDetailProps & {
+  renderDesktop?: (details: ReturnType<typeof useProductDetail>) => ReactNode;
+}) {
+  const details = useProductDetail({ product, variants, colors, inWishlist, listStoreType });
   const {
     t, tNav, openCart, formatPrice, wishlistState, selectedSize, setSelectedSize,
     selectedColor, imageUrls, handleColorSelect: selectProductColor, price, displayPrice, onSale,
     sizes, getStockForSize, isSizeInStock, hasAnyInStock, handleBack,
     handleWishlistClick, addLineForSize: addCartLine,
-  } = useProductDetail({ product, variants, colors, inWishlist, listStoreType });
+  } = details;
   const tCommon = useTranslations("Common");
   const [displayOrder, setDisplayOrder] = useState<number[]>([]);
   const [displayOrderKey, setDisplayOrderKey] = useState<string>("");
@@ -273,24 +277,7 @@ export function OldProductDetailClient({
   const stickyThumbSrc = imageUrls[0] && !imageErrors[0] ? imageUrls[0] : null;
   const showStickyBuyBar = similarProducts.length > 0 && similarSectionInView && !lightboxOpen;
 
-  useLayoutEffect(() => {
-    const root = document.documentElement;
-    const el = stickyBuyBarRef.current;
-    if (!showStickyBuyBar || !el) {
-      root.style.removeProperty(PRODUCT_STICKY_BUYBAR_CSS_VAR);
-      return;
-    }
-    const apply = () => {
-      root.style.setProperty(PRODUCT_STICKY_BUYBAR_CSS_VAR, `${el.offsetHeight}px`);
-    };
-    apply();
-    const ro = new ResizeObserver(apply);
-    ro.observe(el);
-    return () => {
-      ro.disconnect();
-      root.style.removeProperty(PRODUCT_STICKY_BUYBAR_CSS_VAR);
-    };
-  }, [showStickyBuyBar, stickyBuyPhase]);
+  useProductStickyBuybar(stickyBuyBarRef, showStickyBuyBar, renderDesktop ? "(max-width: 767px)" : undefined);
 
   const priceBlock = onSale ? (
     <span className="inline-flex flex-wrap items-baseline gap-2">
@@ -307,7 +294,9 @@ export function OldProductDetailClient({
   return (
     <main
       className={cn(
-        "relative mx-auto w-full max-md:max-w-none md:max-w-[min(100%,1680px)] md:px-5 lg:px-6 xl:px-8 md:py-12",
+        renderDesktop
+          ? "relative w-full"
+          : "relative mx-auto w-full max-md:max-w-none md:max-w-[min(100%,1680px)] md:px-5 lg:px-6 xl:px-8 md:py-12",
         showStickyBuyBar && "pb-20 md:pb-[4.75rem]",
       )}
     >
@@ -557,6 +546,8 @@ export function OldProductDetailClient({
         </div>
       </div>
 
+      {renderDesktop?.(details)}
+      {!renderDesktop && (
       <div className="hidden md:grid md:grid-cols-1 md:gap-12 lg:grid-cols-2 lg:gap-20 xl:gap-28 lg:items-start">
         {/* Image gallery — desktop */}
         <div className="flex flex-col gap-4 lg:min-w-0 lg:pe-3 xl:pe-6 2xl:pe-8">
@@ -791,6 +782,7 @@ export function OldProductDetailClient({
           />
         </div>
       </div>
+      )}
 
       {zoomSession && (
         <div
@@ -943,7 +935,7 @@ export function OldProductDetailClient({
         </div>
       )}
 
-      {similarProducts.length > 0 && (
+      {!renderDesktop && similarProducts.length > 0 && (
         <section
           ref={similarSectionRef}
           id="similar-items"
@@ -976,6 +968,7 @@ export function OldProductDetailClient({
           "supports-[backdrop-filter]:bg-background/92 supports-[backdrop-filter]:backdrop-blur-md",
           "pb-[env(safe-area-inset-bottom,0px)] transition-[transform] duration-300 ease-out [backface-visibility:hidden]",
           "will-change-transform",
+          renderDesktop && "md:hidden",
           showStickyBuyBar ? "translate-y-0" : "translate-y-full pointer-events-none",
         )}
         aria-hidden={!showStickyBuyBar}

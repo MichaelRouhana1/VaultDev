@@ -1,52 +1,49 @@
 "use client";
 
 import { useState, useRef, useEffect, useLayoutEffect, useMemo } from "react";
-import { Link } from "@/i18n/navigation";
 import { ProductCard } from "@/components/ProductCard";
-import {
-  Carousel,
-  CarouselContent,
-  CarouselItem,
-  CarouselDots,
-  type CarouselApi,
-} from "@/components/ui/carousel";
 import { cn } from "@/lib/utils";
 import { ProductDetailAccordion } from "@/components/ProductDetailAccordion";
 import { ProductPhotoStrip, ProductPhotoViewer, type ProductPhoto } from "@/components/storefront/ProductPhotoGallery";
 import { useOpenProductZoom, type ProductZoomSession } from "@/components/storefront/ProgressiveZoomPhoto";
 import { ProductImage } from "@/components/storefront/ProductImage";
 import type { ProductColor } from "@/db/schema";
-import { useProductDetail, type ProductDetailProps } from "@/components/storefront/useProductDetail";
+import type { useProductDetail, ProductDetailProps } from "@/components/storefront/useProductDetail";
 import { WishlistBookmarkIcon } from "@/components/WishlistBookmarkIcon";
-import { PRODUCT_STICKY_BUYBAR_CSS_VAR } from "@/lib/product-sticky-buybar";
-import type { EmblaOptionsType } from "embla-carousel";
-import { ChevronLeft, Maximize, RotateCcw, Search, ShoppingBag, Truck, User } from "lucide-react";
+import { useProductStickyBuybar } from "@/components/storefront/useProductStickyBuybar";
+import { OldProductDetailClient } from "@/components/storefront/OldProductDetailClient";
+import { RotateCcw, Truck } from "lucide-react";
 import styles from "@/components/storefront/product-detail.module.css";
 
-export function ProductDetailClient({
+export function ProductDetailClient(props: ProductDetailProps) {
+  return (
+    <OldProductDetailClient
+      {...props}
+      renderDesktop={(details) => <NewProductDetailDesktop {...props} details={details} />}
+    />
+  );
+}
+
+function NewProductDetailDesktop({
   product,
-  variants,
   colors = [],
-  inWishlist,
   similarProducts,
   variantsByProductId,
   wishlistProductIds,
-  listStoreType,
   productPageAccordionCopy,
-}: ProductDetailProps) {
+  details,
+}: ProductDetailProps & { details: ReturnType<typeof useProductDetail> }) {
   const {
-    t, tNav, openCart, formatPrice, wishlistState, selectedSize, setSelectedSize,
+    t, formatPrice, wishlistState, selectedSize, setSelectedSize,
     selectedColor, imageUrls, handleColorSelect: selectProductColor, price, displayPrice, onSale,
-    sizes, getStockForSize, isSizeInStock, hasAnyInStock, handleBack,
+    sizes, getStockForSize, isSizeInStock, hasAnyInStock,
     handleWishlistClick, addLineForSize: addCartLine,
-  } = useProductDetail({ product, variants, colors, inWishlist, listStoreType });
+  } = details;
   const [imageErrorsKey, setImageErrorsKey] = useState("");
   const [imageErrors, setImageErrors] = useState<Record<number, boolean>>({});
   const [photoViewer, setPhotoViewer] = useState<{ photos: ProductPhoto[]; index: number; session: ProductZoomSession } | null>(null);
-  const [carouselApi, setCarouselApi] = useState<CarouselApi | undefined>(undefined);
   const photoTriggerRef = useRef<HTMLButtonElement>(null);
   const similarSectionRef = useRef<HTMLElement | null>(null);
-  const similarSectionMobileRef = useRef<HTMLElement | null>(null);
   const stickyBuyBarRef = useRef<HTMLDivElement | null>(null);
   const [similarSectionInView, setSimilarSectionInView] = useState(false);
   const [stickyBuyPhase, setStickyBuyPhase] = useState<"summary" | "pickSize">("summary");
@@ -64,20 +61,6 @@ export function ProductDetailClient({
     [imageUrls, imageErrors],
   );
 
-  const mobileCarouselOpts = useMemo<EmblaOptionsType>(
-    () => ({
-      align: "start",
-      containScroll: "trimSnaps",
-      loop: photos.length > 1,
-      breakpoints: { "(prefers-reduced-motion: reduce)": { duration: 0 } },
-    }),
-    [photos.length]
-  );
-
-  useEffect(() => {
-    carouselApi?.scrollTo(0, true);
-  }, [galleryKey, carouselApi]);
-
   useEffect(() => {
     setStickyBuyPhase("summary");
   }, [selectedColor?.id]);
@@ -93,32 +76,16 @@ export function ProductDetailClient({
       },
       { threshold: 0, rootMargin: "0px" },
     );
-    const observeBoth = () => {
-      const desktopEl = similarSectionRef.current;
-      const mobileEl = similarSectionMobileRef.current;
-      if (desktopEl) io.observe(desktopEl);
-      if (mobileEl) io.observe(mobileEl);
+    const observe = () => {
+      if (similarSectionRef.current) io.observe(similarSectionRef.current);
     };
-    observeBoth();
-    const raf = requestAnimationFrame(observeBoth);
+    observe();
+    const raf = requestAnimationFrame(observe);
     return () => {
       cancelAnimationFrame(raf);
       io.disconnect();
     };
   }, [similarProducts.length]);
-
-  useEffect(() => {
-    const mq = window.matchMedia("(max-width: 767px)");
-    const apply = () => {
-      document.body.style.overflow = mq.matches ? "hidden" : "";
-    };
-    apply();
-    mq.addEventListener("change", apply);
-    return () => {
-      mq.removeEventListener("change", apply);
-      document.body.style.overflow = "";
-    };
-  }, []);
 
   useEffect(() => {
     if (!similarSectionInView) setStickyBuyPhase("summary");
@@ -177,24 +144,7 @@ export function ProductDetailClient({
   const stickyThumbSrc = imageUrls[0] && !imageErrors[0] ? imageUrls[0] : null;
   const showStickyBuyBar = similarProducts.length > 0 && similarSectionInView && !photoViewer;
 
-  useLayoutEffect(() => {
-    const root = document.documentElement;
-    const el = stickyBuyBarRef.current;
-    if (!showStickyBuyBar || !el) {
-      root.style.removeProperty(PRODUCT_STICKY_BUYBAR_CSS_VAR);
-      return;
-    }
-    const apply = () => {
-      root.style.setProperty(PRODUCT_STICKY_BUYBAR_CSS_VAR, `${el.offsetHeight}px`);
-    };
-    apply();
-    const ro = new ResizeObserver(apply);
-    ro.observe(el);
-    return () => {
-      ro.disconnect();
-      root.style.removeProperty(PRODUCT_STICKY_BUYBAR_CSS_VAR);
-    };
-  }, [showStickyBuyBar, stickyBuyPhase]);
+  useProductStickyBuybar(stickyBuyBarRef, showStickyBuyBar, "(min-width: 768px)");
 
   const priceBlock = onSale ? (
     <span className="inline-flex flex-wrap items-baseline gap-2">
@@ -205,29 +155,24 @@ export function ProductDetailClient({
     <span className="text-sm font-semibold">{formatPrice(displayPrice)}</span>
   );
 
-  const renderPurchasePanel = (layout: "mobile" | "desktop") => (
+  const renderPurchasePanel = () => (
     <section
-      className={cn(
-        "text-foreground",
-        layout === "desktop" && cn(styles.purchase, "relative shrink-0 bg-background/85 backdrop-blur-xl"),
-      )}
-      aria-labelledby={`product-title-${layout}`}
+      className={cn(styles.purchase, "relative shrink-0 bg-background/85 text-foreground backdrop-blur-xl")}
+      aria-labelledby="product-title-desktop"
     >
       <div className="px-5 pb-5 pt-5 md:p-6">
-        {layout === "desktop" && (
-          <div className="mb-3 flex justify-end">
-            <button
-              type="button"
-              onClick={handleWishlistClick}
-              className="inline-grid size-8 place-items-center transition-opacity hover:opacity-65 focus-visible:outline-2 focus-visible:outline-ring"
-              aria-label={wishlistState ? t("wishlistRemove") : t("wishlistAdd")}
-            >
-              <WishlistBookmarkIcon active={wishlistState} className="size-4" />
-            </button>
-          </div>
-        )}
+        <div className="mb-3 flex justify-end">
+          <button
+            type="button"
+            onClick={handleWishlistClick}
+            className="inline-grid size-8 place-items-center transition-opacity hover:opacity-65 focus-visible:outline-2 focus-visible:outline-ring"
+            aria-label={wishlistState ? t("wishlistRemove") : t("wishlistAdd")}
+          >
+            <WishlistBookmarkIcon active={wishlistState} className="size-4" />
+          </button>
+        </div>
         <div className="flex items-start justify-between gap-3">
-          <h1 id={`product-title-${layout}`} className="min-w-0 text-sm font-bold uppercase leading-5">
+          <h1 id="product-title-desktop" className="min-w-0 text-sm font-bold uppercase leading-5">
             {product.name}
           </h1>
           <div className="max-w-[45%] shrink-0 text-end text-sm font-bold">{priceBlock}</div>
@@ -265,8 +210,8 @@ export function ProductDetailClient({
       </div>
 
       <div className="border-t border-foreground/10 px-5 pb-5 pt-5 md:p-6">
-        <p id={`product-size-${layout}`} className="text-xs font-bold uppercase">{t("size")}</p>
-        <div role="group" aria-labelledby={`product-size-${layout}`} className="-ms-1.5 mt-1.5 flex flex-wrap gap-x-1 gap-y-0.5">
+        <p id="product-size-desktop" className="text-xs font-bold uppercase">{t("size")}</p>
+        <div role="group" aria-labelledby="product-size-desktop" className="-ms-1.5 mt-1.5 flex flex-wrap gap-x-1 gap-y-0.5">
           {sizes.map((size) => {
             const inStock = isSizeInStock(size);
             return (
@@ -313,9 +258,9 @@ export function ProductDetailClient({
           ] as const).map(([key, Icon, label]) => (
             <a
               key={key}
-              href={`#product-details-${layout}-${key}`}
+              href={`#product-details-desktop-${key}`}
               onClick={(event) => {
-                const trigger = document.getElementById(`product-details-${layout}-${key}`);
+                const trigger = document.getElementById(`product-details-desktop-${key}`);
                 if (!trigger) return;
                 event.preventDefault();
                 if (trigger.getAttribute("aria-expanded") === "false") trigger.click();
@@ -332,150 +277,14 @@ export function ProductDetailClient({
     </section>
   );
 
-  const navIconPill =
-    "inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-black/45 text-white shadow-[0_1px_8px_rgba(0,0,0,0.35)] backdrop-blur-sm dark:bg-black/55";
-
   return (
-    <main
+    <div
       className={cn(
         styles.layout,
-        "relative w-full md:pb-12",
+        "relative hidden w-full md:block md:pb-12",
         showStickyBuyBar && "pb-20 md:pb-[4.75rem]",
       )}
     >
-      {/* Mobile: full-screen PDP above global nav */}
-      <div className="fixed inset-0 z-[55] flex flex-col overflow-y-auto overscroll-y-contain bg-background md:hidden">
-        <div className="relative w-full shrink-0 overflow-hidden">
-          <div className="absolute inset-x-0 top-0 z-20 flex items-center justify-between gap-2 px-4 pb-2 pt-[max(0.75rem,env(safe-area-inset-top,0px))]">
-            <button
-              type="button"
-              onClick={handleBack}
-              className={navIconPill}
-              aria-label={t("mobileBackAria")}
-            >
-              <ChevronLeft className="h-5 w-5" aria-hidden />
-            </button>
-            <div className="flex items-center gap-2">
-              <Link href={`/${listStoreType}/shop`} className={navIconPill} aria-label={t("mobileSearchShopAria")}>
-                <Search className="h-5 w-5" aria-hidden />
-              </Link>
-              <Link href="/account" className={navIconPill} aria-label={t("mobileAccountAria")}>
-                <User className="h-5 w-5" aria-hidden />
-              </Link>
-              <button
-                type="button"
-                onClick={() => openCart()}
-                className={navIconPill}
-                aria-label={tNav("viewShoppingBagAria")}
-              >
-                <ShoppingBag className="h-5 w-5" aria-hidden />
-              </button>
-            </div>
-          </div>
-          <Carousel
-            setApi={setCarouselApi}
-            opts={mobileCarouselOpts}
-            role="region"
-            aria-label={t("galleryAria")}
-            className="relative z-0 w-full min-w-0"
-          >
-            <CarouselContent className="touch-pan-y">
-              {photos.length === 0 && (
-                <CarouselItem className="grid aspect-[2/3] basis-full place-items-center bg-muted text-muted-foreground">
-                  {t("noImage")}
-                </CarouselItem>
-              )}
-              {photos.map(({ src, index }) => (
-                <CarouselItem key={`${index}:${src}`} className="basis-full">
-                  <button
-                    type="button"
-                    className="relative block aspect-[2/3] w-full cursor-zoom-in overflow-hidden bg-muted focus-visible:outline-2 focus-visible:outline-inset focus-visible:outline-ring"
-                    onClick={(event) => openPhotoViewer(index, event.currentTarget)}
-                    aria-label={t("viewFullImage")}
-                  >
-                    <ProductImage
-                      variant="pdp"
-                      fetchPriority={index === photos[0]?.index ? "high" : undefined}
-                      src={src}
-                      data-gallery-photo={src}
-                      alt={t("thumbAlt", { index: index + 1, name: product.name })}
-                      fill
-                      draggable={false}
-                      className="object-cover"
-                      onError={() => handleImageError(index)}
-                      sizes="100vw"
-                    />
-                  </button>
-                </CarouselItem>
-              ))}
-            </CarouselContent>
-            {mainPhoto && (
-              <button
-                type="button"
-                onClick={(event) => {
-                  const photo = photos[carouselApi?.selectedScrollSnap() ?? 0] ?? mainPhoto;
-                  openPhotoViewer(photo.index, event.currentTarget);
-                }}
-                className="absolute bottom-12 left-1/2 z-20 grid size-9 -translate-x-1/2 place-items-center bg-background/90 text-foreground backdrop-blur-sm focus-visible:outline-2 focus-visible:outline-ring"
-                aria-label={t("zoomIn")}
-              >
-                <Maximize className="size-4" aria-hidden />
-              </button>
-            )}
-            <div className="pointer-events-none absolute inset-x-0 bottom-0 z-[15] flex items-end justify-between gap-2 bg-gradient-to-t from-black/55 via-black/15 to-transparent px-4 pb-[max(0.75rem,env(safe-area-inset-bottom,0px))] pt-14">
-              <span className="h-10 w-10 shrink-0" aria-hidden />
-              <div className="pointer-events-auto flex min-w-0 flex-1 justify-center">
-                <CarouselDots variant="onImage" className="mt-0" />
-              </div>
-              <button
-                type="button"
-                onClick={(e) => {
-                  e.preventDefault();
-                  e.stopPropagation();
-                  void handleWishlistClick(e);
-                }}
-                className={cn(navIconPill, "pointer-events-auto shrink-0")}
-                aria-label={wishlistState ? t("wishlistRemove") : t("wishlistAdd")}
-              >
-                <WishlistBookmarkIcon active={wishlistState} className="h-5 w-5" />
-              </button>
-            </div>
-          </Carousel>
-        </div>
-
-        {renderPurchasePanel("mobile")}
-
-        <div className="flex flex-1 flex-col px-5 pb-10 pt-6">
-          <ProductDetailAccordion
-            id="product-details-mobile"
-            productDescription={product.description}
-            accordionCopy={productPageAccordionCopy}
-          />
-
-          {similarProducts.length > 0 ? (
-            <section
-              ref={similarSectionMobileRef}
-              id="similar-items-mobile"
-              className="mt-12 scroll-mt-8 border-t border-border pt-12"
-            >
-              <h2 className="mb-8 text-sm font-medium uppercase tracking-[0.2em] text-foreground">{t("similarItems")}</h2>
-              <div className="grid grid-cols-2 gap-4">
-                {similarProducts.map((p) => (
-                  <div key={p.id} className="min-w-0">
-                    <ProductCard
-                      product={p}
-                      variants={variantsByProductId[p.id] ?? []}
-                      inWishlist={wishlistProductIds.includes(p.id)}
-                      compact
-                    />
-                  </div>
-                ))}
-              </div>
-            </section>
-          ) : null}
-        </div>
-      </div>
-
       <div className={cn(styles.hero, "relative isolate hidden overflow-hidden bg-muted md:flex md:items-end md:justify-end")}>
         <div className="absolute inset-0">
           <ProductPhotoStrip
@@ -486,7 +295,7 @@ export function ProductDetailClient({
             onImageError={handleImageError}
           />
         </div>
-        {renderPurchasePanel("desktop")}
+        {renderPurchasePanel()}
       </div>
 
       <section className={cn("hidden items-center md:grid", mainPhoto ? styles.details : "grid-cols-1")}>
@@ -641,6 +450,6 @@ export function ProductDetailClient({
           </div>
         </div>
       </div>
-    </main>
+    </div>
   );
 }
