@@ -1,6 +1,6 @@
 "use server";
 
-import { and, asc, desc, eq, inArray, sql } from "drizzle-orm";
+import { and, asc, desc, eq, inArray, sql, type SQL } from "drizzle-orm";
 import type { AttributeFilterSection } from "@/components/FilterPanel";
 import type { ProductCategory } from "@/actions/categories";
 import { getStoreCategories } from "@/lib/storefront-categories";
@@ -19,7 +19,7 @@ import type { SearchProductRow } from "@/actions/search";
 import { db } from "@/db";
 import { categories, productColors, products } from "@/db/schema";
 import type { ProductColor, ProductVariant } from "@/db/schema";
-import { buildProductSearchWhere, getFormattedPrefixTsquery } from "@/lib/product-search";
+import { getFormattedPrefixTsquery } from "@/lib/product-search";
 import { localizedProductName } from "@/lib/storefront-product-locale";
 import type { ListingStore } from "@/lib/store-scope";
 
@@ -33,6 +33,36 @@ const stockExistsSql = sql<boolean>`EXISTS (
   SELECT 1 FROM product_variants v
   WHERE v.product_id = ${products.id} AND v.stock > 0
 )`;
+
+/** 0 = in stock, 1 = out of stock. Out-of-stock stays in the list, after in-stock hits. */
+function inStockRankSql(): SQL {
+  return sql`CASE WHEN ${stockExistsSql} THEN 0 ELSE 1 END`;
+}
+
+/**
+ * 0 when the product name or its category label/slug matches the tsquery.
+ * Description-only hits stay at 1 so "pair with jeans" ranks under actual jeans.
+ */
+function nameOrCategoryRankSql(formatted: string): SQL {
+  return sql`CASE WHEN (
+    to_tsvector('english', coalesce(${products.name}, '')) @@ to_tsquery('english', ${formatted})
+    OR to_tsvector(
+      'english',
+      coalesce(${categories.label}, '') || ' ' || replace(coalesce(${categories.slug}, ''), '-', ' ')
+    ) @@ to_tsquery('english', ${formatted})
+  ) THEN 0 ELSE 1 END`;
+}
+
+/** Name, description (`search_vector`), or category label/slug. */
+function searchHitSql(formatted: string): SQL {
+  return sql`(
+    ${products.searchVector} @@ to_tsquery('english', ${formatted})
+    OR to_tsvector(
+      'english',
+      coalesce(${categories.label}, '') || ' ' || replace(coalesce(${categories.slug}, ''), '-', ' ')
+    ) @@ to_tsquery('english', ${formatted})
+  )`;
+}
 
 /**
  * Minimal storefront product row for search / recommendations (no `search_vector`, no descriptions in payload).
@@ -125,8 +155,11 @@ function toCardRows(
 export async function getRecommendedProducts(
   limit: number,
   locale: MosaikLocale = "en",
+  store?: ListingStore | null,
 ): Promise<SearchProductCardRow[]> {
   const lim = clampRecommendedLimit(limit);
+  const whereParts = [eq(products.isVisible, true), eq(products.isArchived, false), stockExistsSql];
+  if (store) whereParts.push(eq(products.storeType, store));
 
   const rows = await db
     .select({
@@ -146,9 +179,7 @@ export async function getRecommendedProducts(
     })
     .from(products)
     .innerJoin(categories, eq(products.mainCategoryId, categories.id))
-    .where(
-      and(eq(products.isVisible, true), eq(products.isArchived, false), stockExistsSql),
-    )
+    .where(and(...whereParts))
     .orderBy(desc(products.id))
     .limit(lim);
 
@@ -165,21 +196,24 @@ export async function getSearchResults(
   offset: number,
   limit: number,
   locale: MosaikLocale = "en",
+  store?: ListingStore | null,
 ): Promise<{ products: SearchProductCardRow[]; totalCount: number }> {
   const q = query.trim();
   const { limit: lim, offset: off } = clampSearchPaging(limit, offset);
 
   const formatted = getFormattedPrefixTsquery(q);
-  const fts = buildProductSearchWhere(q);
-  if (!formatted || !fts) {
+  if (!formatted) {
     return { products: [], totalCount: 0 };
   }
 
-  const baseWhere = and(eq(products.isVisible, true), eq(products.isArchived, false), fts);
+  const whereParts = [eq(products.isVisible, true), eq(products.isArchived, false), searchHitSql(formatted)];
+  if (store) whereParts.push(eq(products.storeType, store));
+  const baseWhere = and(...whereParts);
 
   const [countRow] = await db
     .select({ c: sql<number>`count(*)::int` })
     .from(products)
+    .innerJoin(categories, eq(products.mainCategoryId, categories.id))
     .where(baseWhere);
 
   const totalCount = Number(countRow?.c ?? 0);
@@ -207,6 +241,8 @@ export async function getSearchResults(
     .innerJoin(categories, eq(products.mainCategoryId, categories.id))
     .where(baseWhere)
     .orderBy(
+      asc(inStockRankSql()),
+      asc(nameOrCategoryRankSql(formatted)),
       desc(sql`ts_rank_cd(${products.searchVector}, to_tsquery('english', ${formatted}))`),
       asc(products.id),
     )
@@ -342,8 +378,11 @@ export async function hydrateSearchProductCardRows(
   return { products: productsOut, variantsByProductId, colorsByProductId };
 }
 
-export async function loadSearchRecommendations(locale: MosaikLocale): Promise<SearchHydratedCardRows> {
-  const cards = await getRecommendedProducts(40, locale);
+export async function loadSearchRecommendations(
+  locale: MosaikLocale,
+  store?: ListingStore | null,
+): Promise<SearchHydratedCardRows> {
+  const cards = await getRecommendedProducts(40, locale, store);
   return hydrateSearchProductCardRows(cards);
 }
 
@@ -360,21 +399,37 @@ export type SearchFilterWave1 = {
   catsWo: ProductCategory[];
 };
 
-export async function loadSearchFilterWave1(query: string): Promise<SearchFilterWave1> {
+const EMPTY_SEARCH_FILTER_WAVE: SearchFilterWave1 = {
+  facetsSt: [],
+  facetsFo: [],
+  facetsWo: [],
+  idsSt: [],
+  idsFo: [],
+  idsWo: [],
+  catsSt: [],
+  catsFo: [],
+  catsWo: [],
+};
+
+async function searchFilterWaveForStore(store: ListingStore, query: string): Promise<SearchFilterWave1> {
+  const [facets, ids, cats] = await Promise.all([
+    getShopAttributeFacetsForListingContext(store, { searchQuery: query }),
+    getShopProductIdsForListingContext(store, { searchQuery: query }),
+    getStoreCategories(store),
+  ]);
+  if (store === "streetwear") return { ...EMPTY_SEARCH_FILTER_WAVE, facetsSt: facets, idsSt: ids, catsSt: cats };
+  if (store === "formal") return { ...EMPTY_SEARCH_FILTER_WAVE, facetsFo: facets, idsFo: ids, catsFo: cats };
+  return { ...EMPTY_SEARCH_FILTER_WAVE, facetsWo: facets, idsWo: ids, catsWo: cats };
+}
+
+export async function loadSearchFilterWave1(
+  query: string,
+  store?: ListingStore | null,
+): Promise<SearchFilterWave1> {
   const q = query.trim();
-  if (!q) {
-    return {
-      facetsSt: [],
-      facetsFo: [],
-      facetsWo: [],
-      idsSt: [],
-      idsFo: [],
-      idsWo: [],
-      catsSt: [],
-      catsFo: [],
-      catsWo: [],
-    };
-  }
+  if (!q) return { ...EMPTY_SEARCH_FILTER_WAVE };
+  if (store) return searchFilterWaveForStore(store, q);
+
   const [facetsSt, facetsFo, facetsWo, idsSt, idsFo, idsWo, catsSt, catsFo, catsWo] = await Promise.all([
     getShopAttributeFacetsForListingContext("streetwear", { searchQuery: q }),
     getShopAttributeFacetsForListingContext("formal", { searchQuery: q }),
@@ -465,6 +520,7 @@ type SearchResultsPayload = {
 export async function loadSearchResultsBundle(
   query: string,
   locale: MosaikLocale,
+  store?: ListingStore | null,
 ): Promise<SearchResultsPayload> {
   const q = query.trim();
   if (!q) {
@@ -478,8 +534,8 @@ export async function loadSearchResultsBundle(
   }
 
   const [searchPage, wave1] = await Promise.all([
-    getSearchResults(q, 0, SEARCH_INITIAL_LIMIT, locale),
-    loadSearchFilterWave1(q),
+    getSearchResults(q, 0, SEARCH_INITIAL_LIMIT, locale, store),
+    loadSearchFilterWave1(q, store),
   ]);
 
   const loadedIds = searchPage.products.map((c) => c.id);
@@ -506,6 +562,7 @@ export async function loadSearchResultsMore(
   query: string,
   locale: MosaikLocale,
   offset: number,
+  store?: ListingStore | null,
 ): Promise<{
   products: SearchListingProduct[];
   variantsByProductId: Record<number, ProductVariant[]>;
@@ -524,7 +581,7 @@ export async function loadSearchResultsMore(
     };
   }
 
-  const searchPage = await getSearchResults(q, offset, SEARCH_MORE_LIMIT, locale);
+  const searchPage = await getSearchResults(q, offset, SEARCH_MORE_LIMIT, locale, store);
   const listingProducts = searchPage.products.map(cardRowToListingProduct);
   const loadedIds = listingProducts.map((p) => p.id);
   if (loadedIds.length === 0) {

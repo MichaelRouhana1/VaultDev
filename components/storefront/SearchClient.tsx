@@ -11,14 +11,14 @@ import {
 } from "react";
 import { useTranslations } from "next-intl";
 import { ChevronUp, X } from "lucide-react";
-import { usePathname, useRouter } from "@/i18n/navigation";
+import { useRouter } from "@/i18n/navigation";
 import { ProductCard } from "@/components/ProductCard";
 import { UtilityBar } from "@/components/UtilityBar";
 import {
   FilterPanel,
   FilterPanelContent,
   type FilterState,
-  type ShopSortOption,
+  type SearchSortOption,
 } from "@/components/FilterPanel";
 import { cn, getProductEffectivePriceNumber } from "@/lib/utils";
 import type { ProductColor, ProductVariant } from "@/db/schema";
@@ -29,6 +29,8 @@ import {
   type SearchPageFilterContext,
 } from "@/actions/search-page-data";
 import SearchSkeleton from "@/components/storefront/SearchSkeleton";
+import { searchPath } from "@/lib/storefront-search-scope";
+import type { ListingStore } from "@/lib/store-scope";
 
 const EMPTY_SEARCH_FILTERS: SearchPageFilterContext = {
   attributeSectionsForFilters: [],
@@ -66,6 +68,8 @@ export interface SearchClientProps {
   recommendedColorsByProductId: Record<number, ProductColor[]>;
   /** Facets / filter metadata when `searchQuery` is non-empty. */
   searchFilters: SearchPageFilterContext | null;
+  /** Store the shopper opened search from. Null searches every store. */
+  storeScope: ListingStore | null;
 }
 
 export function SearchClient({
@@ -80,10 +84,11 @@ export function SearchClient({
   recommendedVariantsByProductId,
   recommendedColorsByProductId,
   searchFilters,
+  storeScope,
 }: SearchClientProps) {
   const t = useTranslations("Search");
+  const tNav = useTranslations("Navbar");
   const router = useRouter();
-  const pathname = usePathname();
 
   const hasSearch = searchQuery.trim().length > 0;
 
@@ -142,7 +147,7 @@ export function SearchClient({
   const [isSearchNavPending, startNavTransition] = useTransition();
   const [, startAppendTransition] = useTransition();
 
-  const [sort, setSort] = useState<ShopSortOption>("price-low");
+  const [sort, setSort] = useState<SearchSortOption>("relevance");
   const [mobileFilterOpen, setMobileFilterOpen] = useState(false);
   const [desktopFilterOpen, setDesktopFilterOpen] = useState(false);
   const [filters, setFilters] = useState<FilterState>({
@@ -208,7 +213,12 @@ export function SearchClient({
     fetchMoreGuardRef.current = true;
     setIsLoadingMore(true);
     try {
-      const chunk = await loadSearchResultsMore(queryRef.current.trim(), localeRef.current, offset);
+      const chunk = await loadSearchResultsMore(
+        queryRef.current.trim(),
+        localeRef.current,
+        offset,
+        storeScope,
+      );
       startAppendTransition(() => {
         setSearchProducts((prev) => {
           const seen = new Set(prev.map((p) => p.id));
@@ -232,7 +242,7 @@ export function SearchClient({
         fetchMoreGuardRef.current = false;
       });
     }
-  }, [hasSearch, totalCount]);
+  }, [hasSearch, totalCount, storeScope]);
 
   loadMoreFromObserverRef.current = () => {
     void loadNextPage();
@@ -330,11 +340,14 @@ export function SearchClient({
       });
     }
 
-    if (sort === "price-low") {
-      list.sort((a, b) => a.effectivePrice - b.effectivePrice);
-    } else {
-      list.sort((a, b) => b.effectivePrice - a.effectivePrice);
-    }
+    const inStock = (id: number) => (searchVariantsByProductId[id] ?? []).some((v) => v.stock > 0);
+    list.sort((a, b) => {
+      const stockDelta = Number(inStock(b.product.id)) - Number(inStock(a.product.id));
+      if (stockDelta !== 0) return stockDelta;
+      if (sort === "price-low") return a.effectivePrice - b.effectivePrice;
+      if (sort === "price-high") return b.effectivePrice - a.effectivePrice;
+      return 0;
+    });
 
     return list.map(({ product }) => product);
   }, [
@@ -378,21 +391,41 @@ export function SearchClient({
     return () => io.disconnect();
   }, [triggerKey, hasMoreServer, isLoadingMore, triggerInsertIndex]);
 
-  const mainCategoryOptions = useMemo(
-    () => storeMainCategories.map((c) => ({ value: c.slug, label: c.label })),
-    [storeMainCategories],
-  );
+  const mainCategoryOptions = useMemo(() => {
+    const storeRank: Record<string, number> = { women: 0, streetwear: 1, formal: 2, both: 3 };
+    const storeLabel = (storeType: string) => {
+      if (storeType === "women" || storeType === "streetwear" || storeType === "formal") return tNav(storeType);
+      if (storeType === "both") return tNav("men");
+      return storeType;
+    };
+    return [...storeMainCategories]
+      .sort((a, b) => {
+        const rank = (storeRank[a.storeType] ?? 9) - (storeRank[b.storeType] ?? 9);
+        if (rank !== 0) return rank;
+        return a.label.localeCompare(b.label, undefined, { sensitivity: "base" });
+      })
+      .map((c) => ({
+        value: c.slug,
+        label: storeScope ? c.label : `${c.label} · ${storeLabel(c.storeType)}`,
+      }));
+  }, [storeMainCategories, storeScope, tNav]);
 
   const showMainCategorySection = storeMainCategories.length > 0;
+
+  const replaceSearch = useCallback(
+    (next: { q?: string | null; store?: ListingStore | null }) => {
+      startNavTransition(() => {
+        router.replace(searchPath(next), { scroll: false });
+      });
+    },
+    [router, startNavTransition],
+  );
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     const trimmed = inputValue.trim();
     if (trimmed) saveSearchTerm(trimmed);
-    startNavTransition(() => {
-      const href = trimmed ? `${pathname}?q=${encodeURIComponent(trimmed)}` : pathname;
-      router.replace(href, { scroll: false });
-    });
+    replaceSearch({ q: trimmed, store: storeScope });
   };
 
   const navigateToRecentSearch = useCallback(
@@ -401,12 +434,14 @@ export function SearchClient({
       if (!trimmed) return;
       setInputValue(trimmed);
       saveSearchTerm(trimmed);
-      startNavTransition(() => {
-        router.replace(`${pathname}?q=${encodeURIComponent(trimmed)}`, { scroll: false });
-      });
+      replaceSearch({ q: trimmed, store: storeScope });
     },
-    [pathname, router, saveSearchTerm, startNavTransition],
+    [replaceSearch, saveSearchTerm, storeScope],
   );
+
+  const searchAllStores = () => {
+    replaceSearch({ q: searchQuery, store: null });
+  };
 
   if (isSearchNavPending) {
     return <SearchSkeleton query={inputValue} />;
@@ -449,6 +484,22 @@ export function SearchClient({
             )}
           />
         </form>
+
+        {storeScope ? (
+          <p className="mx-auto mt-3 flex max-w-2xl flex-wrap items-center justify-center gap-x-2 text-center text-[11px] font-medium uppercase tracking-[0.16em] text-muted-foreground">
+            <span>{t("searchingIn", { store: tNav(storeScope) })}</span>
+            <span aria-hidden className="text-foreground/30">
+              ·
+            </span>
+            <button
+              type="button"
+              onClick={searchAllStores}
+              className="text-foreground underline decoration-foreground/40 underline-offset-4 transition-opacity hover:opacity-70"
+            >
+              {t("searchAllStores")}
+            </button>
+          </p>
+        ) : null}
 
         {recentSearches.length > 0 ? (
           <div className="mx-auto mt-4 w-full max-w-2xl">
@@ -535,6 +586,7 @@ export function SearchClient({
             priceBounds={priceBounds}
             sort={sort}
             onSortChange={setSort}
+            showRelevanceSort
             showMainCategorySection={showMainCategorySection}
             mainCategories={mainCategoryOptions}
             attributeSections={attributeSectionsForFilters}
@@ -561,6 +613,7 @@ export function SearchClient({
                   priceBounds={priceBounds}
                   sort={sort}
                   onSortChange={setSort}
+                  showRelevanceSort
                   showMainCategorySection={showMainCategorySection}
                   mainCategories={mainCategoryOptions}
                   attributeSections={attributeSectionsForFilters}

@@ -128,7 +128,8 @@ export function ShopClient({
     }
   }, [products.length, priceBounds.min, priceBounds.max]);
 
-  const handleSortChange = (value: ShopSortOption) => {
+  const handleSortChange = (value: ShopSortOption | "relevance") => {
+    if (value === "relevance") return;
     setSort(value);
   };
 

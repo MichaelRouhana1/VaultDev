@@ -13,17 +13,19 @@ import {
   type SearchPageFilterContext,
 } from "@/actions/search-page-data";
 import { storefrontLocaleFromParam } from "@/lib/storefront-product-locale";
+import { parseSearchStoreParam } from "@/lib/storefront-search-scope";
 
 interface SearchPageProps {
   params: Promise<{ locale: string }>;
-  searchParams: Promise<{ q?: string }>;
+  searchParams: Promise<{ q?: string; store?: string }>;
 }
 
 export default async function SearchPage({ params, searchParams }: SearchPageProps) {
   const { locale: localeParam } = await params;
   const locale = storefrontLocaleFromParam(localeParam);
-  const { q } = await searchParams;
+  const { q, store: storeParam } = await searchParams;
   const searchQuery = typeof q === "string" ? q.trim() : "";
+  const storeScope = parseSearchStoreParam(typeof storeParam === "string" ? storeParam : null);
 
   let recommendedProducts: SearchListingProduct[] = [];
   let recommendedVariantsByProductId: Record<number, import("@/db/schema").ProductVariant[]> = {};
@@ -36,15 +38,15 @@ export default async function SearchPage({ params, searchParams }: SearchPagePro
   let searchFilters: SearchPageFilterContext | null = null;
 
   if (!searchQuery) {
-    const cards = await getRecommendedProducts(40, locale);
+    const cards = await getRecommendedProducts(40, locale, storeScope);
     const rec = await hydrateSearchProductCardRows(cards);
     recommendedProducts = rec.products;
     recommendedVariantsByProductId = rec.variantsByProductId;
     recommendedColorsByProductId = rec.colorsByProductId;
   } else {
     const [searchPage, wave1] = await Promise.all([
-      getSearchResults(searchQuery, 0, 40, locale),
-      loadSearchFilterWave1(searchQuery),
+      getSearchResults(searchQuery, 0, 40, locale, storeScope),
+      loadSearchFilterWave1(searchQuery, storeScope),
     ]);
     const loadedIds = searchPage.products.map((c) => c.id);
     const [hydrated, filterCtx] = await Promise.all([
@@ -71,8 +73,9 @@ export default async function SearchPage({ params, searchParams }: SearchPagePro
   return (
     <div className="pt-14">
       <SearchClient
-        key={searchQuery ? `q:${searchQuery}` : "browse"}
+        key={`${storeScope ?? "all"}:${searchQuery ? `q:${searchQuery}` : "browse"}`}
         locale={locale}
+        storeScope={storeScope}
         wishlistProductIds={wishlistProductIds}
         searchQuery={searchQuery}
         totalCount={totalCount}

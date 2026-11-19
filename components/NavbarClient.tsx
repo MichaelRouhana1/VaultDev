@@ -1,9 +1,9 @@
 "use client";
 
-import { useState, useEffect, useMemo, useSyncExternalStore } from "react";
+import { Suspense, useState, useEffect, useMemo, useSyncExternalStore, type ReactNode } from "react";
 import { useLocale, useTranslations } from "next-intl";
 import { Link, usePathname, useRouter } from "@/i18n/navigation";
-import { useParams } from "next/navigation";
+import { useParams, useSearchParams } from "next/navigation";
 import { UserButton, useAuth } from "@clerk/nextjs";
 import { useTheme } from "next-themes";
 import { useCart } from "@/context/CartContext";
@@ -22,6 +22,7 @@ import { isStoreGatePath, isStrictStoreLanding, storeSectionFromPathname } from 
 import { cn } from "@/lib/utils";
 import { isDashboardRole } from "@/lib/clerk-dashboard-role";
 import { useShopListingNav } from "@/components/storefront/ShopListingNavContext";
+import { parseSearchStoreParam, searchPath } from "@/lib/storefront-search-scope";
 
 function subscribeMaxLg(callback: () => void) {
   const mq = window.matchMedia("(max-width: 1023px)");
@@ -42,6 +43,26 @@ export interface NavbarClientProps {
   streetwearCategories: ProductCategory[];
   formalCategories: ProductCategory[];
   womenCategories: ProductCategory[];
+}
+
+function NavbarSearchLink({
+  routeStore,
+  className,
+  onClick,
+  children,
+}: {
+  routeStore: StoreTypeSlug | null;
+  className?: string;
+  onClick?: () => void;
+  children: ReactNode;
+}) {
+  const searchParams = useSearchParams();
+  const store = routeStore ?? parseSearchStoreParam(searchParams.get("store"));
+  return (
+    <Link href={searchPath({ store })} className={className} onClick={onClick}>
+      {children}
+    </Link>
+  );
 }
 
 function activeStoreFromRoute(
@@ -343,12 +364,23 @@ export function NavbarClient({ streetwearCategories, formalCategories, womenCate
                 {t("men")}
               </Link>
             </div>
-            <Link
-              href="/search"
-              className="hidden lg:inline text-sm font-normal text-foreground hover:opacity-70 transition-opacity"
+            <Suspense
+              fallback={
+                <Link
+                  href={searchPath({ store: activeStore })}
+                  className="hidden lg:inline text-sm font-normal text-foreground hover:opacity-70 transition-opacity"
+                >
+                  {t("search")}
+                </Link>
+              }
             >
-              {t("search")}
-            </Link>
+              <NavbarSearchLink
+                routeStore={activeStore}
+                className="hidden lg:inline text-sm font-normal text-foreground hover:opacity-70 transition-opacity"
+              >
+                {t("search")}
+              </NavbarSearchLink>
+            </Suspense>
             <button
               type="button"
               onClick={toggleTheme}
@@ -507,8 +539,28 @@ export function NavbarClient({ streetwearCategories, formalCategories, womenCate
                 store: t(mobileMenuStore),
               })}
             >
-              <Link
-                href="/search"
+              <Suspense
+                fallback={
+                  <Link
+                    href={searchPath({ store: pinnedMobileMenuStore ?? activeStore })}
+                    onClick={() => setBurgerOpen(false)}
+                    className="flex items-center gap-3 border-b border-border py-3 text-base font-medium text-foreground transition-colors hover:bg-muted/50"
+                  >
+                    <span className="text-muted-foreground" aria-hidden>
+                      <svg className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth={1.5} viewBox="0 0 24 24">
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z"
+                        />
+                      </svg>
+                    </span>
+                    {t("search")}
+                  </Link>
+                }
+              >
+              <NavbarSearchLink
+                routeStore={pinnedMobileMenuStore ?? activeStore}
                 onClick={() => setBurgerOpen(false)}
                 className="flex items-center gap-3 border-b border-border py-3 text-base font-medium text-foreground transition-colors hover:bg-muted/50"
               >
@@ -522,7 +574,8 @@ export function NavbarClient({ streetwearCategories, formalCategories, womenCate
                   </svg>
                 </span>
                 {t("search")}
-              </Link>
+              </NavbarSearchLink>
+              </Suspense>
               <button
                 type="button"
                 onClick={() => {

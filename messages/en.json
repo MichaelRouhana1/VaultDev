@@ -71,6 +71,7 @@
     "filtersHeading": "Filters",
     "closeDrawerAria": "Close filters",
     "sortByHeading": "Sort by",
+    "sortRelevance": "Relevance",
     "sortPriceLowToHigh": "Price low to high",
     "sortPriceHighToLow": "Price high to low",
     "priceRangeHeading": "Price range",
@@ -101,7 +102,9 @@
     "loadingMore": "Loading more results",
     "recentlySearched": "Recently searched",
     "recentSearchChipAria": "Search for {term}",
-    "recentSearchRemoveAria": "Remove {term} from recent searches"
+    "recentSearchRemoveAria": "Remove {term} from recent searches",
+    "searchingIn": "Searching in {store}",
+    "searchAllStores": "Search all stores"
   },
   "Landing": {
     "selectStyle": "Select Your Style",

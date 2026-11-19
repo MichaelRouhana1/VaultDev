@@ -9,6 +9,9 @@ import { sortSizes, cn } from "@/lib/utils";
 /** Shop listing sort: only price ascending / descending (URL `?sort=price-low` | `price-high`). */
 export type ShopSortOption = "price-low" | "price-high";
 
+/** Search defaults to relevance (name/category, then description, out of stock last). */
+export type SearchSortOption = ShopSortOption | "relevance";
+
 export interface FilterState {
   priceMin: number;
   priceMax: number;
@@ -41,8 +44,10 @@ export interface FilterPanelContentProps {
   filters: FilterState;
   onFiltersChange: (filters: FilterState) => void;
   priceBounds: { min: number; max: number };
-  sort: ShopSortOption;
-  onSortChange: (value: ShopSortOption) => void;
+  sort: SearchSortOption;
+  onSortChange: (value: SearchSortOption) => void;
+  /** Search page: offer a relevance option and start on it. Shop listings omit this. */
+  showRelevanceSort?: boolean;
   /** False when the shop is already scoped to one main category (e.g. `?cat=jeans`). */
   showMainCategorySection: boolean;
   mainCategories?: { value: string; label: string }[];
@@ -65,14 +70,17 @@ export interface FilterPanelContentProps {
 function SortBySection({
   sort,
   onSortChange,
+  showRelevanceSort = false,
 }: {
-  sort: ShopSortOption;
-  onSortChange: (value: ShopSortOption) => void;
+  sort: SearchSortOption;
+  onSortChange: (value: SearchSortOption) => void;
+  showRelevanceSort?: boolean;
 }) {
   const t = useTranslations("FilterPanel");
-  const options: { value: ShopSortOption; msg: "sortPriceLowToHigh" | "sortPriceHighToLow" }[] = [
-    { value: "price-low", msg: "sortPriceLowToHigh" },
-    { value: "price-high", msg: "sortPriceHighToLow" },
+  const options: { value: SearchSortOption; msg: "sortRelevance" | "sortPriceLowToHigh" | "sortPriceHighToLow" }[] = [
+    ...(showRelevanceSort ? [{ value: "relevance" as const, msg: "sortRelevance" as const }] : []),
+    { value: "price-low" as const, msg: "sortPriceLowToHigh" as const },
+    { value: "price-high" as const, msg: "sortPriceHighToLow" as const },
   ];
   return (
     <div className="mb-8">
@@ -198,6 +206,7 @@ export function FilterPanelContent({
   priceBounds,
   sort,
   onSortChange,
+  showRelevanceSort = false,
   showMainCategorySection,
   mainCategories = [],
   attributeSections = [],
@@ -255,7 +264,7 @@ export function FilterPanelContent({
           Filters
         </h2>
       )}
-      <SortBySection sort={sort} onSortChange={onSortChange} />
+      <SortBySection sort={sort} onSortChange={onSortChange} showRelevanceSort={showRelevanceSort} />
       <PriceRangeSection
         bounds={priceBounds}
         valueMin={filters.priceMin}
@@ -310,8 +319,9 @@ interface FilterPanelProps {
   filters: FilterState;
   onFiltersChange: (filters: FilterState) => void;
   priceBounds: { min: number; max: number };
-  sort: ShopSortOption;
-  onSortChange: (value: ShopSortOption) => void;
+  sort: SearchSortOption;
+  onSortChange: (value: SearchSortOption) => void;
+  showRelevanceSort?: boolean;
   showMainCategorySection: boolean;
   mainCategories?: { value: string; label: string }[];
   attributeSections?: AttributeFilterSection[];
@@ -330,6 +340,7 @@ export function FilterPanel({
   priceBounds,
   sort,
   onSortChange,
+  showRelevanceSort = false,
   showMainCategorySection,
   mainCategories = [],
   attributeSections = [],
@@ -429,6 +440,7 @@ export function FilterPanel({
             priceBounds={priceBounds}
             sort={sort}
             onSortChange={onSortChange}
+            showRelevanceSort={showRelevanceSort}
             showMainCategorySection={showMainCategorySection}
             mainCategories={mainCategories}
             attributeSections={attributeSections}

@@ -1,17 +1,21 @@
 "use client";
 
 import { useTranslations } from "next-intl";
-import { Link } from "@/i18n/navigation";
+import { Link, usePathname } from "@/i18n/navigation";
+import { storeSectionFromPathname } from "@/lib/store-nav";
+import { searchPath } from "@/lib/storefront-search-scope";
 
 /** Mobile store landing only: sits below fixed header on hero imagery. */
 export function HeroMobileSearchBar() {
   const tNav = useTranslations("Navbar");
   const tSearch = useTranslations("Search");
+  const pathname = usePathname();
+  const store = storeSectionFromPathname(pathname);
 
   return (
     <div className="pointer-events-none absolute start-0 end-0 top-14 z-[35] px-4 pt-2 sm:px-6 lg:hidden">
       <Link
-        href="/search"
+        href={searchPath({ store })}
         className="pointer-events-auto flex w-full items-center gap-2.5 border border-white bg-transparent px-3 py-2.5 text-sm text-white opacity-100"
         aria-label={tNav("search")}
       >

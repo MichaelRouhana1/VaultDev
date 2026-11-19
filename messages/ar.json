@@ -71,6 +71,7 @@
     "filtersHeading": "عوامل التصفية",
     "closeDrawerAria": "إغلاق عوامل التصفية",
     "sortByHeading": "ترتيب حسب",
+    "sortRelevance": "الصلة",
     "sortPriceLowToHigh": "السعر من الأقل للأعلى",
     "sortPriceHighToLow": "السعر من الأعلى للأقل",
     "priceRangeHeading": "نطاق السعر",
@@ -101,7 +102,9 @@
     "loadingMore": "جاري تحميل المزيد",
     "recentlySearched": "عمليات البحث الأخيرة",
     "recentSearchChipAria": "البحث عن {term}",
-    "recentSearchRemoveAria": "إزالة {term} من عمليات البحث الأخيرة"
+    "recentSearchRemoveAria": "إزالة {term} من عمليات البحث الأخيرة",
+    "searchingIn": "البحث ضمن {store}",
+    "searchAllStores": "البحث في كل المتاجر"
   },
   "Landing": {
     "selectStyle": "اختر أسلوبك",
