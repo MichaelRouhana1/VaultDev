@@ -132,7 +132,7 @@ export function useProductZoomGesture(scale: number, setScale: (scale: number) =
 }
 
 export function ProgressiveZoomPhoto({
-  src, alt, session, active, scale, pinching, previous, next, fitHeight, noImage, className,
+  src, alt, session, active, scale, pinching, previous, next, fitHeight, fit, noImage, className,
 }: {
   src: string;
   alt: string;
@@ -143,6 +143,8 @@ export function ProgressiveZoomPhoto({
   previous?: string;
   next?: string;
   fitHeight?: number;
+  /** Fit inside the parent instead of sizing the image from the zoom scale. */
+  fit?: "contain";
   noImage: string;
   className?: string;
 }) {
@@ -177,11 +179,13 @@ export function ProgressiveZoomPhoto({
         // viewport at the current scale rather than treating that fit as sufficient.
         const requiredPixels = desktop
           ? Math.max(zoomTiers[0], pixels, window.innerWidth * window.devicePixelRatio * scale)
-          : pixels;
+          : scale > 1
+            ? Math.max(pixels, window.innerWidth * window.devicePixelRatio * scale)
+            : pixels;
         const tier = slow && !desktop
           ? zoomTiers[0]
           : zoomTiers.find((candidate) => candidate >= requiredPixels) ?? zoomTiers[2];
-        if (!sourceLimited && tier > width && (desktop || pixels > width)) {
+        if (!sourceLimited && tier > width && (desktop || scale > 1 || pixels > width)) {
           const photo = await loadTier(session, src, tier, "high");
           if (current !== revision || !photo) return;
           if (photo.width > width) setUpgrade(photo);
@@ -228,7 +232,9 @@ export function ProgressiveZoomPhoto({
       className={cn("block h-auto max-w-none shrink-0 select-none", className)}
       style={{
         aspectRatio: ratio,
-        width: fitHeight ? `min(${scale * 100}%, ${fitHeight * ratio * scale}vh)` : `${scale * 100}%`,
+        ...(fit === "contain"
+          ? { width: "auto", height: "auto", maxWidth: "100%", maxHeight: "100%" }
+          : { width: fitHeight ? `min(${scale * 100}%, ${fitHeight * ratio * scale}vh)` : `${scale * 100}%` }),
       }}
       onLoad={(event) => {
         if (upgrade) return;

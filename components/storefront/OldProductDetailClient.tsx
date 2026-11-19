@@ -24,6 +24,13 @@ import { WishlistBookmarkIcon } from "@/components/WishlistBookmarkIcon";
 import { useProductStickyBuybar } from "@/components/storefront/useProductStickyBuybar";
 import type { EmblaOptionsType } from "embla-carousel";
 import { ChevronLeft, Search, ShoppingBag, User } from "lucide-react";
+import {
+  MobilePhotoZoom,
+  type MobileZoomApi,
+  type ZoomTouchOp,
+  type ZoomTouchPhase,
+  type ZoomTouchPoint,
+} from "@/components/storefront/MobilePhotoZoom";
 
 // The mobile layout and gallery are shared by both desktop layout settings.
 export function OldProductDetailClient({
@@ -66,6 +73,16 @@ export function OldProductDetailClient({
   const [similarSectionInView, setSimilarSectionInView] = useState(false);
   const [stickyBuyPhase, setStickyBuyPhase] = useState<"summary" | "pickSize">("summary");
   const [isColorMenuOpen, setIsColorMenuOpen] = useState(false);
+  const [isMobile, setIsMobile] = useState(() =>
+    typeof window !== "undefined" && window.matchMedia("(max-width: 767px)").matches,
+  );
+  const mobileGalleryRef = useRef<HTMLDivElement>(null);
+  const mobileZoomApi = useRef<MobileZoomApi | null>(null);
+  const mobileZoomQueue = useRef<ZoomTouchOp[]>([]);
+  const ignoreGalleryClick = useRef(false);
+  const openLightboxRef = useRef<(index: number) => void>(() => {});
+  const carouselApiRef = useRef<CarouselApi | undefined>(undefined);
+  const zoomOpenRef = useRef(false);
 
   const galleryKey = `${product.id}:${selectedColor?.id ?? "none"}:${imageUrls.join("\0")}`;
   const prepareProductZoom = useOpenProductZoom(galleryKey);
@@ -183,6 +200,71 @@ export function OldProductDetailClient({
       setZoomSession(session);
     });
   };
+  openLightboxRef.current = openLightbox;
+  carouselApiRef.current = carouselApi;
+  zoomOpenRef.current = zoomSession !== null;
+
+  useEffect(() => {
+    const el = mobileGalleryRef.current;
+    if (!el) return;
+    let handoff = false;
+    const pointsOf = (touches: TouchList): ZoomTouchPoint[] =>
+      Array.from(touches).map((touch) => ({ x: touch.clientX, y: touch.clientY }));
+    const send = (phase: ZoomTouchPhase, points: ZoomTouchPoint[]) => {
+      if (mobileZoomApi.current) mobileZoomApi.current.touches(phase, points);
+      else mobileZoomQueue.current.push({ phase, points });
+    };
+    const start = (event: TouchEvent) => {
+      if (event.touches.length < 2) return;
+      if ((event.target as Element | null)?.closest?.("button, a")) return;
+      event.preventDefault();
+      event.stopPropagation();
+      ignoreGalleryClick.current = true;
+      window.setTimeout(() => {
+        ignoreGalleryClick.current = false;
+      }, 400);
+      handoff = true;
+      if (!zoomOpenRef.current) {
+        const slide = (event.target as Element | null)?.closest?.("[data-photo-index]");
+        const raw = slide?.getAttribute("data-photo-index");
+        const parsed = raw == null ? Number.NaN : Number(raw);
+        openLightboxRef.current(Number.isFinite(parsed) ? parsed : carouselApiRef.current?.selectedScrollSnap() ?? 0);
+      }
+      send("start", pointsOf(event.touches));
+    };
+    const move = (event: TouchEvent) => {
+      if (!handoff) return;
+      event.preventDefault();
+      send("move", pointsOf(event.touches));
+    };
+    const end = (event: TouchEvent) => {
+      if (!handoff) return;
+      if (event.touches.length === 0) {
+        handoff = false;
+        send("end", []);
+        return;
+      }
+      send("move", pointsOf(event.touches));
+    };
+    el.addEventListener("touchstart", start, { capture: true, passive: false });
+    el.addEventListener("touchmove", move, { capture: true, passive: false });
+    el.addEventListener("touchend", end, { capture: true });
+    el.addEventListener("touchcancel", end, { capture: true });
+    return () => {
+      el.removeEventListener("touchstart", start, { capture: true });
+      el.removeEventListener("touchmove", move, { capture: true });
+      el.removeEventListener("touchend", end, { capture: true });
+      el.removeEventListener("touchcancel", end, { capture: true });
+    };
+  }, []);
+
+  useEffect(() => {
+    const media = window.matchMedia("(max-width: 767px)");
+    const apply = () => setIsMobile(media.matches);
+    apply();
+    media.addEventListener("change", apply);
+    return () => media.removeEventListener("change", apply);
+  }, []);
 
   const closeLightbox = useCallback(() => {
     setDisplayOrder((order) => {
@@ -194,6 +276,7 @@ export function OldProductDetailClient({
     });
     setZoomSession(null);
     setLightboxScale(1);
+    mobileZoomQueue.current = [];
     resetGesture();
   }, [lightboxIndex, resetGesture]);
 
@@ -302,7 +385,7 @@ export function OldProductDetailClient({
     >
       {/* Mobile: full-screen PDP above global nav */}
       <div className="fixed inset-0 z-[55] flex flex-col overflow-y-auto overscroll-y-contain bg-background md:hidden">
-        <div className="relative w-full shrink-0 overflow-hidden">
+        <div ref={mobileGalleryRef} className="relative w-full shrink-0 overflow-hidden [touch-action:pan-y]">
           <div className="absolute inset-x-0 top-0 z-20 flex items-center justify-between gap-2 px-4 pb-2 pt-[max(0.75rem,env(safe-area-inset-top,0px))]">
             <button
               type="button"
@@ -334,10 +417,16 @@ export function OldProductDetailClient({
               {imageUrls.map((url, idx) => {
                 if (imageErrors[idx]) return null;
                 return (
-                  <CarouselItem key={idx} className="min-w-0 max-w-full shrink-0 grow-0 basis-full">
+                  <CarouselItem key={idx} data-photo-index={idx} className="min-w-0 max-w-full shrink-0 grow-0 basis-full">
                     <div
                       className="relative aspect-[2/3] w-full cursor-pointer overflow-hidden bg-muted"
-                      onClick={() => openLightbox(idx)}
+                      onClick={() => {
+                        if (ignoreGalleryClick.current) {
+                          ignoreGalleryClick.current = false;
+                          return;
+                        }
+                        openLightbox(idx);
+                      }}
                       role="button"
                       tabIndex={0}
                       onKeyDown={(e) => e.key === "Enter" && openLightbox(idx)}
@@ -784,7 +873,23 @@ export function OldProductDetailClient({
       </div>
       )}
 
-      {zoomSession && (
+      {zoomSession && isMobile && (
+        <MobilePhotoZoom
+          images={imageUrls}
+          index={Math.min(lightboxIndex, Math.max(0, imageUrls.length - 1))}
+          name={product.name}
+          session={zoomSession}
+          apiRef={mobileZoomApi}
+          queueRef={mobileZoomQueue}
+          onIndexChange={(next) => {
+            setLightboxIndex(next);
+            setLightboxScale(1);
+            resetGesture();
+          }}
+          onClose={closeLightbox}
+        />
+      )}
+      {zoomSession && !isMobile && (
         <div
           className="fixed inset-0 z-[200] flex items-center justify-center bg-black/90"
           aria-modal="true"
