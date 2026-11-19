@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from "react";
 import { useTranslations } from "next-intl";
 import * as Dialog from "@radix-ui/react-dialog";
 import AutoScroll from "embla-carousel-auto-scroll";
@@ -16,6 +16,11 @@ const STRIP_SIZES = "max(350px, calc((100svh - 56px) * .78), 20vw)";
 const REDUCED_MOTION = "(prefers-reduced-motion: reduce)";
 const photoControl =
   "inline-flex size-10 items-center justify-center border border-border bg-background/90 text-foreground shadow-sm backdrop-blur-sm transition-colors hover:bg-background focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring disabled:opacity-40 motion-reduce:transition-none";
+const photoSwipeDistance = 72;
+
+function photoOverflows(element: HTMLElement) {
+  return element.scrollWidth > element.clientWidth + 1 || element.scrollHeight > element.clientHeight + 1;
+}
 
 export function ProductPhotoStrip({
   photos,
@@ -162,12 +167,108 @@ export function ProductPhotoViewer({
   const [selected, setSelected] = useState(initial);
   const [visited, setVisited] = useState(() => new Set([initial]));
   const [scale, setScale] = useState(1);
+  const [panning, setPanning] = useState(false);
   const { pinching, resetGesture, touchHandlers } = useProductZoomGesture(scale, setScale);
   const slides = useRef<Array<HTMLDivElement | null>>([]);
+  const scaleRef = useRef(scale);
+  const selectedRef = useRef(selected);
+  const apiRef = useRef(api);
+  const stopPan = useRef<(() => void) | null>(null);
+  scaleRef.current = scale;
+  selectedRef.current = selected;
+  apiRef.current = api;
+  // Embla turns every mouse drag into a slide change, including a vertical one.
+  // A cropped or zoomed photo takes the pointer and pans instead.
   const opts = useMemo(() => ({
     startIndex: initial,
+    watchDrag: (_emblaApi: unknown, event: MouseEvent | TouchEvent) => {
+      if ("touches" in event) return scaleRef.current <= 1;
+      if (scaleRef.current > 1) return false;
+      const slide = slides.current[selectedRef.current];
+      return !slide || !photoOverflows(slide);
+    },
     breakpoints: { [REDUCED_MOTION]: { duration: 0 } },
   }), [initial]);
+
+  useEffect(() => () => stopPan.current?.(), []);
+
+  useEffect(() => {
+    if (!panning) return;
+    const root = document.documentElement;
+    const previous = root.style.cursor;
+    root.style.cursor = "grabbing";
+    return () => {
+      root.style.cursor = previous;
+    };
+  }, [panning]);
+
+  const onPhotoPointerDown = (event: ReactPointerEvent<HTMLDivElement>) => {
+    if (event.button !== 0 || event.pointerType === "touch") return;
+    const el = event.currentTarget;
+    const zoomed = scaleRef.current > 1;
+    if (!zoomed && !photoOverflows(el)) return;
+
+    event.preventDefault();
+    event.stopPropagation();
+    stopPan.current?.();
+
+    const drag = {
+      pointerId: event.pointerId,
+      x: event.clientX,
+      y: event.clientY,
+      left: el.scrollLeft,
+      top: el.scrollTop,
+      axis: null as "x" | "y" | null,
+      zoomed,
+    };
+    setPanning(true);
+
+    const move = (e: PointerEvent) => {
+      if (e.pointerId !== drag.pointerId) return;
+      const dx = e.clientX - drag.x;
+      const dy = e.clientY - drag.y;
+      e.preventDefault();
+      if (drag.zoomed) {
+        el.scrollLeft = drag.left - dx;
+        el.scrollTop = drag.top - dy;
+        return;
+      }
+      if (!drag.axis) {
+        if (Math.hypot(dx, dy) < 4) return;
+        drag.axis = Math.abs(dx) > Math.abs(dy) ? "x" : "y";
+      }
+      if (drag.axis === "y") el.scrollTop = drag.top - dy;
+      else if (el.scrollWidth > el.clientWidth + 1) el.scrollLeft = drag.left - dx;
+    };
+    const stop = () => {
+      window.removeEventListener("pointermove", move);
+      window.removeEventListener("pointerup", end);
+      window.removeEventListener("pointercancel", end);
+      if (stopPan.current === stop) stopPan.current = null;
+      setPanning(false);
+      if (el.hasPointerCapture?.(drag.pointerId)) el.releasePointerCapture(drag.pointerId);
+    };
+    const end = (e: PointerEvent) => {
+      if (e.pointerId !== drag.pointerId) return;
+      const dx = e.clientX - drag.x;
+      stop();
+      if (drag.zoomed || drag.axis !== "x" || el.scrollWidth > el.clientWidth + 1) return;
+      if (Math.abs(dx) < photoSwipeDistance) return;
+      const rtl = getComputedStyle(el).direction === "rtl";
+      const next = rtl ? dx > 0 : dx < 0;
+      if (next) apiRef.current?.scrollNext();
+      else apiRef.current?.scrollPrev();
+    };
+    stopPan.current = stop;
+    window.addEventListener("pointermove", move);
+    window.addEventListener("pointerup", end);
+    window.addEventListener("pointercancel", end);
+    try {
+      el.setPointerCapture(event.pointerId);
+    } catch {
+      // Window listeners still follow the gesture when capture is unavailable.
+    }
+  };
 
   useEffect(() => {
     if (!api) return;
@@ -234,14 +335,17 @@ export function ProductPhotoViewer({
                     <div
                       ref={(element) => { slides.current[position] = element; }}
                       tabIndex={active ? 0 : undefined}
-                      className="h-full overflow-auto overscroll-contain bg-muted [touch-action:pan-x_pan-y] focus-visible:outline-2 focus-visible:outline-inset focus-visible:outline-ring"
+                      className={cn(
+                        "h-full overflow-auto overscroll-contain bg-muted select-none [touch-action:pan-x_pan-y] focus-visible:outline-2 focus-visible:outline-inset focus-visible:outline-ring",
+                        active && (panning ? "cursor-grabbing" : "cursor-grab"),
+                      )}
                       {...(active ? touchHandlers : {})}
                       onTouchStartCapture={(event) => {
                         if (!active) return;
                         if (scale > 1 && event.touches.length === 1) event.stopPropagation();
                         else touchHandlers.onTouchStartCapture(event);
                       }}
-                      onMouseDownCapture={(event) => { if (active && scale > 1) event.stopPropagation(); }}
+                      onPointerDownCapture={active ? onPhotoPointerDown : undefined}
                     >
                       {(active || visited.has(position) || session.photos.has(src)) && (
                         <ProgressiveZoomPhoto
